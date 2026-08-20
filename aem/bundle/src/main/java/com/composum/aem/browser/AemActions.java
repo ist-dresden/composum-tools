@@ -95,54 +95,56 @@ public class AemActions extends DefaultActions {
     public @NotNull Map<String, Action> set(@NotNull final SlingHttpServletRequest request) {
         final Resource target = targetResource(request);
         final Map<String, Action> actions = new LinkedHashMap<>(super.set(request));
-        Optional.ofNullable(editorUrl(target)).ifPresent(editorUrl ->
-                actions.put("edit", new ActionImpl("edit", "pencil-square", "Edit", "_blank",
-                        "opens the selected resource for editing") {
+        if (platformConfig.runmodes().contains("author")) {
+            Optional.ofNullable(editorUrl(target)).ifPresent(editorUrl ->
+                    actions.put("edit", new ActionImpl("edit", "pencil-square", "Edit", "_blank",
+                            "opens the selected resource for editing") {
+                        @Override
+                        public @NotNull String link() {
+                            return editorUrl;
+                        }
+                    }));
+            Optional.ofNullable(manageUrl(target)).ifPresent(manageUrl ->
+                    actions.put("manage", new ActionImpl("manage", "diagram-3", "Manage", "_blank",
+                            "shows the selected resource in the appropriate management page") {
+                        @Override
+                        public @NotNull String link() {
+                            return manageUrl;
+                        }
+                    }));
+            if (isPublishTarget(target)) {
+                actions.put("activate", new ActionImpl("activate", "cloud-arrow-up", "Activate (tree)", null,
+                        "triggers a deep tree activation if a page or folder is selected, on a page content or on an asset the selected resource is activated only",
+                        true) {
+
                     @Override
-                    public @NotNull String link() {
-                        return editorUrl;
+                    public @Nullable String link() {
+                        return link(target);
                     }
-                }));
-        Optional.ofNullable(manageUrl(target)).ifPresent(manageUrl ->
-                actions.put("manage", new ActionImpl("manage", "diagram-3", "Manage", "_blank",
-                        "shows the selected resource in the appropriate management page") {
+
                     @Override
-                    public @NotNull String link() {
-                        return manageUrl;
+                    public @NotNull Result<?> process(@NotNull final SlingHttpServletRequest request,
+                                                      @NotNull final SlingHttpServletResponse response,
+                                                      @NotNull final List<String> selectors) {
+                        return redirect(targetUrl(target));
                     }
-                }));
-        if (isPublishTarget(target)) {
-            actions.put("activate", new ActionImpl("activate", "cloud-arrow-up", "Activate (tree)", null,
-                    "triggers a deep tree activation if a page or folder is selected, on a page content or on an asset the selected resource is activated only",
-                    true) {
+                });
+                actions.put("deactivate", new ActionImpl("deactivate", "cloud-slash", "Deactivate", null,
+                        "deactivates the selected resource (implicitly deep)") {
 
-                @Override
-                public @Nullable String link() {
-                    return link(target);
-                }
+                    @Override
+                    public @Nullable String link() {
+                        return link(target);
+                    }
 
-                @Override
-                public @NotNull Result<?> process(@NotNull final SlingHttpServletRequest request,
-                                                  @NotNull final SlingHttpServletResponse response,
-                                                  @NotNull final List<String> selectors) {
-                    return redirect(targetUrl(target));
-                }
-            });
-            actions.put("deactivate", new ActionImpl("deactivate", "cloud-slash", "Deactivate", null,
-                    "deactivates the selected resource (implicitly deep)") {
-
-                @Override
-                public @Nullable String link() {
-                    return link(target);
-                }
-
-                @Override
-                public @NotNull Result<?> process(@NotNull final SlingHttpServletRequest request,
-                                                  @NotNull final SlingHttpServletResponse response,
-                                                  @NotNull final List<String> selectors) {
-                    return redirect(targetUrl(target));
-                }
-            });
+                    @Override
+                    public @NotNull Result<?> process(@NotNull final SlingHttpServletRequest request,
+                                                      @NotNull final SlingHttpServletResponse response,
+                                                      @NotNull final List<String> selectors) {
+                        return redirect(targetUrl(target));
+                    }
+                });
+            }
         }
         return actions;
     }
