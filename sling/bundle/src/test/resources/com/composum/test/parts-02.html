@@ -1,0 +1,3 @@
+<ul>${each.p:parts;'${if:p;'<li>${pIndex}: ${p}</li>'}'}</ul>
+<ul>${each.p:parts;'${pIndex}: ${each.x:parts;'<li>${pIndex}.${xIndex}: ${x}</li>'}'}</ul>
+<div>${if:condition;'${if:condition;'<span>${page.label}</span>'}'}</div>

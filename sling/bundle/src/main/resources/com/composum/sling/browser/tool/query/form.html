@@ -1,0 +1,52 @@
+<div class="browser-tool_query-head">
+    <form class="browser-tool_query-form d-flex align-items-stretch" data-action="${link:query.action}" method="GET">
+        <input type="hidden" name="_charset_" value="UTF-8"/>
+        ${if:query.templates;'/sling/browser/tool/query/templates.html'}
+        <div class="dropdown query-history">
+            <button class="btn btn-dark bi bi-clock-history" type="button" data-bs-toggle="dropdown" aria-expanded="false"></button>
+            <div class="dropdown-menu"><span class="dropdown-item">the query history is empty</span></div>
+        </div>
+        <input class="browser-tool_query-field" style="flex-grow:1;" name="query" type="text"/>
+        <input class="browser-tool_query-argument hidden" name="arg1" type="text"/>
+        <input class="browser-tool_query-argument hidden" name="arg2" type="text"/>
+        <input class="browser-tool_query-argument hidden" name="arg3" type="text"/>
+        <button type="submit" class="query-submit btn btn-dark bi bi-search"></button>
+        <div class="dropdown query-save">
+            <button class="btn btn-dark bi bi-download" type="button" data-bs-toggle="dropdown" aria-expanded="false"></button>
+            <div class="dropdown-menu">
+                <a class="query-save-csv query-save_action dropdown-item" href="#" data-uri="${link:query.save.csv}">CSV</a>
+                <a class="query-save-json query-save_action dropdown-item" href="#" data-uri="${link:query.save.json}">JSON</a>
+            </div>
+        </div>
+    </form>
+    <button class="browser-tool_query-form_hint" data-toggle="popover" data-trigger="focus" data-placement="bottom"
+            data-content="
+    <div>
+    text search patterns...
+    <ul>
+    <li>all terms are combined with AND, '+' starts a new AND group which is combined with OR</li>
+    <li>if the first term starts with a '/' it's used as search path, otherwise '/content' is used</li>
+    <li>the path can be prepended by the [primary:type| of the searched resources</li>
+    <li>each term can be prepended by a [property/path]; '-' negates a term (NOT)</li>
+    <li>each term can contain or start/end with '*' wildcards</li>
+    <li>a quoted text term can contain spaces, e.g. &quot;this phrase is searched&quot;</li>
+    <li>if a '=' operator is prepended the property must be equal instead of 'like' or 'contains()'</li>
+    </ul>
+    <div>
+    text search examples...
+    <ul>
+    <li>[cq:PageContent]/content/my/site *likepattern*</li>
+    <li>/content/my/site -[jcr:title]*likepattern*</li>
+    <li>/content/my/site [jcr:title]=&quot;property value&quot; +&quot;alternative like pattern&quot;</li>
+    </ul>
+    XPATH search examples...
+    <ul>
+    <li>/conf//en[jcr:mixinTypes='mix:language']</li>
+    </ul>
+    Try it!
+    </div>">
+        submit a SQL2 or a XPATH query or use an optional path and some text patterns, e.g.
+        '/content/path/for/search starting* "some words" -ignoreIt +"or these words" and this'...
+        useful placeholders: \${path} and \${1..3}
+    </button>
+</div>

@@ -1,0 +1,39 @@
+table.content:nth-of-type(1) {
+    margin-bottom: 12px;
+}
+
+table.content:nth-of-type(1) th {
+    height: 33px;
+    line-height: 21px;
+    background: #777;
+    color: #ddd;
+    font-weight: 200;
+}
+
+table.content:nth-of-type(1) tr:nth-of-type(12) th,
+table.content:nth-of-type(1) tr:nth-of-type(13) th {
+    background: #ccc;
+    color: #222;
+}
+
+table.content:nth-of-type(1) th,
+table.content:nth-of-type(1) td {
+    padding: 6px 10px;
+    vertical-align: top;
+}
+
+table.content:nth-of-type(1) tr:nth-of-type(1) th {
+    padding-left: 81px;
+}
+
+table.content:nth-of-type(1) tr:nth-of-type(2) td,
+table.content:nth-of-type(1) tr:nth-of-type(3) td,
+table.content:nth-of-type(1) tr:nth-of-type(4) td,
+table.content:nth-of-type(1) tr:nth-of-type(5) td {
+    padding: 2px 10px;
+}
+
+table.content:nth-of-type(1) tr:nth-of-type(8) td:nth-of-type(1) {
+    vertical-align: middle;
+    text-align: right;
+}

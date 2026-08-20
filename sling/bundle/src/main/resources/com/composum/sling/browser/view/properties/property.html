@@ -1,0 +1,5 @@
+<tr class="${property.css}">
+    <td>${property.name}</td>
+    <td>${if:property.multiValue;'<ul>${each.value:property.value;'<li>${include.value:value;'/sling/browser/view/properties/value.html'}</li>'}</ul>'|'${include.value:property.value;'/sling/browser/view/properties/value.html'}'}</td>
+    <td>${property.type}</td>
+</tr>

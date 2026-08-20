@@ -1,0 +1,527 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.composum.tools</groupId>
+    <artifactId>composum-tools</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>Composum Tools</name>
+    <description>a framework for creating a customizable tools application</description>
+    <url>https://github.com/ist-dresden/composum</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>http://www.opensource.org/licenses/mit-license.php</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Ralf Wunsch</name>
+            <email>r.wunsch@ist-software.com</email>
+            <organization>IST GmbH Dresden</organization>
+            <organizationUrl>http://www.ist-software.com</organizationUrl>
+        </developer>
+    </developers>
+
+    <properties>
+        <package.group>com/composum/tools</package.group>
+
+        <giturl>https://github.com/ist-dresden/composum-tools.git</giturl>
+
+        <release.repository.name>Composum Tools</release.repository.name>
+        <release.repository.id>central</release.repository.id>
+        <release.repository.url>https://central.sonatype.com/</release.repository.url>
+        <release.autoPublish>false</release.autoPublish>
+        <release.keyname>info@composum.com</release.keyname>
+
+        <install.path>/apps/composum/tools/install</install.path>
+
+        <java.source>11</java.source>
+        <java.target>11</java.target>
+        <maven.compiler.source>${java.source}</maven.compiler.source>
+        <maven.compiler.target>${java.target}</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <groovy.version>[4,5)</groovy.version>
+        <jackson.version>2.13.5</jackson.version>
+
+        <sling.pckgmgr.uri>/bin/cpm/package.service.html</sling.pckgmgr.uri>
+    </properties>
+
+    <scm>
+        <connection>scm:git:${giturl}</connection>
+        <developerConnection>scm:git:${giturl}t</developerConnection>
+        <url>scm:git:${giturl}</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <distributionManagement>
+        <site>
+            <id>site</id>
+            <url>https://ist-dresden.github.io/composum-tools/</url>
+        </site>
+    </distributionManagement>
+
+    <modules>
+        <module>sling</module>
+        <module>aem</module>
+    </modules>
+
+    <profiles>
+
+        <profile>
+            <id>deploy-central</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                                <configuration>
+                                    <keyname>${release.keyname}</keyname>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>adobe-public</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <releaseRepository-Id>adobe-public-releases</releaseRepository-Id>
+                <releaseRepository-Name>Adobe Public Releases</releaseRepository-Name>
+                <releaseRepository-URL>https://repo.adobe.com/nexus/content/groups/public</releaseRepository-URL>
+            </properties>
+            <repositories>
+                <repository>
+                    <id>adobe-public-releases</id>
+                    <name>Adobe Public Repository</name>
+                    <url>https://repo.adobe.com/nexus/content/groups/public</url>
+                    <releases>
+                        <enabled>true</enabled>
+                        <updatePolicy>never</updatePolicy>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </repository>
+                <repository>
+                    <id>adobe-aem-releases</id>
+                    <name>Adobe AEM Repository</name>
+                    <url>https://downloads.experiencecloud.adobe.com/content/maven/public</url>
+                    <releases>
+                        <enabled>true</enabled>
+                        <updatePolicy>never</updatePolicy>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </repository>
+            </repositories>
+            <pluginRepositories>
+                <pluginRepository>
+                    <id>adobe-public-releases</id>
+                    <name>Adobe Public Repository</name>
+                    <url>https://repo.adobe.com/nexus/content/groups/public</url>
+                    <releases>
+                        <enabled>true</enabled>
+                        <updatePolicy>never</updatePolicy>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </pluginRepository>
+            </pluginRepositories>
+        </profile>
+
+    </profiles>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+
+                <plugin>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.12.1</version>
+                    <configuration>
+                        <encoding>UTF-8</encoding>
+                        <source>${java.source}</source>
+                        <target>${java.target}</target>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.felix</groupId>
+                    <artifactId>maven-bundle-plugin</artifactId>
+                    <version>5.1.4</version>
+                    <extensions>true</extensions>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.commonjava.maven.plugins</groupId>
+                    <artifactId>directory-maven-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>directories</id>
+                            <goals>
+                                <goal>highest-basedir</goal>
+                            </goals>
+                            <phase>initialize</phase>
+                            <configuration>
+                                <property>nodepath</property>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.jackrabbit</groupId>
+                    <artifactId>filevault-package-maven-plugin</artifactId>
+                    <version>1.4.0</version>
+                    <extensions>true</extensions>
+                    <configuration>
+                        <group>${package.group}</group>
+                        <name>${project.artifactId}</name>
+                        <failOnMissingEmbed>true</failOnMissingEmbed>
+                        <embeddedTarget>${install.path}</embeddedTarget>
+                        <validatorsSettings>
+                            <jackrabbit-filter>
+                                <options>
+                                    <validRoots>
+                                        /apps,/apps/composum,/apps/composum/tools,/apps/composum/install
+                                    </validRoots>
+                                </options>
+                            </jackrabbit-filter>
+                            <jackrabbit-packagetype>
+                                <options>
+                                    <allowComplexFilterRulesInApplicationPackages>true
+                                    </allowComplexFilterRulesInApplicationPackages>
+                                </options>
+                            </jackrabbit-packagetype>
+                        </validatorsSettings>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>io.wcm.maven.plugins</groupId>
+                    <artifactId>wcmio-content-package-maven-plugin</artifactId>
+                    <version>2.0.4</version>
+                    <extensions>true</extensions>
+                    <configuration>
+                        <serviceURL>http://${sling.host}:${sling.port}${sling.pckgmgr.uri}</serviceURL>
+                        <userId>${sling.user}</userId>
+                        <password>${sling.password}</password>
+                        <bundleStatusURL>-</bundleStatusURL>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.sling</groupId>
+                    <artifactId>sling-maven-plugin</artifactId>
+                    <version>3.0.4</version>
+                    <configuration>
+                        <slingUrl>http://${sling.host}:${sling.port}/system/console/install</slingUrl>
+                        <deploymentMethod>WebConsole</deploymentMethod>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-site-plugin</artifactId>
+                    <version>3.12.1</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-project-info-reports-plugin</artifactId>
+                    <version>3.4.5</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>3.1.0</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>3.1.0</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>3.5.0</version>
+                    <configuration>
+                        <quiet>true</quiet>
+                        <notimestamp>true</notimestamp>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.3.0</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>3.5.0</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>3.1.0</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-install-plugin</artifactId>
+                    <version>2.5.2</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-release-plugin</artifactId>
+                    <version>2.5.3</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-gpg-plugin</artifactId>
+                    <version>3.0.1</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.sonatype.central</groupId>
+                    <artifactId>central-publishing-maven-plugin</artifactId>
+                    <version>0.10.0</version>
+                    <extensions>true</extensions>
+                    <configuration>
+                        <publishingServerId>${release.repository.id}</publishingServerId>
+                        <autoPublish>${release.autoPublish}</autoPublish>
+                        <deploymentName>${release.repository.name}</deploymentName>
+                    </configuration>
+                </plugin>
+
+            </plugins>
+        </pluginManagement>
+    </build>
+
+    <dependencyManagement>
+        <dependencies>
+
+            <!-- Sling... -->
+            <dependency>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>org.apache.sling.servlet-helpers</artifactId>
+                <version>1.4.2</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>org.apache.sling.engine</artifactId>
+                <version>2.16.0</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>org.apache.sling.api</artifactId>
+                <version>2.18.4</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>org.apache.sling.caconfig.api</artifactId>
+                <version>1.1.2</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>org.apache.sling.commons.classloader</artifactId>
+                <version>1.4.0</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>org.apache.sling.adapter</artifactId>
+                <version>2.1.10</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>adapter-annotations</artifactId>
+                <version>1.0.0</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>org.apache.sling.scripting.api</artifactId>
+                <version>2.2.0</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>org.apache.sling.xss</artifactId>
+                <version>2.0.12</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>org.apache.sling.settings</artifactId>
+                <version>1.3.10</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>org.apache.sling.jcr.resource</artifactId>
+                <version>3.0.2</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <!-- Groovy -->
+            <dependency>
+                <groupId>org.apache.groovy</groupId>
+                <artifactId>groovy</artifactId>
+                <version>${groovy.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <!-- JCR API, Jackrabbit, VLT -->
+            <dependency>
+                <groupId>javax.jcr</groupId>
+                <artifactId>jcr</artifactId>
+                <version>2.0</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <!-- Java servlet, web API -->
+            <dependency>
+                <groupId>javax.servlet</groupId>
+                <artifactId>javax.servlet-api</artifactId>
+                <version>3.1.0</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>javax.servlet.jsp</groupId>
+                <artifactId>jsp-api</artifactId>
+                <version>2.1</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <!-- JSON / XML -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jackson.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${jackson.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <!-- commons -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>3.6</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>2.6</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <!-- logging -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>1.7.25</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <!-- OSGi, Felix -->
+            <dependency>
+                <groupId>org.osgi</groupId>
+                <artifactId>org.osgi.core</artifactId>
+                <version>6.0.0</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.osgi</groupId>
+                <artifactId>osgi.cmpn</artifactId>
+                <version>6.0.0</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.osgi</groupId>
+                <artifactId>org.osgi.annotation</artifactId>
+                <version>6.0.0</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <!-- Java Annotations / Lombok -->
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>1.18.42</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.jetbrains</groupId>
+                <artifactId>annotations</artifactId>
+                <version>16.0.2</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>javax.annotation</groupId>
+                <artifactId>javax.annotation-api</artifactId>
+                <version>1.3.1</version>
+                <scope>provided</scope>
+            </dependency>
+
+        </dependencies>
+    </dependencyManagement>
+</project>
