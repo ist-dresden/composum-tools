@@ -24,3 +24,4 @@ target
 # Mac OS X
 ._*
 .DS_*
+/sling/bundle/src/main/resources/com/composum/lib/alpine/
