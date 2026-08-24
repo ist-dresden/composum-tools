@@ -1,15 +1,18 @@
 package com.composum.sling.dashboard.impl;
 
 import com.composum.sling.tools.AbstractToolsPlugin;
+import com.composum.sling.tools.Common;
 import com.composum.sling.tools.Manager;
 import com.composum.sling.tools.Result;
 import com.composum.sling.tools.ToolsPlugin;
 import com.composum.sling.tools.dto.Page;
+import com.composum.sling.tools.dto.Tile;
 import com.composum.sling.tools.dto.Widget;
 import com.composum.sling.tools.template.Template;
 import com.composum.sling.tools.template.TemplateBuilder;
 import com.composum.sling.tools.template.TemplateContext;
 import com.composum.sling.tools.template.TemplateContext.Values;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.jetbrains.annotations.NotNull;
@@ -27,6 +30,7 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.Reader;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,7 +46,7 @@ public class Dashboard extends AbstractToolsPlugin {
     public static final String KEY = "dashboard";
 
     protected final List<Widget> WIDGETS = List.of(
-            new Page(KEY, "Dashboard", this::getDashboardLink)
+            new Page(KEY, "Dashboard", 5000, this::getDashboardLink)
     );
 
     @ObjectClassDefinition(name = "Composum Tools Dashboard")
@@ -146,6 +150,7 @@ public class Dashboard extends AbstractToolsPlugin {
             default: {
                 // the content of the dashboard page (tiles)
                 final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
+                        .with("widgets", (Supplier<?>) () -> tiles(request, response, selectors))
                 ), "page"));
                 if (content != null) {
                     result = new Result<>(content, HTML_TYPE);
@@ -184,5 +189,45 @@ public class Dashboard extends AbstractToolsPlugin {
         return (path.matches("^(/com/composum)?/(lib|sling|aem)(/.*)?$"))
                 ? manager.serverPath() + ".dashboard.resource.html" + path
                 : manager.serverPath() + ".dashboard.html" + path;
+    }
+
+    protected List<Values> tiles(@NotNull final SlingHttpServletRequest request,
+                                 @NotNull final SlingHttpServletResponse response,
+                                 @NotNull List<String> selectors) {
+        final List<Values> tiles = new ArrayList<>();
+        for (final ToolsPlugin plugin : manager.plugins().list()) {
+            for (final Widget widget : plugin.widgets()) {
+                if (widget instanceof Tile) {
+                    final Tile tile = (Tile) widget;
+                    final long start = System.currentTimeMillis();
+                    tiles.add(new Values()
+                            .with("key", tile.getKey())
+                            .with("label", tile.getLabel())
+                            .with("rank", tile.getRank())
+                            .with("duration", (Supplier<?>) () -> System.currentTimeMillis() - start)
+                            .with("content", (Supplier<?>) () -> include(request, response, plugin, tile.getKey()))
+                    );
+                }
+            }
+        }
+        tiles.sort((o1, o2) -> Integer.compare((Integer) o2.get("rank"), (Integer) o1.get("rank")));
+        return tiles;
+    }
+
+    protected Object include(@NotNull final SlingHttpServletRequest request,
+                             @NotNull final SlingHttpServletResponse response,
+                             @NotNull final ToolsPlugin plugin,
+                             @NotNull final String widgetKey) {
+        final String baseUri = manager.serverPath() + "." + plugin.key() + ".";
+        final String link = plugin.widgetLink(request, response, widgetKey);
+        if (StringUtils.isNotBlank(link) && link.startsWith(baseUri)) {
+            List<String> widgetSelectors = Common.listOf(StringUtils.split(StringUtils.substringBefore(link
+                    .substring(baseUri.length()), ".html"), "."));
+            Result<?> result = plugin.process(request, response, widgetSelectors);
+            if (result.getStatusCode() == HttpServletResponse.SC_OK) {
+                return result.getData();
+            }
+        }
+        return null;
     }
 }

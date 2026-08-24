@@ -25,7 +25,7 @@ public interface Manager {
 
     @NotNull String serverPath();
 
-    @NotNull List<Page> getToolsPages();
+    @NotNull Collection<Page> getToolsPages();
 
     boolean isAllowedProperty(@NotNull String name);
 

@@ -11,6 +11,7 @@ import com.composum.sling.tools.template.TemplateContext.Values;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
+import org.apache.sling.api.request.RequestPathInfo;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.jetbrains.annotations.NotNull;
@@ -47,6 +48,7 @@ import static com.composum.sling.tools.Common.JCR_CONTENT;
 import static com.composum.sling.tools.Common.JCR_MIXIN_TYPES;
 import static com.composum.sling.tools.Common.JCR_PRIMARY_TYPE;
 import static com.composum.sling.tools.Common.NT_FILE;
+import static com.composum.sling.tools.Common.TEXT_TYPE;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
 @Component(service = {View.class, XmlView.class}, immediate = true)
@@ -145,7 +147,7 @@ public class XmlView extends AbstractSourceView {
             case "form":
                 result = params(request, response);
                 break;
-            default: {
+            case "load": {
                 final Resource resource = browser.manager().requestResource(request);
                 if (resource != null) {
                     final Integer depth = getIntParameter(request, "depth", maxDepth);
@@ -153,12 +155,22 @@ public class XmlView extends AbstractSourceView {
                     final boolean source = !raw && sourceModeSupport;
                     final StringBuilder xml = new StringBuilder();
                     dumpXml(xml, "", resource, 0, depth, source);
+                    result = new Result<>(new StringReader(xml.toString()), TEXT_TYPE);
+                }
+            }
+            break;
+            default: {
+                final Resource resource = browser.manager().requestResource(request);
+                if (resource != null) {
+                    final RequestPathInfo pathInfo = request.getRequestPathInfo();
+                    final String path = Optional.ofNullable(pathInfo.getSuffix()).filter(StringUtils::isNotBlank).orElse("/");
                     final Reader content = browser.templateReader(getTemplate(new TemplateContext(
                             new Values()
-                                    .with("content", new StringReader(xml.toString()))
-                                    .with("option", new Values()
-                                            .with("wrap", true)
-                                    )), "view"));
+                                    .with("targetType", DisplayView.Type.CODE)
+                                    .with("targetUrl", browser.manager().serverPath() + ".browser.view.xml.load.xml"
+                                            + path
+                                            + Optional.ofNullable(request.getQueryString()).map(q -> "?" + q).orElse(""))
+                    ), "view"));
                     if (content != null) {
                         result = new Result<>(content, HTML_TYPE);
                     }

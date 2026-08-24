@@ -13,30 +13,12 @@
     <link rel="stylesheet" href="${src:'/sling/tools/style.css'}"/>
     <link rel="stylesheet" href="${src:'/sling/dashboard/style.css'}"/>
 </head>
-<body class="browser-page_body">
+<body class="dashboard-page_body">
 ${include:'/sling/tools/navbar/navbar.html'}
-<div class="browser-page_body-content">
-    <div class="browser-page_browser">
-        <div class="browser-page_browser_tree-panel">
-            <div class="browser-page_browser_tree"
-                 data-path="${attr:target.path}"
-                 data-page-url="${attr:browser.uri}"
-                 data-tree-url="${attr:browser.tree}">
-            </div>
-        </div>
-        <div class="browser-page_browser_right-panel">
-            <div class="browser-page_browser_tool-panel">
-                <div class="browser-page_browser_tool"
-                     data-view-url="${attr:browser.tool}">
-                </div>
-            </div>
-            <div class="browser-page_browser_view-panel">
-                <div class="browser-page_browser_view"
-                     data-view-url="${attr:browser.view}"
-                     data-tab-view="${attr:browser.tabView}"
-                     data-tab-form="${attr:browser.tabForm}">
-                </div>
-            </div>
+<div class="dashboard-page_body-content">
+    <div class="dashboard-page_dashboard composum-dashboard__content container-fluid mt-3 mb-3">
+        <div class="composum-tools_widgets row">
+            ${each.widget:widgets;'/sling/dashboard/tile.html'}
         </div>
     </div>
 </div>

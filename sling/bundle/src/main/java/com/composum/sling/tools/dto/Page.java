@@ -15,18 +15,20 @@ import java.util.function.Supplier;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Page extends Widget {
 
-    protected Type type = Type.PAGE;
-    protected Boolean newGroup;
+    protected final Type type = Type.PAGE;
+    protected final Boolean newGroup;
 
     @JsonIgnore
     protected Supplier<String> link;
 
-    public Page(@NotNull final String key, @NotNull final String label, @Nullable final Supplier<String> link) {
-        this(key, label, link, null);
+    public Page(@NotNull final String key, @NotNull final String label,
+                int rank, @Nullable final Supplier<String> link) {
+        this(key, label, rank, link, null);
     }
 
-    public Page(@NotNull final String key, @NotNull final String label, @Nullable final Supplier<String> link, @Nullable final Boolean newGroup) {
-        super(key, label);
+    public Page(@NotNull final String key, @NotNull final String label,
+                int rank, @Nullable final Supplier<String> link, @Nullable final Boolean newGroup) {
+        super(key, label, rank);
         this.link = link;
         this.newGroup = newGroup;
     }

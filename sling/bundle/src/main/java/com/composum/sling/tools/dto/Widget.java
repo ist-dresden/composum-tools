@@ -13,11 +13,13 @@ public abstract class Widget implements Values.Provider {
 
     public enum Type { TILE, PAGE }
 
-    protected String key;
-    protected String label;
+    protected final String key;
+    protected final String label;
+    protected final int rank;
 
-    public Widget(@NotNull final  String key, @NotNull final String label) {
+    public Widget(@NotNull final  String key, @NotNull final String label, int rank) {
         this.key = key;
         this.label = label;
+        this.rank = rank;
     }
 }

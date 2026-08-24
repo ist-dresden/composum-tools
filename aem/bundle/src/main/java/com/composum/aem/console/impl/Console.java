@@ -131,7 +131,7 @@ public class Console extends AbstractToolsPlugin {
         List<Widget> widgets = new ArrayList<>();
         for (ConsoleProxy proxy : proxies.set()) {
             final String key = proxy.key();
-            widgets.add(new Page(key, proxy.label(), () -> proxyLink(proxy), widgets.isEmpty()));
+            widgets.add(new Page(key, proxy.label(), proxy.rank(), () -> proxyLink(proxy), widgets.isEmpty()));
         }
         return widgets;
     }

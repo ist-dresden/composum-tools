@@ -8,6 +8,7 @@ import com.composum.sling.tools.template.TemplateReader;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
+import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.xss.XSSAPI;
@@ -41,6 +42,13 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     private static final String DEFAULT_RESOURCE_ROOT = "/com/composum";
 
     protected abstract @NotNull Manager manager();
+
+    @Override
+    public @Nullable String widgetLink(@NotNull final SlingHttpServletRequest request,
+                                       @NotNull final SlingHttpServletResponse response,
+                                       @NotNull final String widgetKey) {
+        return manager().serverPath() + "." + key() + "." + widgetKey + ".html";
+    }
 
     protected @NotNull Values toolsValues() {
         return new Values()
@@ -139,7 +147,7 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     }
 
     @Override
-    public @NotNull Object valuesOf(@NotNull final Object value) {
+    public @NotNull Object valuesOf(@Nullable final Object value) {
         if (value instanceof PrimitiveType || value instanceof String || value instanceof Map ||
                 value instanceof ValuesIterable || value instanceof ValuesIterator) {
             return value;
@@ -166,7 +174,7 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
             } catch (JsonProcessingException ignore) {
             }
         }
-        return value;
+        return value != null ? value : "";
     }
 
     protected class ValuesIterable implements Iterable<Object> {

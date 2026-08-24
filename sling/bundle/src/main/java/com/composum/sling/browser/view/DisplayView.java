@@ -3,8 +3,8 @@ package com.composum.sling.browser.view;
 import com.composum.sling.browser.AbstractView;
 import com.composum.sling.browser.Browser;
 import com.composum.sling.browser.View;
-import com.composum.sling.tools.PlatformConfig;
 import com.composum.sling.tools.Manager;
+import com.composum.sling.tools.PlatformConfig;
 import com.composum.sling.tools.Result;
 import com.composum.sling.tools.template.Template;
 import com.composum.sling.tools.template.TemplateContext;
@@ -35,7 +35,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 import static com.composum.sling.tools.Common.HTML_TYPE;
 import static com.composum.sling.tools.Common.HTTP_CONTENT_DISPOSITION;
@@ -45,6 +44,7 @@ import static com.composum.sling.tools.Common.JCR_DATA;
 import static com.composum.sling.tools.Common.JCR_MIME_TYPE;
 import static com.composum.sling.tools.Common.JCR_PRIMARY_TYPE;
 import static com.composum.sling.tools.Common.SLING_RESOURCE_TYPE;
+import static com.composum.sling.tools.Common.TEXT_TYPE;
 import static com.composum.sling.tools.Common.urlQueryOf;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
@@ -127,7 +127,10 @@ public class DisplayView extends AbstractView {
                 result = params(request, response);
                 break;
             case "load":
-                result = openContent(request);
+                result = openContent(request, null);
+                break;
+            case "text":
+                result = openContent(request, TEXT_TYPE);
                 break;
             default: {
                 final Resource resource = browser().manager().requestResource(request);
@@ -151,10 +154,11 @@ public class DisplayView extends AbstractView {
                         case TEXT:
                         case CODE:
                             result = preview(request, response, displayType, new Values()
-                                    .with("targetUrl", getTargetUri(resource, null))
+                                    .with("targetUrl", browser().manager().serverPath()
+                                            + ".browser.view.display.text.html"
+                                            + getTargetUri(resource, null))
                                     .with("targetType", getExtension(target))
-                                    .with("filename", target.getName())
-                                    .with("content", (Supplier<Reader>) () -> getContent(resource)));
+                                    .with("filename", target.getName()));
                             break;
                         case DOCUMENT:
                         default:
@@ -384,7 +388,8 @@ public class DisplayView extends AbstractView {
         put("sql", Type.CODE);
     }};
 
-    protected Result<InputStream> openContent(@NotNull final SlingHttpServletRequest request) {
+    protected Result<InputStream> openContent(@NotNull final SlingHttpServletRequest request,
+                                              @Nullable final String mimeType) {
         Result<InputStream> result = new Result<>(SC_NOT_FOUND);
         Resource resource = browser().manager().requestResource(request);
         if (resource != null) {
@@ -395,9 +400,13 @@ public class DisplayView extends AbstractView {
                 InputStream stream = values.get(JCR_DATA, InputStream.class);
                 if (stream != null) {
                     result = new Result<>(stream);
-                    String mimeType = values.get(JCR_MIME_TYPE, String.class);
                     if (StringUtils.isNotBlank(mimeType)) {
                         result.setContentType(mimeType);
+                    } else {
+                        String jcrMimeType = values.get(JCR_MIME_TYPE, String.class);
+                        if (StringUtils.isNotBlank(jcrMimeType)) {
+                            result.setContentType(jcrMimeType);
+                        }
                     }
                     String disposition = "inline";
                     if (StringUtils.isNotBlank(filename)) {

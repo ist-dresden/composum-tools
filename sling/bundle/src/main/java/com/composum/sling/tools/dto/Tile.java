@@ -11,10 +11,10 @@ import org.jetbrains.annotations.NotNull;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Tile extends Widget {
 
-    protected Type type = Type.TILE;
+    protected final Type type = Type.TILE;
 
-    public Tile(@NotNull String key, @NotNull String label) {
-        super(key, label);
+    public Tile(@NotNull final String key, @NotNull final String label, int rank) {
+        super(key, label, rank);
     }
 
     @Override

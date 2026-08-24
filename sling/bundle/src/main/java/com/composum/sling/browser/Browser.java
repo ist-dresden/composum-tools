@@ -54,7 +54,7 @@ public class Browser extends AbstractToolsPlugin {
     public static final String KEY = "browser";
 
     protected final List<Widget> PLUGIN_WIDGETS = List.of(
-            new Page(KEY, "Browser", this::browserLink)
+            new Page(KEY, "Browser", 9000, this::browserLink)
     );
 
     @ObjectClassDefinition(name = "Composum Browser")

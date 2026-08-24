@@ -3,6 +3,7 @@ package com.composum.sling.tools;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -49,6 +50,10 @@ public abstract class PluginSet<T extends Plugin> {
     }
 
     public @NotNull Set<T> set() {
+        return pluginSet;
+    }
+
+    public Collection<T> list() {
         return pluginSet;
     }
 }

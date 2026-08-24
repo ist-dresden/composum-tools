@@ -47,11 +47,7 @@
         <maven.compiler.target>${java.target}</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-
-        <groovy.version>[4,5)</groovy.version>
         <jackson.version>2.13.5</jackson.version>
-
-        <sling.pckgmgr.uri>/bin/cpm/package.service.html</sling.pckgmgr.uri>
     </properties>
 
     <scm>

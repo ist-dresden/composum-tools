@@ -120,11 +120,11 @@ body {
     line-height: 16px;
 }
 
-.composum-dashboard__widget {
+.composum-tools_widget {
     position: relative;
 }
 
-.composum-dashboard__widget > a {
+.composum-tools_widget > a {
     position: absolute;
     top: 0;
     left: 1rem;
@@ -133,7 +133,7 @@ body {
     z-index: 1;
 }
 
-.composum-dashboard__widget .composum-dashboard__widget-time {
+.composum-tools_widget .composum-tools_widget-time {
     position: absolute;
     display: inline-block;
     top: 0.4rem;
@@ -144,7 +144,7 @@ body {
     color: #fff;
 }
 
-.composum-dashboard__widget-view {
+.composum-tools_widget-view {
     position: absolute;
     top: 40px;
     left: 0;
@@ -153,18 +153,18 @@ body {
     overflow: auto;
 }
 
-.composum-dashboard__widget .card-body .nav-tabs {
+.composum-tools_widget .card-body .nav-tabs {
     border: none;
     padding: 0 10px;
     background: #ccc;
 }
 
-.composum-dashboard__widget .card-body .nav-tabs .nav-item .nav-link {
+.composum-tools_widget .card-body .nav-tabs .nav-item .nav-link {
     border-radius: 0;
     padding: 0.25rem 1rem;
 }
 
-.composum-dashboard__widget-view .nav-tabs {
+.composum-tools_widget-view .nav-tabs {
     position: absolute;
     top: 0;
     left: 0;
@@ -174,7 +174,7 @@ body {
     background: #777;
 }
 
-.composum-dashboard__widget-view .nav-link {
+.composum-tools_widget-view .nav-link {
     margin: 0 2px 0 0;
     border: none;
     border-radius: 0;
@@ -183,16 +183,16 @@ body {
     background: #ddd;
 }
 
-.composum-dashboard__widget-view .nav .dashboard-widget__badges {
+.composum-tools_widget-view .nav .dashboard-widget__badges {
     display: inline-block;
     margin: -1px 0 0 10px;
 }
 
-.composum-dashboard__widget-view .nav .badge {
+.composum-tools_widget-view .nav .badge {
     vertical-align: text-top;
 }
 
-.composum-dashboard__widget-view .tab-content {
+.composum-tools_widget-view .tab-content {
     position: absolute;
     top: 38px;
     left: 0;

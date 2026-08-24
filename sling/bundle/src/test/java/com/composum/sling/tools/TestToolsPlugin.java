@@ -53,7 +53,16 @@ public class TestToolsPlugin extends AbstractToolsPlugin {
     }
 
     @Override
-    public @NotNull Result<?> process(@NotNull SlingHttpServletRequest request, @NotNull SlingHttpServletResponse response, @NotNull List<String> selectors) {
+    public @Nullable String widgetLink(@NotNull SlingHttpServletRequest request,
+                                       @NotNull SlingHttpServletResponse response,
+                                       @NotNull String widgetKey) {
+        return manager.serverPath() + ".test." + widgetKey + ".html";
+    }
+
+    @Override
+    public @NotNull Result<?> process(@NotNull SlingHttpServletRequest request,
+                                      @NotNull SlingHttpServletResponse response,
+                                      @NotNull List<String> selectors) {
         return new Result<>(HttpServletResponse.SC_BAD_REQUEST);
     }
 
