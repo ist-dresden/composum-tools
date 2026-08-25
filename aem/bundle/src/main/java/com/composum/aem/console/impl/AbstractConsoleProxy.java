@@ -80,8 +80,15 @@ import static javax.servlet.http.HttpServletResponse.SC_MOVED_TEMPORARILY;
  */
 public abstract class AbstractConsoleProxy implements ConsoleProxy {
 
+    protected AbstractConsoleProxy() {
+    }
+
+    /** size (in characters/bytes) of the pipes chaining the proxy's background threads, see {@link #proxy} */
     protected static final int PIPE_BUFFER_SIZE = 8192;
 
+    /**
+     * @return the console this proxy is embedded in
+     */
     public abstract Console console();
 
     @Override
@@ -99,11 +106,14 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      */
     protected transient Servlet consoleServlet;
 
+    /** the bundle context this proxy was activated with */
     protected BundleContext bundleContext;
 
     /**
      * The {@code felix.webconsole.label} of the Felix Web Console plugin this proxy embeds, used to
      * look up its servlet (see {@link #initConsoleServlet}).
+     *
+     * @return the proxied plugin's Felix Web Console label
      */
     protected abstract @NotNull String webConsoleLabel();
 
@@ -112,9 +122,14 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      * {@link #activate(BundleContext, String, String, int)}.
      */
     protected String key;
+    /** backing field for {@link #label()} */
     protected String label;
+    /** backing field for {@link #rank()} */
     protected int rank;
 
+    /**
+     * @param bundleContext the bundle context of the activating component
+     */
     protected void activate(final BundleContext bundleContext) {
         this.bundleContext = bundleContext;
     }
@@ -123,6 +138,11 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      * Convenience for subclasses: stores the values every {@code ConsoleProxy} config provides
      * ({@link #key()}, {@link #label()}, {@link #rank()}) so they don't each need their own fields
      * and {@code Optional.ofNullable(config)...} boilerplate.
+     *
+     * @param bundleContext the bundle context of the activating component
+     * @param key           this proxy's registration key
+     * @param label         this proxy's navigation label
+     * @param rank          this proxy's navigation rank
      */
     protected void activate(final BundleContext bundleContext, @NotNull final String key,
                             @NotNull final String label, final int rank) {
@@ -161,6 +181,8 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
 
     /**
      * The proxied plugin's servlet, looked up lazily (and cached) via {@link #initConsoleServlet}.
+     *
+     * @return the proxied plugin's servlet, or {@code null} if it is not currently registered
      */
     protected Servlet getConsoleServlet() {
         if (consoleServlet == null) {
@@ -207,6 +229,11 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
     /**
      * Renders the proxy's page template with {@link #pageTitle()} / {@link #pageStyles()} and the
      * proxied console content (see {@link #proxy}) as its {@code content} value.
+     *
+     * @param request   the current request
+     * @param response  the current response
+     * @param selectors the request selectors remaining after routing
+     * @return the rendered page, or a 'Not Found' result if the page template cannot be rendered
      */
     protected @NotNull Result<?> processGet(@NotNull final SlingHttpServletRequest request,
                                             @NotNull final SlingHttpServletResponse response,
@@ -243,6 +270,11 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      * {@link #PIPE_BUFFER_SIZE} - so the discard branch always reads {@code content} through to its
      * end (via {@link #drain}) rather than just closing it, which also ensures the plugin's side
      * effect has actually finished before the redirect is issued.
+     *
+     * @param request   the current request
+     * @param response  the current response
+     * @param selectors the request selectors remaining after routing
+     * @return the proxied/transformed content, a redirect, or a 'Not Found'/'Internal Server Error' result
      */
     protected @NotNull Result<?> processPost(@NotNull final SlingHttpServletRequest request,
                                              @NotNull final SlingHttpServletResponse response,
@@ -269,6 +301,9 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      * Reads {@code reader} through to its end, discarding the content. Used by {@link #processPost}
      * to let the background-driven pipeline behind {@link #proxy} run to completion without actually
      * keeping its result.
+     *
+     * @param reader the reader to read and discard
+     * @throws IOException if reading fails
      */
     @SuppressWarnings("StatementWithEmptyBody")
     protected void drain(@NotNull final Reader reader) throws IOException {
@@ -285,11 +320,16 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      * to redirect elsewhere, or return a blank/{@code null} value if this proxy's POST is driven by
      * client-side {@code fetch()} and needs the proxied response content directly instead of a
      * redirect (see {@link #processPost}).
+     *
+     * @return the redirect target, or a blank/{@code null} value to return the proxied content directly
      */
     protected @Nullable String redirectAfterPost() {
         return pageLink();
     }
 
+    /**
+     * @return this proxy's own page URL, following the {@code <serverPath>.console.<key>.html} convention
+     */
     protected @NotNull String pageLink() {
         return console().manager().serverPath() + ".console." + key() + ".html";
     }
@@ -297,20 +337,33 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
     /**
      * The page title shown above the proxied content (e.g. "Recent Requests"), distinct from the
      * (usually shorter) navigation {@link #label()}.
+     *
+     * @return this proxy's page title
      */
     protected abstract @NotNull String pageTitle();
 
     /**
      * Stylesheets loaded by the page template around the proxied content. Default: a single stylesheet
      * following the convention {@code /aem/console/<key>.css}; override if a proxy needs something else.
+     *
+     * @return the stylesheet resource paths loaded by this proxy's page
      */
     protected @NotNull List<String> pageStyles() {
         return List.of("/aem/console/" + key() + ".css");
     }
 
+    /**
+     * A response wrapper whose output stream/writer feed a pipe instead of the real (Sling) response,
+     * so the proxied servlet's raw output can be read (and transformed) on a separate thread; see
+     * {@link #proxy}.
+     */
     protected static class ProxyResponse extends SlingHttpServletResponseWrapper {
 
+        /** forwards bytes written by the proxied servlet into {@link #pipedOutput} */
         protected class ServletOutput extends ServletOutputStream {
+
+            protected ServletOutput() {
+            }
 
             @Override
             public boolean isReady() {
@@ -341,11 +394,19 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
             }
         }
 
+        /** the writing end of the pipe fed by {@link #servletOutput}/{@link #proxyWriter} */
         protected final PipedOutputStream pipedOutput;
+        /** the reading end of the pipe, drained by the transform thread, see {@link #proxy} */
         protected final PipedInputStream pipedInput;
+        /** the output stream returned by {@link #getOutputStream()} */
         protected final ServletOutput servletOutput;
+        /** the writer returned by {@link #getWriter()}, wrapping {@link #servletOutput} */
         protected final PrintWriter proxyWriter;
 
+        /**
+         * @param wrappedResponse the real response this response wraps
+         * @throws IOException if the underlying pipe cannot be created
+         */
         public ProxyResponse(@NotNull final SlingHttpServletResponse wrappedResponse) throws IOException {
             super(wrappedResponse);
             pipedOutput = new PipedOutputStream();
@@ -354,6 +415,9 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
             proxyWriter = new PrintWriter(new OutputStreamWriter(servletOutput, characterEncoding()));
         }
 
+        /**
+         * @return the wrapped response's character encoding, or UTF-8 if none is set
+         */
         protected String characterEncoding() {
             final String encoding = getCharacterEncoding();
             return encoding != null ? encoding : StandardCharsets.UTF_8.name();
@@ -392,9 +456,14 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      */
     protected class ProxyContentHandler extends XMLFilterImpl {
 
+        /** accumulates the text content of the {@code <script>} element currently being read */
         protected final StringBuilder scriptBuffer = new StringBuilder();
+        /** whether a {@code <script>} element is currently being read */
         protected boolean inScript = false;
 
+        /**
+         * @param target the content handler to forward the (rewritten) SAX events to
+         */
         public ProxyContentHandler(@NotNull final ContentHandler target) {
             setContentHandler(target);
         }
@@ -428,6 +497,11 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
             super.endElement(uri, localName, qName);
         }
 
+        /**
+         * @param qName      the qualified element name the attributes belong to
+         * @param attributes the element's original attributes
+         * @return the attributes with any {@code src}/link {@code href}/content {@code href} rewritten
+         */
         protected Attributes rewriteAttributes(@NotNull final String qName, @NotNull final Attributes attributes) {
             final AttributesImpl result = new AttributesImpl(attributes);
             for (int i = 0; i < result.getLength(); i++) {
@@ -447,6 +521,9 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      * Extension point: builds the SAX content handler chain that transforms the proxied servlet's
      * output before it is serialized again. The default implementation installs
      * {@link ProxyContentHandler}; override to add further transformation steps.
+     *
+     * @param target the content handler the built chain should ultimately forward events to
+     * @return the (possibly chained) content handler to run the proxied output through
      */
     protected @NotNull ContentHandler createTransformingHandler(@NotNull final ContentHandler target) {
         return new ProxyContentHandler(target);
@@ -457,6 +534,9 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      * {@code <link href>} pointing at a static resource of the proxied console (e.g.
      * {@code /system/console/res/lib/jquery.js}). Default: routed through the console's own
      * resource proxy ({@link Console#pluginLink}).
+     *
+     * @param url the original resource URL
+     * @return the rewritten resource URL
      */
     protected @NotNull String rewriteResourceLink(@NotNull final String url) {
         return console().pluginLink(url);
@@ -465,6 +545,9 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
     /**
      * Rewrites an {@code <a href>} content link of the proxied console (e.g. the request detail link
      * {@code requests?index=...}) so it keeps pointing through the proxy. Default: unchanged.
+     *
+     * @param url the original content link URL
+     * @return the rewritten content link URL
      */
     protected @NotNull String rewriteContentLink(@NotNull final String url) {
         return url;
@@ -474,6 +557,9 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      * Rewrites the text content of an inline {@code <script>} element, e.g. to adjust the
      * {@code appRoot} / {@code pluginRoot} variables the proxied console's own JS relies on.
      * Default: unchanged.
+     *
+     * @param script the original script text content
+     * @return the rewritten script text content
      */
     protected @NotNull String rewriteScriptContent(@NotNull final String script) {
         return script;
@@ -484,6 +570,10 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      * should be dropped from the proxied output entirely. Default: drop {@code <link>} and
      * {@code <script>}, since our own page template already provides styling and behaviour for the
      * embedded content; override to keep them (or exclude more) for a particular proxy.
+     *
+     * @param qName      the element's qualified name
+     * @param attributes the element's attributes
+     * @return whether the element (and its subtree) should be dropped
      */
     protected boolean isExcludedElement(@NotNull final String qName, @NotNull final Attributes attributes) {
         return "link".equalsIgnoreCase(qName) || "script".equalsIgnoreCase(qName);
@@ -493,6 +583,9 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      * Extension point: builds the SAX parser used to read the proxied response. The Felix web console
      * plugins emit plain (tag-soup) HTML, not well-formed XML (unclosed tags, undeclared entities like
      * {@code &nbsp;}), so this uses TagSoup's lenient {@link Parser} instead of the JDK's strict one.
+     *
+     * @return the SAX parser to use for the proxied response
+     * @throws Exception if the parser cannot be created
      */
     protected @NotNull XMLReader createXmlReader() throws Exception {
         final Parser parser = new Parser();
@@ -507,6 +600,10 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      * Runs on two daemon threads chained via pipes ("servlet write" -> "SAX parse/transform" ->
      * returned reader) so that a single caller reading the result reader drives the whole pipeline
      * without risking a pipe deadlock on the calling thread.
+     *
+     * @param request  the current request, forwarded to the proxied servlet
+     * @param response the current response, wrapped so the proxied servlet's output feeds the pipeline
+     * @return a reader for the transformed proxied content, or {@code null} if no plugin is registered
      */
     protected @Nullable Reader proxy(@NotNull final SlingHttpServletRequest request,
                                      @NotNull final SlingHttpServletResponse response) {
@@ -561,8 +658,15 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      */
     protected static class FragmentFilter extends XMLFilterImpl {
 
+        /**
+         * one entry per currently open element, {@code true} if that element (and thus its subtree)
+         * is a dropped wrapper
+         */
         protected final Deque<Boolean> suppressed = new ArrayDeque<>();
 
+        /**
+         * @param target the content handler to forward the (unwrapped) SAX events to
+         */
         public FragmentFilter(@NotNull final ContentHandler target) {
             setContentHandler(target);
         }
@@ -597,6 +701,10 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
             // dropped, see startPrefixMapping
         }
 
+        /**
+         * @param qName the element's qualified name
+         * @return whether the element is a synthetic {@code <html>}/{@code <head>}/{@code <body>} wrapper
+         */
         protected boolean isWrapperElement(@NotNull final String qName) {
             return "html".equalsIgnoreCase(qName)
                     || "head".equalsIgnoreCase(qName)
@@ -612,8 +720,15 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      */
     protected class ExclusionFilter extends XMLFilterImpl {
 
+        /**
+         * one entry per currently open element, {@code true} if that element (and thus its subtree)
+         * is excluded per {@link #isExcludedElement}
+         */
         protected final Deque<Boolean> excluded = new ArrayDeque<>();
 
+        /**
+         * @param target the content handler to forward the (filtered) SAX events to
+         */
         public ExclusionFilter(@NotNull final ContentHandler target) {
             setContentHandler(target);
         }
@@ -649,6 +764,11 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      * {@link FragmentFilter}) as well as any elements excluded via {@link #isExcludedElement} (see
      * {@link ExclusionFilter}), runs what's left through {@link #createTransformingHandler} and
      * serializes the (possibly further modified) result to {@code output}.
+     *
+     * @param input    the proxied servlet's raw output
+     * @param encoding the character encoding {@code input} is encoded with
+     * @param output   the writer to serialize the transformed result to
+     * @throws Exception if parsing or transforming the input fails
      */
     protected void transform(@NotNull final InputStream input, @NotNull final String encoding,
                              @NotNull final Writer output) throws Exception {

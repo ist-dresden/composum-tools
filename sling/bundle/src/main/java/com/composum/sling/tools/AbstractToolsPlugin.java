@@ -37,10 +37,21 @@ import java.util.function.Supplier;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 
+/**
+ * Base class for a {@link ToolsPlugin} implementation: provides the {@link TemplateBuilder}
+ * plumbing (template resolution, output value conversion), classpath-resource serving, and
+ * generic, filtered resource-property collection shared by every dashboard tools plugin.
+ */
 public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilder {
 
     private static final String DEFAULT_RESOURCE_ROOT = "/com/composum";
 
+    protected AbstractToolsPlugin() {
+    }
+
+    /**
+     * @return the manager this plugin is registered with
+     */
     protected abstract @NotNull Manager manager();
 
     @Override
@@ -50,6 +61,10 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
         return manager().serverPath() + "." + key() + "." + widgetKey + ".html";
     }
 
+    /**
+     * @return the common template context values shared by every tools page (navigation, current
+     * user, system client libraries)
+     */
     protected @NotNull Values toolsValues() {
         return new Values()
                 .with("tools", new Values()
@@ -70,6 +85,11 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
                 .with("system.clientlibs", (Supplier<?>) () -> valuesOf(manager().systemClientlibs()));
     }
 
+    /**
+     * @param mainHtmlClass the main CSS class of the rendered HTML root element
+     * @return the space-separated CSS classes to apply to the HTML root element (the main class,
+     * the current runmode classes, and any classes contributed by {@link #collectHtmlCssClasses})
+     */
     @NotNull
     public String getHtmlCssClasses(@NotNull final String mainHtmlClass) {
         final Set<String> cssClasses = new TreeSet<>();
@@ -79,15 +99,30 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
         return StringUtils.join(cssClasses, " ");
     }
 
+    /**
+     * Hook for subclasses to contribute additional CSS classes to {@link #getHtmlCssClasses}; a
+     * no-op by default.
+     *
+     * @param cssClasses the mutable set of CSS classes to add to
+     */
     protected void collectHtmlCssClasses(@NotNull final Set<String> cssClasses) {
     }
 
     // Repository access
 
+    /**
+     * @param resource the resource whose allowed properties to collect
+     * @return the resource's allowed properties (per {@link Manager#isAllowedProperty})
+     */
     protected @NotNull Map<String, Object> resourceProperties(@NotNull final Resource resource) {
         return resourceProperties(resource, new LinkedHashMap<>());
     }
 
+    /**
+     * @param resource   the resource whose allowed properties to collect
+     * @param properties the map to add the collected properties to
+     * @return the given 'properties' map
+     */
     protected @NotNull Map<String, Object> resourceProperties(@NotNull final Resource resource,
                                                               @NotNull final Map<String, Object> properties) {
         final ValueMap values = resource.getValueMap();
@@ -126,6 +161,11 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
         return value.toString();
     }
 
+    /**
+     * @param template the template to render
+     * @return a reader that renders the given template's placeholders while being read, or 'null'
+     * if the template is 'null' or its content cannot be opened
+     */
     @Nullable
     public TemplateReader templateReader(@Nullable Template template) {
         return Optional.ofNullable(template)
@@ -142,6 +182,11 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
                 .orElse(null);
     }
 
+    /**
+     * @param path the classpath-relative resource path to open
+     * @return the raw, unrendered content of the resource at the given path, or 'null' if the
+     * path is blank or the resource cannot be opened
+     */
     protected @Nullable InputStream openTemplate(@Nullable final String path) {
         return StringUtils.isNotBlank(path) ? getClass().getResourceAsStream(path) : null;
     }
@@ -177,10 +222,18 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
         return value != null ? value : "";
     }
 
+    /**
+     * An {@link Iterable} that lazily applies {@link #valuesOf(Object)} to every element of a
+     * delegate iterable, so a template's 'each' placeholder can navigate arbitrary element types.
+     */
     protected class ValuesIterable implements Iterable<Object> {
 
+        /** the wrapped iterable whose elements are converted on the fly */
         protected final Iterable<?> delegate;
 
+        /**
+         * @param iterable the iterable to wrap
+         */
         public ValuesIterable(Iterable<?> iterable) {
             delegate = iterable;
         }
@@ -198,10 +251,18 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
         }
     }
 
+    /**
+     * An {@link Iterator} that lazily applies {@link #valuesOf(Object)} to every element of a
+     * delegate iterator, so a template's 'each' placeholder can navigate arbitrary element types.
+     */
     protected class ValuesIterator implements Iterator<Object> {
 
+        /** the wrapped iterator whose elements are converted on the fly */
         protected final Iterator<?> delegate;
 
+        /**
+         * @param iterator the iterator to wrap
+         */
         public ValuesIterator(Iterator<?> iterator) {
             delegate = iterator;
         }
@@ -219,14 +280,29 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
 
     // File resources
 
+    /**
+     * @return the classpath root under which this plugin's classpath (client) resources are located
+     */
     protected @NotNull String resourceRoot() {
         return DEFAULT_RESOURCE_ROOT;
     }
 
+    /**
+     * @param path a resource path, either already rooted (at {@link #resourceRoot()} or the
+     *             server path) or relative
+     * @return the given path, prefixed with {@link #resourceRoot()} unless it is already rooted
+     */
     protected @NotNull String resourcePath(@NotNull String path) {
         return !path.startsWith(resourceRoot() + "/") && !path.startsWith(manager().serverPath()) ? resourceRoot() + path : path;
     }
 
+    /**
+     * Serves a single classpath (client) resource (script, stylesheet, image, font) requested via
+     * its request suffix.
+     *
+     * @param request the current request; its suffix identifies the resource to serve
+     * @return the resource's content and MIME type, or a 'Not Found' result if it cannot be served
+     */
     public @NotNull Result<InputStream> resource(@NotNull final SlingHttpServletRequest request) {
         Result<InputStream> result = new Result<>(SC_NOT_FOUND);
         final String path = request.getRequestPathInfo().getSuffix();
@@ -237,6 +313,11 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
         return result;
     }
 
+    /**
+     * @param path the resource path to open
+     * @return the resource's content, or 'null' if the path is 'null' or not allowed (see
+     * {@link #isAllowedResource})
+     */
     protected @Nullable InputStream openResource(@Nullable String path) {
         if (path != null) {
             path = resourcePath(path);
@@ -247,11 +328,19 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
         return null;
     }
 
+    /**
+     * @param path the resource path to check
+     * @return whether the given path is a client resource (script, stylesheet, image, font) under
+     * {@link #resourceRoot()} that may be served via {@link #resource}
+     */
     protected boolean isAllowedResource(@Nullable final String path) {
         return StringUtils.isNotBlank(path) &&
                 path.matches("^" + resourceRoot() + "(/[^/]+)*/[^/]+\\.(js|css|png|jpe?g|webp|svg|gif|woff2?)$");
     }
 
+    /**
+     * @return the class loader used to resolve classpath (client) resources
+     */
     protected @NotNull ClassLoader getResourceClassLoader() {
         return getClass().getClassLoader();
     }

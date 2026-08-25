@@ -22,16 +22,33 @@ import java.util.List;
 import static com.composum.sling.tools.Common.JCR_CONTENT;
 import static com.composum.sling.tools.Common.JCR_PRIMARY_TYPE;
 
+/**
+ * AEM-specific extension of {@link DefaultPlatformConfig}: adds the resource types that count as
+ * "binary/file-like" (see {@link #fileTypes()}) and resolves the underlying binary of AEM's own
+ * asset/rendition structures (see {@link #originalOf}).
+ */
 @Component(service = PlatformConfig.class)
 @Designate(ocd = AemPlatformConfig.Config.class)
 public class AemPlatformConfig extends DefaultPlatformConfig {
 
+    public AemPlatformConfig() {
+    }
+
+    /**
+     * OSGi metatype configuration for this platform config's file types and rank.
+     */
     @ObjectClassDefinition(name = "Composum Tools AEM Platform Config")
     public @interface Config {
 
+        /**
+         * @return unused; retained for configuration compatibility
+         */
         @AttributeDefinition()
         String key() default PropertiesView.KEY;
 
+        /**
+         * @return the resource types treated as binary/file-like
+         */
         @AttributeDefinition()
         String[] fileTypes() default {
                 "nt:file",
@@ -41,6 +58,9 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
                 "dam:AssetContent"
         };
 
+        /**
+         * @return this platform config's service ranking
+         */
         @AttributeDefinition()
         int rank() default 3000;
     }
@@ -48,8 +68,12 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
     @Reference
     private SlingSettingsService settingsService;
 
+    /** the configured file/binary resource types (see {@link Config#fileTypes()}) */
     protected List<String> fileTypes;
 
+    /**
+     * @param config the current OSGi configuration
+     */
     @Activate
     @Modified
     protected void activate(final Config config) {

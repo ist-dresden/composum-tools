@@ -21,8 +21,19 @@ import java.util.function.Supplier;
 
 import static com.composum.sling.tools.Common.EXT_HTML;
 
+/**
+ * Base class for a {@link Tool} implementation: provides the {@link TemplateBuilder} plumbing
+ * shared by every tool (delegating to the owning {@link Browser}), URI building and generic,
+ * filtered resource-property collection.
+ */
 public abstract class AbstractTool implements Tool, TemplateBuilder {
 
+    protected AbstractTool() {
+    }
+
+    /**
+     * @return the browser plugin this tool is registered with
+     */
     public abstract Browser browser();
 
     @Override
@@ -55,29 +66,68 @@ public abstract class AbstractTool implements Tool, TemplateBuilder {
         return browser().valuesOf(value);
     }
 
+    /**
+     * @return this tool's own base URI (no action, '.html' extension)
+     */
     protected @NotNull String uri() {
         return uri(key(), EXT_HTML);
     }
 
+    /**
+     * @param action the action selector to append to this tool's key
+     * @return this tool's URI for the given action ('.html' extension)
+     */
     protected @NotNull String uri(@NotNull final String action) {
         return uri(key() + "." + action, EXT_HTML);
     }
 
+    /**
+     * @param keyAction the selector(s) identifying this tool and the requested action
+     * @param ext       the URI extension
+     * @return the resulting tool URI
+     */
     protected @NotNull String uri(@NotNull final String keyAction, @NotNull final String ext) {
         return browser().manager().serverPath() + ".browser.tool." + keyAction + "." + ext;
     }
 
+    /**
+     * Collects the given resource's allowed properties (per {@link Manager#isAllowedProperty})
+     * into the given map, excluding binary ({@link InputStream}) values.
+     *
+     * @param resource   the resource whose properties to collect
+     * @param properties the map to add the collected properties to
+     * @return the given 'properties' map
+     */
     protected @NotNull Map<String, Object> resourceProperties(@NotNull Resource resource,
                                                               @NotNull Map<String, Object> properties) {
         return resourceProperties(resource, properties, (name) -> true);
     }
 
+    /**
+     * Collects the given resource's allowed properties (per {@link Manager#isAllowedProperty} and
+     * the given name filter) into the given map, excluding binary ({@link InputStream}) values.
+     *
+     * @param resource   the resource whose properties to collect
+     * @param properties the map to add the collected properties to
+     * @param nameFilter an additional filter a property name must satisfy to be collected
+     * @return the given 'properties' map
+     */
     protected @NotNull Map<String, Object> resourceProperties(@NotNull Resource resource,
                                                               @NotNull Map<String, Object> properties,
                                                               @NotNull Function<String, Boolean> nameFilter) {
         return resourceProperties(resource, properties, nameFilter, (value) -> !(value instanceof InputStream));
     }
 
+    /**
+     * Collects the given resource's allowed properties (per {@link Manager#isAllowedProperty} and
+     * the given name/value filters) into the given map.
+     *
+     * @param resource    the resource whose properties to collect
+     * @param properties  the map to add the collected properties to
+     * @param nameFilter  an additional filter a property name must satisfy to be collected
+     * @param valueFilter an additional filter a property value must satisfy to be collected
+     * @return the given 'properties' map
+     */
     protected @NotNull Map<String, Object> resourceProperties(@NotNull Resource resource,
                                                               @NotNull Map<String, Object> properties,
                                                               @NotNull Function<String, Boolean> nameFilter,

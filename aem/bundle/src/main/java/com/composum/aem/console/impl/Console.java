@@ -46,6 +46,10 @@ public class Console extends AbstractToolsPlugin {
 
     public static final String KEY = "console";
 
+    /**
+     * OSGi metatype configuration for this console's key/label/rank, whether it is enabled, and
+     * which registered {@link ConsoleProxy} views to show.
+     */
     @ObjectClassDefinition(name = "Composum Tools Console")
     public @interface Config {
 
@@ -162,6 +166,11 @@ public class Console extends AbstractToolsPlugin {
      * Routes a GET request: the leading selector is either {@code "resource"} (serves a static
      * resource, see {@link #resource}) or the {@link ConsoleProxy#key()} of the proxy whose content
      * is requested, to which the (further reduced) request is then delegated.
+     *
+     * @param request   the current request
+     * @param response  the current response
+     * @param selectors the request selectors remaining after routing
+     * @return the routed result, or a 'Bad Request' result if no matching proxy is found
      */
     public @NotNull Result<?> processGet(@NotNull final SlingHttpServletRequest request,
                                          @NotNull final SlingHttpServletResponse response,
@@ -187,6 +196,11 @@ public class Console extends AbstractToolsPlugin {
     /**
      * Routes a POST request to the proxy identified by the leading selector (see
      * {@link ConsoleProxy#key()}), e.g. for a proxy's own form submissions.
+     *
+     * @param request   the current request
+     * @param response  the current response
+     * @param selectors the request selectors remaining after routing
+     * @return the routed result, or a 'Bad Request' result if no matching proxy is found
      */
     public @NotNull Result<?> processPost(@NotNull final SlingHttpServletRequest request,
                                           @NotNull final SlingHttpServletResponse response,

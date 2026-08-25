@@ -21,6 +21,13 @@ public interface TemplateBuilder {
      * plugin implementation
      */
     interface Factory {
+
+        /**
+         * creates a new {@link Template} instance bound to the given context.
+         *
+         * @param current the context to bind the created template to
+         * @return the newly created template
+         */
         Template create(TemplateContext current);
     }
 
@@ -29,29 +36,44 @@ public interface TemplateBuilder {
      * resource path (as used by the 'include', 'each' and 'if' placeholders of a
      * {@link TemplateReader}, see {@link TemplateReader#templateReader}); returns 'null' if the
      * key cannot be resolved to a template
+     *
+     * @param context the context to bind the resolved template to
+     * @param key     the template name or absolute resource path to resolve
+     * @return the resolved template, or 'null' if the key cannot be resolved
      */
     @Nullable Template getTemplate(@NotNull TemplateContext context, @NotNull String key);
 
     /**
      * opens the given template's resource content for reading; returns 'null' if the template is
      * 'null' or its content cannot be opened
+     *
+     * @param template the template whose resource content to open
+     * @return a reader over the template's raw (unrendered) content, or 'null' if it cannot be opened
      */
     @Nullable Reader openTemplate(@Nullable Template template);
 
     /**
      * provides the Sling API used by a {@link TemplateReader} for output encoding (XSS filtering)
+     *
+     * @return the XSS encoding API to use for output encoding
      */
     @NotNull XSSAPI xssapi();
 
     /**
      * builds a templating 'src=...' link to the given resource path in the builder's context
      * (plugin) - used by the 'src' placeholder type of a {@link TemplateReader}
+     *
+     * @param path the plugin-relative resource path to link to
+     * @return the resolved link to the given resource path
      */
     @NotNull String pluginLink(@NotNull String path);
 
     /**
      * renders a resolved (primitive) context value as the String to embed into a template, or - for
      * a format expression - as the pattern text applied via {@link java.util.Formatter}
+     *
+     * @param value the context value to render
+     * @return the String representation of the given value
      */
     @NotNull String toString(@NotNull Object value);
 
@@ -60,6 +82,9 @@ public interface TemplateBuilder {
      * syntax, e.g. wrapping a {@code Map.Entry} as a {key, value} map, or adapting a resource,
      * array, {@link Iterable} or {@link java.util.Iterator} - used for every element produced by
      * the 'each' placeholder of a {@link TemplateReader}
+     *
+     * @param value the value to transform
+     * @return the template-navigable representation of the given value
      */
     @NotNull Object valuesOf(@NotNull Object value);
 }

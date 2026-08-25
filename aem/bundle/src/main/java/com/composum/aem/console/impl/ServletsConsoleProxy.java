@@ -39,8 +39,9 @@ public class ServletsConsoleProxy extends AbstractConsoleProxy {
     }
 
     /**
-     * The console this proxy is embedded in; {@code null} before {@link #attach} was called (or after
-     * this proxy was unbound), see {@link Console#bindProxy}/{@code unbindProxy}.
+     * The console this proxy is embedded in, injected via OSGi's standard {@code @Reference}
+     * lifecycle; this instance registers/unregisters itself with {@link Console#proxies()} in
+     * {@link #activate}/{@link #deactivate}.
      */
     @Reference
     protected Console console;

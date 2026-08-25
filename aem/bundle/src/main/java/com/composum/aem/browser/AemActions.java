@@ -23,12 +23,25 @@ import java.util.Optional;
 import static com.composum.sling.tools.Common.EXT_HTML;
 import static com.composum.sling.tools.Common.JCR_PRIMARY_TYPE;
 
+/**
+ * AEM-specific extension of {@link DefaultActions}: adds "edit"/"manage"/"activate"/"deactivate"
+ * actions for author instances, on top of the generic actions inherited from {@link DefaultActions}.
+ */
 @Component(service = {Actions.class, AemActions.class}, immediate = true)
 public class AemActions extends DefaultActions {
 
+    public AemActions() {
+    }
+
+    /**
+     * OSGi metatype configuration for this action set's navigation rank.
+     */
     @ObjectClassDefinition(name = "Composum Browser AEM Actions")
     public @interface Config {
 
+        /**
+         * @return this action set's navigation rank
+         */
         @AttributeDefinition()
         int rank() default 5000;
     }
@@ -36,6 +49,7 @@ public class AemActions extends DefaultActions {
     @Reference
     private PlatformConfig platformConfig;
 
+    /** the browser plugin this action set is registered with */
     @Reference
     protected Browser browser;
 
@@ -44,6 +58,11 @@ public class AemActions extends DefaultActions {
         return browser;
     }
 
+    /**
+     * @param resource the resource to start searching from
+     * @return the closest {@code cq:Page} ancestor of the given resource (or the resource itself),
+     * or {@code null} if none is found
+     */
     protected @Nullable Resource containingPage(@Nullable Resource resource) {
         while (resource != null && !"cq:Page".equals(resource.getValueMap().get(JCR_PRIMARY_TYPE, String.class))) {
             resource = resource.getParent();
@@ -57,6 +76,10 @@ public class AemActions extends DefaultActions {
         return platformConfig.runmodes().contains("author") ? url + "?wcmmode=disabled" : url;
     }
 
+    /**
+     * @param target the resource to check
+     * @return whether the given resource is eligible for activation/deactivation
+     */
     protected boolean isPublishTarget(@Nullable final Resource target) {
         if (target != null) {
             final String path = target.getPath();
@@ -65,6 +88,11 @@ public class AemActions extends DefaultActions {
         return false;
     }
 
+    /**
+     * @param target the resource to build an editor link for
+     * @return the AEM page editor URL for the resource's containing page, or {@code null} if the
+     * resource is not editable
+     */
     protected @Nullable String editorUrl(@Nullable Resource target) {
         if (target != null) {
             final String path = target.getPath();
@@ -79,6 +107,10 @@ public class AemActions extends DefaultActions {
         return null;
     }
 
+    /**
+     * @param target the resource to build a management link for
+     * @return the AEM Assets/Sites management console URL for the resource, or {@code null} if none applies
+     */
     protected @Nullable String manageUrl(@Nullable Resource target) {
         if (target != null) {
             final String path = target.getPath();

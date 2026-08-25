@@ -11,8 +11,18 @@ import java.io.Reader;
 import java.util.Collection;
 import java.util.Collections;
 
+/**
+ * Base class for a {@link View} implementation: provides the {@link TemplateBuilder} plumbing
+ * shared by every view (delegating to the owning {@link Browser}).
+ */
 public abstract class AbstractView implements View, TemplateBuilder {
 
+    protected AbstractView() {
+    }
+
+    /**
+     * @return the browser plugin this view is registered with
+     */
     public abstract Browser browser();
 
     @Override
