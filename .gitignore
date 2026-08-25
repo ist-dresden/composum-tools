@@ -1,0 +1,27 @@
+# filesystem
+_local_/*
+# IntelliJ
+.idea
+*.iml
+# Eclipse
+.project
+.classpath
+.settings
+.metadata
+Servers
+# Gradle
+.gradle
+build
+# Maven
+target
+# Groovy
+.groovy
+# some source repos
+.svn
+# File Vault
+.vlt
+.vlt-sync*
+# Mac OS X
+._*
+.DS_*
+/sling/bundle/src/main/resources/com/composum/lib/alpine/

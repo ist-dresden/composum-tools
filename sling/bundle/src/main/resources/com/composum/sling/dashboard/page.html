@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html class="${attr:html.cssClasses}" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+    <meta http-equiv="Pragma" content="no-cache"/>
+    <meta http-equiv="Expires" content="0"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${page.title}</title>
+    <link rel="shortcut icon" href="${src:'/sling/tools/common/logo.svg'}"/>
+    <link rel="stylesheet" href="${src:'/lib/bootstrap/5.2.3/css/bootstrap.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/bootstrap/icons/1.13.1/bootstrap-icons.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/sling/tools/style.css'}"/>
+    <link rel="stylesheet" href="${src:'/sling/dashboard/style.css'}"/>
+</head>
+<body class="dashboard-page_body">
+${include:'/sling/tools/navbar/navbar.html'}
+<div class="dashboard-page_body-content">
+    <div class="dashboard-page_dashboard composum-dashboard__content container-fluid mt-3 mb-3">
+        <div class="composum-tools_widgets row">
+            ${each.widget:widgets;'/sling/dashboard/tile.html'}
+        </div>
+    </div>
+</div>
+<script src="${src:'/lib/jquery/jquery-3.7.1.min.js'}"></script>
+<script src="${src:'/lib/bootstrap/5.2.3/js/bootstrap.bundle.min.js'}"></script>
+<script src="${src:'/sling/tools/script.js'}"></script>
+<script src="${src:'/sling/dashboard/script.js'}"></script>
+<script>
+  $(document).ready(function () {
+    CPM.widgets.initialize();
+  });
+</script>
+</body>
+</html>

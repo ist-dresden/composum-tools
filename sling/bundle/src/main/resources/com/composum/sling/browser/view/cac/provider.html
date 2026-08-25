@@ -1,0 +1,16 @@
+<div class="card">
+    <div class="card-header" id="card-${provider.domId}">
+        <button class="btn btn-link d-flex justify-content-between" data-bs-toggle="collapse"
+                data-bs-target="#pane-${provider.domId}" aria-controls="pane-${provider.domId}"
+                aria-expanded="${firstProvider}"><div>${provider.name}</div><div
+                class="service-status badge rounded-pill text-bg-${if:provider.available;'primary'|'secondary'}"><i
+                class="bi bi-${if:provider.available;'check'|'x'}-lg"></i></div></button>
+    </div>
+    <div id="pane-${provider.domId}" class="collapse${if:firstProvider;' show'}" aria-labelledby="card-${provider.domId}">
+        <div class="card-body">
+            <table class="table table-sm table-striped"><tbody>
+                ${each.entry:provider.properties;'<tr><td class="name">${entry.name}</td><td class="value">${entry.value.value}</td><td class="type">${entry.type}</td></tr>'}
+            </tbody></table>
+        </div>
+    </div>
+</div>

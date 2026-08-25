@@ -1,0 +1,79 @@
+.requests-page .console-page_body-content {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 40px 4px 4px;
+    overflow: auto;
+}
+
+.requests-page .ui-corner-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 33px;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 2px 0 72px;
+    background: #777;
+}
+
+.requests-page .ui-corner-top > span {
+    margin: 0 20px 0 0 !important;
+}
+
+.requests-page .statline {
+    position: absolute;
+    top: 0;
+    left: 260px;
+    z-index: 1;
+}
+
+.requests-page .ui-corner-top > span,
+.requests-page .statline {
+    padding: 2px 10px;
+    line-height: 29px;
+    font-weight: 200;
+    color: #ddd;
+}
+
+.requests-page .ui-corner-top > form {
+    margin: 3px 10px;
+}
+
+.requests-page .ui-corner-top > form input[type=submit] {
+    height: 27px;
+    line-height: 25px;
+    border: #aaa solid 1px;
+    background: transparent;
+    font-weight: 200;
+    color: #ddd;
+}
+
+.requests-page table.ui-widget:nth-of-type(1) {
+    width: 100%;
+}
+
+.requests-page table.ui-widget:nth-of-type(1) tr:nth-of-type(odd) {
+    background-color: rgba(0, 0, 0, .05);
+}
+
+.requests-page table.ui-widget:nth-of-type(1) td {
+    padding: 2px 4px;
+    font-size: 15px;
+}
+
+.requests-page table.ui-widget:nth-of-type(1) td > * {
+    display: block;
+    text-align: left !important;
+}
+
+.requests-page table.ui-widget:nth-of-type(1) td > a {
+    text-decoration: none;
+}
+.requests-page table.ui-widget:nth-of-type(1) td > span {
+    font-size: 70% !important;
+    color: #777;
+}

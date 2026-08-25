@@ -1,0 +1,15 @@
+<nav class="tools-navbar navbar navbar-dark bg-dark justify-content-between">
+    <div class="tools-navbar_brand"><a href="${tools.home.link}" class="tools-navbar_home-link">
+        <img class="logo" alt="logo" style="width:54px;top:6px;left:12px;"
+             src="${src:'/sling/tools/common/logo.svg'}"/>
+    </a></div>
+    <ul class="navbar-nav navbar-nav_left">
+        ${include:tools.navbar.left}
+    </ul>
+    <ul class="navbar-nav navbar-nav_center tools-navbar_status-bar">
+        ${include:tools.navbar.center}
+    </ul>
+    <ul class="navbar-nav navbar-nav_right">
+        ${include:tools.navbar.right}
+    </ul>
+</nav>

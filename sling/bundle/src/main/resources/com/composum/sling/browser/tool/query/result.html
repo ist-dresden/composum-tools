@@ -1,0 +1,11 @@
+<table class="table table-sm table-striped">
+    <thead>
+    <tr class="query">
+        <th scope="col" colspan="3">${query.expression}</th>
+    </tr>
+    </thead>
+    <tbody>
+    ${each.hit:query.find;'/sling/browser/tool/query/hit.html'}
+    ${if:query.exception;'/sling/browser/tool/query/error.html'|'/sling/browser/tool/query/summary.html'}
+    </tbody>
+</table>

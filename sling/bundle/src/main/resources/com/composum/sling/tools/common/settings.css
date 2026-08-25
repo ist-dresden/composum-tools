@@ -1,0 +1,70 @@
+.tools-widget_settings-view {
+    padding: 2px 0 8px;
+}
+
+.tools-widget_settings-view .card {
+    border: none;
+}
+
+.tools-widget_settings-tile,
+.tools-widget_settings-view {
+    color: #212529;
+}
+
+.tools-widget_settings-tile .list-group {
+    max-height: 295px;
+    overflow: auto;
+}
+
+.tools-widget_settings-tile .list-group-item {
+    padding: 0.5rem 1.25rem;
+    line-height: 20px;
+    white-space: nowrap;
+}
+
+.tools-widget_settings-view .service-status,
+.tools-widget_settings-tile .service-status,
+.tools-widget_settings-view .service-status i,
+.tools-widget_settings-tile .service-status i {
+    display: inline-block;
+    width: 25px;
+    height: 20px;
+    padding: 0;
+    line-height: 20px;
+    text-align: center;
+}
+
+.tools-widget_settings-view .service-status .bi,
+.tools-widget_settings-tile .service-status .bi {
+    line-height: 20px;
+}
+
+.tools-widget_settings-view .card-header {
+    padding: 0.5rem;
+}
+
+.tools-widget_settings-view .card-header button {
+    width: 100%;
+    padding: 1px 0;
+    line-height: 20px;
+    text-decoration: none;
+}
+
+.tools-widget_settings-view .card-body {
+    padding: 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.176);
+}
+
+.tools-widget_settings-view .table td {
+    padding: 0.3rem 0.6rem;
+}
+
+.tools-widget_settings-view .table td.value {
+    width: 100%;
+}
+
+.tools-widget_settings-view .table ul {
+    margin: 0;
+    padding: 0 0 0 18px;
+    list-style: circle;
+}

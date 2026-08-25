@@ -1,0 +1,13 @@
+<div class="browser-tool_favorites" data-history-max="${favorites.historyMax}">
+    <div>
+        <ul class="browser-tool_favorites-groups nav nav-tabs" role="tablist">
+            ${each.group:favorites.groups;'/sling/browser/tool/favorites/groupTab.html'}
+        </ul>
+        <div class="browser-tool_favorites-clear bi bi-trash"></div>
+    </div>
+    <div class="browser-tool_favorites-list">
+        <table class="table table-sm table-striped">
+            <tbody class="browser-tool_favorites-content"></tbody>
+        </table>
+    </div>
+</div>

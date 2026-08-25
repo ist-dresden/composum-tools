@@ -1,0 +1,6 @@
+<div class="dropdown query-templates">
+    <button class="btn btn-dark bi bi-list" type="button" data-bs-toggle="dropdown" aria-expanded="false"></button>
+    <div class="dropdown-menu">
+        ${each.tmpl:query.templates;'<a class="dropdown-item" href="#" data-query="${attr:tmpl}">${tmpl}</a>'}
+    </div>
+</div>

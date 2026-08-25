@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html class="${attr:html.cssClasses}" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+    <meta http-equiv="Pragma" content="no-cache"/>
+    <meta http-equiv="Expires" content="0"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${page.title}</title>
+    <link rel="shortcut icon" href="${src:'/sling/tools/common/logo.svg'}"/>
+    <link rel="stylesheet" href="${src:'/lib/bootstrap/5.2.3/css/bootstrap.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/bootstrap/icons/1.13.1/bootstrap-icons.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/jstree/3.3.17/themes/default/style.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/jstree/3.3.17/themes/proton/style.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/sling/tools/style.css'}"/>
+    <link rel="stylesheet" href="${src:'/sling/browser/style.css'}"/>
+    ${each.uri:browser.styles;'<link rel="stylesheet" href="${src:uri}"/>'}
+</head>
+<body class="browser-page_body">
+${include:'/sling/tools/navbar/navbar.html'}
+<div class="browser-page_body-content">
+    <div class="browser-page_browser">
+        <div class="browser-page_browser_tree-panel">
+            <div class="browser-page_browser_tree"
+                 data-path="${attr:target.path}"
+                 data-page-url="${attr:browser.uri}"
+                 data-tree-url="${attr:browser.tree}">
+            </div>
+        </div>
+        <div class="browser-page_browser_right-panel">
+            <div class="browser-page_browser_tool-panel">
+                <div class="browser-page_browser_tool"></div>
+            </div>
+            <div class="browser-page_browser_view-panel">
+                <div class="browser-page_browser_view"
+                     data-tab-view="${attr:browser.tabView}"
+                     data-tab-form="${attr:browser.tabForm}">
+                    ${if:options.favorites;'<div class="browser-tool_favorite-toggle bi bi-star"></div>'}
+                    <ul class="browser-page_browser_tabs nav nav-tabs" role="tablist">
+                        ${each.view:browser.views;'/sling/browser/view/tabHead.html'}
+                    </ul>
+                    <div class="browser-page_browser_parameters"><form class="form-inline d-flex"></form></div>
+                    <div class="browser-page_browser_action-reload bi bi-arrow-clockwise"></div>
+                    <div class="browser-page_browser_tabs-content tab-content">
+                        ${each.view:browser.views;'/sling/browser/view/tabBody.html'}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="${src:'/lib/jquery/jquery-3.7.1.min.js'}"></script>
+${each.uri:system.clientlibs;'<script src="${link:uri}"></script>'}
+<script src="${src:'/lib/bootstrap/5.2.3/js/bootstrap.bundle.min.js'}"></script>
+<script src="${src:'/lib/jstree/3.3.17/jstree.min.js'}"></script>
+<script src="${src:'/sling/tools/script.js'}"></script>
+<script src="${src:'/sling/browser/script.js'}"></script>
+${each.uri:browser.scripts;'<script src="${src:uri}"></script>'}
+<script>
+  $(document).ready(function () {
+    CPM.widgets.initialize();
+  });
+</script>
+</body>
+</html>
