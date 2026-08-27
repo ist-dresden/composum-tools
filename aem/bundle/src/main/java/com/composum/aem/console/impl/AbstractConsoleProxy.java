@@ -80,6 +80,9 @@ import static javax.servlet.http.HttpServletResponse.SC_MOVED_TEMPORARILY;
  */
 public abstract class AbstractConsoleProxy implements ConsoleProxy {
 
+    /**
+     * Default constructor.
+     */
     protected AbstractConsoleProxy() {
     }
 
@@ -87,6 +90,8 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
     protected static final int PIPE_BUFFER_SIZE = 8192;
 
     /**
+     * The console this proxy is embedded in.
+     *
      * @return the console this proxy is embedded in
      */
     public abstract Console console();
@@ -128,6 +133,9 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
     protected int rank;
 
     /**
+     * Stores the bundle context; called by subclasses that don't use the 4-arg
+     * {@link #activate(BundleContext, String, String, int)} convenience overload.
+     *
      * @param bundleContext the bundle context of the activating component
      */
     protected void activate(final BundleContext bundleContext) {
@@ -328,6 +336,8 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
     }
 
     /**
+     * This proxy's own page URL.
+     *
      * @return this proxy's own page URL, following the {@code <serverPath>.console.<key>.html} convention
      */
     protected @NotNull String pageLink() {
@@ -362,6 +372,9 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
         /** forwards bytes written by the proxied servlet into {@link #pipedOutput} */
         protected class ServletOutput extends ServletOutputStream {
 
+            /**
+             * Default constructor.
+             */
             protected ServletOutput() {
             }
 
@@ -404,6 +417,8 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
         protected final PrintWriter proxyWriter;
 
         /**
+         * Wraps the given response, setting up the internal pipe.
+         *
          * @param wrappedResponse the real response this response wraps
          * @throws IOException if the underlying pipe cannot be created
          */
@@ -416,6 +431,8 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
         }
 
         /**
+         * The wrapped response's character encoding.
+         *
          * @return the wrapped response's character encoding, or UTF-8 if none is set
          */
         protected String characterEncoding() {
@@ -462,6 +479,8 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
         protected boolean inScript = false;
 
         /**
+         * Wraps the given target content handler.
+         *
          * @param target the content handler to forward the (rewritten) SAX events to
          */
         public ProxyContentHandler(@NotNull final ContentHandler target) {
@@ -498,6 +517,8 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
         }
 
         /**
+         * Rewrites the {@code src}/link {@code href}/content {@code href} attributes, if present.
+         *
          * @param qName      the qualified element name the attributes belong to
          * @param attributes the element's original attributes
          * @return the attributes with any {@code src}/link {@code href}/content {@code href} rewritten

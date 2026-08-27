@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import static com.composum.sling.tools.Common.EXT_HTML;
 
@@ -28,10 +29,15 @@ import static com.composum.sling.tools.Common.EXT_HTML;
  */
 public abstract class AbstractTool implements Tool, TemplateBuilder {
 
+    /**
+     * Default constructor.
+     */
     protected AbstractTool() {
     }
 
     /**
+     * The browser plugin this tool is registered with.
+     *
      * @return the browser plugin this tool is registered with
      */
     public abstract Browser browser();
@@ -52,6 +58,11 @@ public abstract class AbstractTool implements Tool, TemplateBuilder {
     }
 
     @Override
+    public @NotNull String adjustLink(@NotNull final String link) {
+        return link.replaceFirst("^.+(" + Pattern.quote(browser().manager().serverPath()) + ")", "$1");
+    }
+
+    @Override
     public @NotNull String pluginLink(@NotNull String path) {
         return browser().pluginLink(path);
     }
@@ -67,6 +78,8 @@ public abstract class AbstractTool implements Tool, TemplateBuilder {
     }
 
     /**
+     * This tool's own base URI (no action, '.html' extension).
+     *
      * @return this tool's own base URI (no action, '.html' extension)
      */
     protected @NotNull String uri() {
@@ -74,6 +87,8 @@ public abstract class AbstractTool implements Tool, TemplateBuilder {
     }
 
     /**
+     * This tool's URI for the given action ('.html' extension).
+     *
      * @param action the action selector to append to this tool's key
      * @return this tool's URI for the given action ('.html' extension)
      */
@@ -82,6 +97,8 @@ public abstract class AbstractTool implements Tool, TemplateBuilder {
     }
 
     /**
+     * Builds a tool URI from the given selector(s) and extension.
+     *
      * @param keyAction the selector(s) identifying this tool and the requested action
      * @param ext       the URI extension
      * @return the resulting tool URI

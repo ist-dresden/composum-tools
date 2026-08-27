@@ -53,13 +53,6 @@ public class TestToolsPlugin extends AbstractToolsPlugin {
     }
 
     @Override
-    public @Nullable String widgetLink(@NotNull SlingHttpServletRequest request,
-                                       @NotNull SlingHttpServletResponse response,
-                                       @NotNull String widgetKey) {
-        return manager.serverPath() + ".test." + widgetKey + ".html";
-    }
-
-    @Override
     public @NotNull Result<?> process(@NotNull SlingHttpServletRequest request,
                                       @NotNull SlingHttpServletResponse response,
                                       @NotNull List<String> selectors) {
@@ -84,10 +77,5 @@ public class TestToolsPlugin extends AbstractToolsPlugin {
         return Optional.ofNullable(templates.get(key))
                 .map(factory -> factory.create(context))
                 .orElse(key.startsWith("/") ? new Template(key, context, this) : null);
-    }
-
-    @Override
-    public @NotNull String pluginLink(@NotNull String path) {
-        return manager.serverPath() + ".test.resource.html" + path;
     }
 }

@@ -44,6 +44,9 @@ public abstract class AbstractSourceView extends AbstractView {
     /** mixin type patterns hidden while in source mode */
     protected List<Pattern> nonSourceMixins;
 
+    /**
+     * Default constructor.
+     */
     protected AbstractSourceView() {
     }
 
@@ -86,6 +89,8 @@ public abstract class AbstractSourceView extends AbstractView {
     }
 
     /**
+     * Whether the given property may be shown.
+     *
      * @param name       the property name to check
      * @param sourceMode whether source mode is currently active for the request
      * @return whether the given property may be shown
@@ -105,6 +110,8 @@ public abstract class AbstractSourceView extends AbstractView {
     }
 
     /**
+     * Removes any mixin type name matching a {@link #nonSourceMixins} pattern.
+     *
      * @param values the mixin type names to filter, or 'null'
      * @return the given values with any name matching a {@link #nonSourceMixins} pattern removed,
      * or 'null' if 'values' was 'null'
@@ -130,6 +137,8 @@ public abstract class AbstractSourceView extends AbstractView {
     }
 
     /**
+     * The parsed integer value of a request parameter.
+     *
      * @param request      the current request
      * @param name         the request parameter name
      * @param defaultValue the value to return if the parameter is absent or not a valid integer
@@ -148,6 +157,8 @@ public abstract class AbstractSourceView extends AbstractView {
     }
 
     /**
+     * The parsed boolean value of a request parameter.
+     *
      * @param request      the current request
      * @param name         the request parameter name
      * @param defaultValue the value to return if the parameter is absent

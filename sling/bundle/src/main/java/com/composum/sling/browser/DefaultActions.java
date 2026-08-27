@@ -10,6 +10,7 @@ import org.jetbrains.annotations.Nullable;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.metatype.annotations.AttributeDefinition;
+import org.osgi.service.metatype.annotations.Designate;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 import java.util.Collection;
@@ -24,13 +25,19 @@ import static javax.servlet.http.HttpServletResponse.SC_MOVED_TEMPORARILY;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
 @Component(service = {Actions.class, DefaultActions.class}, immediate = true)
+@Designate(ocd = DefaultActions.Config.class)
 public class DefaultActions implements Actions {
+
+    public static final int RANK = 2000;
 
     @ObjectClassDefinition(name = "Composum Browser Sling Actions")
     public @interface Config {
 
+        /**
+         * @return this action set's selection rank
+         */
         @AttributeDefinition()
-        int rank() default 2000;
+        int rank() default DefaultActions.RANK;
     }
 
     protected abstract class ActionImpl implements Action {
@@ -89,7 +96,8 @@ public class DefaultActions implements Actions {
                     .with("label", label)
                     .with("title", description)
                     .with("target", target)
-                    .with("link", (Supplier<?>) () -> link())
+                    .with("link", (Supplier<?>) this::link)
+                    .with("method", (Supplier<?>) this::method)
                     .with("newGroup", newGroup);
         }
     }

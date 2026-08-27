@@ -16,8 +16,8 @@
 <body class="dashboard-page_body">
 ${include:'/sling/tools/navbar/navbar.html'}
 <div class="dashboard-page_body-content">
-    <div class="dashboard-page_dashboard composum-dashboard__content container-fluid mt-3 mb-3">
-        <div class="composum-tools_widgets row">
+    <div class="dashboard-page_dashboard container-fluid">
+        <div class="composum-tools_widgets row p-3">
             ${each.widget:widgets;'/sling/dashboard/tile.html'}
         </div>
     </div>

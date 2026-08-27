@@ -44,6 +44,8 @@ import static com.composum.sling.tools.Common.HTML_TYPE;
 public class Dashboard extends AbstractToolsPlugin {
 
     public static final String KEY = "dashboard";
+    public static final String LABEL = "Dashboard";
+    public static final int RANK = 5000;
 
     protected final List<Widget> WIDGETS = List.of(
             new Page(KEY, "Dashboard", 5000, this::getDashboardLink)
@@ -56,10 +58,10 @@ public class Dashboard extends AbstractToolsPlugin {
         String key() default Dashboard.KEY;
 
         @AttributeDefinition()
-        String label() default "Dashboard";
+        String label() default Dashboard.LABEL;
 
         @AttributeDefinition()
-        int rank() default 5000;
+        int rank() default Dashboard.RANK;
 
         @AttributeDefinition()
         boolean enabled() default true;
@@ -96,12 +98,12 @@ public class Dashboard extends AbstractToolsPlugin {
 
     @Override
     public @NotNull String label() {
-        return Optional.ofNullable(config).map(Config::label).orElse("Dashboard");
+        return Optional.ofNullable(config).map(Config::label).orElse(LABEL);
     }
 
     @Override
     public int rank() {
-        return Optional.ofNullable(config).map(Config::rank).orElse(5000);
+        return Optional.ofNullable(config).map(Config::rank).orElse(RANK);
     }
 
     @Override
@@ -165,8 +167,9 @@ public class Dashboard extends AbstractToolsPlugin {
             "page", current -> new Template("/sling/dashboard/page.html",
                     new TemplateContext(current, new Values()
                             .with("page", new Values()
+                                    .with("key", key())
                                     .with("link", dashboardLink())
-                                    .with("label", "Dashboard")
+                                    .with("label", label())
                                     .with("title", "Composum Dashboard"))
                             .with("html.cssClasses", (Supplier<?>) () -> getHtmlCssClasses("dashboard-page"))
                             .with(toolsValues())
@@ -184,13 +187,6 @@ public class Dashboard extends AbstractToolsPlugin {
         return manager.serverPath() + ".dashboard.html";
     }
 
-    @Override
-    public @NotNull String pluginLink(@NotNull String path) {
-        return (path.matches("^(/com/composum)?/(lib|sling|aem)(/.*)?$"))
-                ? manager.serverPath() + ".dashboard.resource.html" + path
-                : manager.serverPath() + ".dashboard.html" + path;
-    }
-
     protected List<Values> tiles(@NotNull final SlingHttpServletRequest request,
                                  @NotNull final SlingHttpServletResponse response,
                                  @NotNull List<String> selectors) {
@@ -204,6 +200,7 @@ public class Dashboard extends AbstractToolsPlugin {
                             .with("key", tile.getKey())
                             .with("label", tile.getLabel())
                             .with("rank", tile.getRank())
+                            .with("uri.view", plugin.widgetViewLink(request, response, widget.getKey()))
                             .with("duration", (Supplier<?>) () -> System.currentTimeMillis() - start)
                             .with("content", (Supplier<?>) () -> include(request, response, plugin, tile.getKey()))
                     );

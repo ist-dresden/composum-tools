@@ -10,6 +10,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.Reader;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.regex.Pattern;
 
 /**
  * Base class for a {@link View} implementation: provides the {@link TemplateBuilder} plumbing
@@ -17,10 +18,15 @@ import java.util.Collections;
  */
 public abstract class AbstractView implements View, TemplateBuilder {
 
+    /**
+     * Default constructor.
+     */
     protected AbstractView() {
     }
 
     /**
+     * The browser plugin this view is registered with.
+     *
      * @return the browser plugin this view is registered with
      */
     public abstract Browser browser();
@@ -38,6 +44,11 @@ public abstract class AbstractView implements View, TemplateBuilder {
     @Override
     public @NotNull XSSAPI xssapi() {
         return browser().xssapi();
+    }
+
+    @Override
+    public @NotNull String adjustLink(@NotNull final String link) {
+        return link.replaceFirst("^.+(" + Pattern.quote(browser().manager().serverPath()) + ")", "$1");
     }
 
     @Override

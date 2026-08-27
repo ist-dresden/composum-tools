@@ -51,9 +51,12 @@ import java.util.regex.Pattern;
  * <dl>
  * <dt>{@code ${key}} (no type)</dt><dd>encoded for an HTML element body ('encodeForHTML')</dd>
  * <dt>{@code ${attr:key}}</dt><dd>encoded for use as an HTML attribute value ('encodeForHTMLAttr')</dd>
- * <dt>{@code ${link:key}}</dt><dd>validated as a href/URL value ('getValidHref')</dd>
+ * <dt>{@code ${link:key}}</dt><dd>validated as a href/URL value ('getValidHref'), then normalized
+ * back to a link relative to this plugin's own server path via {@link TemplateBuilder#adjustLink}
+ * (a no-op for a genuine external URL)</dd>
  * <dt>{@code ${src:key}}</dt><dd>transformed into a plugin resource link
- * ({@link TemplateBuilder#pluginLink(String)}) and validated as a href value</dd>
+ * ({@link TemplateBuilder#pluginLink(String)}), validated as a href value, then likewise
+ * normalized via {@link TemplateBuilder#adjustLink}</dd>
  * <dt>{@code ${css:key}}</dt><dd>encoded for use inside a CSS string ('encodeForCSSString')</dd>
  * <dt>{@code ${js:key}}</dt><dd>encoded for use inside a JavaScript string ('encodeForJSString')</dd>
  * <dt>{@code ${i18n:key}}</dt><dd>the resolved value is translated using the readers
@@ -284,6 +287,8 @@ public class TemplateReader extends Reader {
     private transient EmbedIterator iterator;
 
     /**
+     * Creates a reader with the default locale and no translations.
+     *
      * @param template the template configuration and context
      * @param reader   the text to read - probably with embedded value placeholders
      */
@@ -292,6 +297,8 @@ public class TemplateReader extends Reader {
     }
 
     /**
+     * Creates a reader with no translations.
+     *
      * @param template the template configuration and context
      * @param reader   the text to read - probably with embedded value placeholders
      * @param locale   the locale to use for value formatting
@@ -301,6 +308,8 @@ public class TemplateReader extends Reader {
     }
 
     /**
+     * Creates a reader with its own buffer.
+     *
      * @param template       the template configuration and context
      * @param reader         the text to read - probably with embedded value placeholders
      * @param locale         the locale to use for value formatting
@@ -312,6 +321,8 @@ public class TemplateReader extends Reader {
     }
 
     /**
+     * Creates a reader sharing the given buffer with the readers stack it is embedded in.
+     *
      * @param buffer         the buffer shared by the readers stack
      * @param template       the template configuration and context
      * @param reader         the text to read - probably with embedded value placeholders
@@ -331,6 +342,9 @@ public class TemplateReader extends Reader {
      * translates the given value via the {@link #resourceBundle} (used by the 'i18n' placeholder
      * type); returns the value unchanged if no bundle is configured, or if it has no translation
      * for it
+     *
+     * @param value the value (translation key) to translate
+     * @return the translated value, or the value unchanged if not translatable
      */
     protected @NotNull String i18n(@NotNull final String value) {
         if (resourceBundle != null) {
@@ -346,6 +360,10 @@ public class TemplateReader extends Reader {
      * resolves the given (unparsed) expression against the given context: a quoted string literal
      * is used as-is, a '!'-prefixed expression is resolved and negated (see {@link #booleanOf}),
      * any other expression is resolved as a context key via {@link TemplateContext#getValue(String)}
+     *
+     * @param expression the unparsed expression to resolve
+     * @param context    the context to resolve the expression against
+     * @return the resolved value
      */
     protected Object getValue(@NotNull final String expression, @NotNull final TemplateContext context) {
         return expression.matches("^'.*'$")
@@ -359,6 +377,9 @@ public class TemplateReader extends Reader {
      * interprets the given value as a boolean condition (used by the 'if' placeholder and by '!'
      * negation): 'false' for 'null', {@link Boolean#FALSE}, an empty String, an empty Collection,
      * an empty Map or an empty array; 'true' for everything else
+     *
+     * @param value the value to interpret
+     * @return the value interpreted as a boolean condition
      */
     protected boolean booleanOf(@Nullable final Object value) {
         return value != null &&
@@ -415,6 +436,8 @@ public class TemplateReader extends Reader {
      * the embedded content before further characters are buffered. Handles escaping ('\$', '\\'),
      * plain text, and, for every '${...}' placeholder found, resolves and renders it according to
      * its type (see the class Javadoc for the full placeholder syntax).
+     *
+     * @throws IOException if reading the underlying reader fails
      */
     protected void load() throws IOException {
         buffer.shift();
@@ -499,11 +522,11 @@ public class TemplateReader extends Reader {
                                         string = builder.toString(value);
                                     }
                                     if (LINK.equals(key.type)) {
-                                        string = builder.xssapi().getValidHref(string);
+                                        string = builder.adjustLink(builder.xssapi().getValidHref(string));
                                     } else if (ATTR.equals(key.type)) {
                                         string = builder.xssapi().encodeForHTMLAttr(string);
                                     } else if (SRC.equals(key.type)) {
-                                        string = builder.xssapi().getValidHref(builder.pluginLink(string));
+                                        string = builder.adjustLink(builder.xssapi().getValidHref(builder.pluginLink(string)));
                                     } else if (CSS.equals(key.type)) {
                                         string = builder.xssapi().encodeForCSSString(string);
                                     } else if (JS.equals(key.type)) {
@@ -546,6 +569,7 @@ public class TemplateReader extends Reader {
      *
      * @param buffer the buffer to append the read key text to
      * @return the given buffer, for chaining
+     * @throws IOException if reading the underlying reader fails
      */
     protected StringBuilder readKey(StringBuilder buffer) throws IOException {
         int token;
@@ -591,6 +615,11 @@ public class TemplateReader extends Reader {
      * resource via the given {@link TemplateBuilder}, anything else is rendered as an inline
      * template string; returns 'null' if the expression is blank, or if the resource cannot be
      * resolved or opened
+     *
+     * @param builder          the builder providing the nested template's rendering environment
+     * @param pathOrExpression an absolute template resource path, or an inline template string
+     * @param context          the context to render the nested template against
+     * @return the nested reader, or 'null' if it could not be resolved
      */
     protected @Nullable TemplateReader templateReader(@NotNull final TemplateBuilder builder,
                                                       @NotNull final String pathOrExpression,

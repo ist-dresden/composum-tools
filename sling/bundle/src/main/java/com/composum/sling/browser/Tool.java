@@ -12,16 +12,22 @@ import java.util.Collection;
 public interface Tool extends Plugin, Values.Provider {
 
     /**
+     * The icon shown for this tool in the navigation.
+     *
      * @return the icon shown for this tool in the navigation
      */
     @NotNull String icon();
 
     /**
+     * The client-side stylesheet resource paths this tool needs.
+     *
      * @return the client-side stylesheet resource paths this tool needs
      */
     @NotNull Collection<String> styles();
 
     /**
+     * The client-side script resource paths this tool needs.
+     *
      * @return the client-side script resource paths this tool needs
      */
     @NotNull Collection<String> scripts();

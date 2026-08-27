@@ -1,0 +1,16 @@
+    <div class="card">
+        <div class="card-header" id="card-${serviceIndex}">
+            <button class="btn btn-link d-flex justify-content-between" data-bs-toggle="collapse"
+                    data-bs-target="#pane-${serviceIndex}" aria-controls="pane-${serviceIndex}"
+                    aria-expanded="${firstService}"><span>${service.name}</span><span
+                    class="service-status badge rounded-pill text-bg-${service.status}"><i
+                    class="bi bi-${if:service.available;'check'|'x'}"></i></span></button>
+        </div>
+        <div class="card-body">
+            <div id="pane-${serviceIndex}" class="collapse${if:firstService;' show'|''}" aria-labelledby="card-${serviceIndex}">
+                <table class="table table-sm table-striped"><tbody>
+${each.property:service.properties;'/sling/dashboard/widgets/settings/property.html'}
+                </tbody></table>
+            </div>
+        </div>
+    </div>

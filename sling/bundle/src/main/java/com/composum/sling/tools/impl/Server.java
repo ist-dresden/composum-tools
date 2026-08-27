@@ -1,6 +1,6 @@
 package com.composum.sling.tools.impl;
 
-import com.composum.sling.dashboard.impl.Dashboard;
+import com.composum.sling.browser.Browser;
 import com.composum.sling.tools.Common;
 import com.composum.sling.tools.Manager;
 import com.composum.sling.tools.PlatformConfig;
@@ -47,6 +47,7 @@ import static com.composum.sling.tools.Common.EXT_JSON;
 import static com.composum.sling.tools.Common.HTTP_CONTENT_TYPE;
 import static com.composum.sling.tools.Common.JSON_TYPE;
 import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
+import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
 @Component(service = {Servlet.class, Manager.class}, immediate = true)
 @Designate(ocd = Server.Config.class)
@@ -76,7 +77,7 @@ public class Server extends SlingAllMethodsServlet implements Manager {
                 "^/$",
                 "^/content(/.*)?$",
                 "^/(conf|etc)(/.*)?$",
-                "^/var(/.*)?$",
+                "^/(var|tmp)(/.*)?$",
                 "^/oak:index(/.*)?$",
                 "^/(apps|libs|mnt)(/.*)?$"
         };
@@ -129,7 +130,7 @@ public class Server extends SlingAllMethodsServlet implements Manager {
     protected String loginUri;
     protected String serverPath;
 
-    protected PluginSet<ToolsPlugin> plugins = new PluginSet<>() {
+    protected final PluginSet<ToolsPlugin> plugins = new PluginSet<>() {
         @Override
         protected boolean isEnabled(@NotNull final ToolsPlugin service) {
             return service.isEnabled();
@@ -168,7 +169,7 @@ public class Server extends SlingAllMethodsServlet implements Manager {
     @Override
     public @NotNull List<Page> getToolsPages() {
         final List<Page> pages = new ArrayList<>();
-        for (ToolsPlugin plugin : plugins().set()) {
+        for (ToolsPlugin plugin : plugins().list()) {
             for (Widget widget : plugin.widgets()) {
                 if (widget instanceof Page) {
                     pages.add((Page) widget);
@@ -244,9 +245,13 @@ public class Server extends SlingAllMethodsServlet implements Manager {
             throws IOException {
         CURRENT_REQUEST.set(request);
         try {
+            if (!platformConfig.toolsAllowed(request)) {
+                response.sendError(SC_NOT_FOUND);
+                return;
+            }
             final RequestPathInfo pathInfo = request.getRequestPathInfo();
             final List<String> selectors = Common.listOf(pathInfo.getSelectors());
-            final ToolsPlugin plugin = plugins().get(Manager.consume(selectors, Dashboard.KEY));
+            final ToolsPlugin plugin = plugins().get(Manager.consume(selectors, Browser.KEY));
             if (plugin != null) {
                 Result<?> result = plugin.process(request, response, selectors);
                 final Object data = result.getData();

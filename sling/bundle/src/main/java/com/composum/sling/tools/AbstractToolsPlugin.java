@@ -3,6 +3,7 @@ package com.composum.sling.tools;
 import com.composum.sling.tools.impl.Server;
 import com.composum.sling.tools.template.Template;
 import com.composum.sling.tools.template.TemplateBuilder;
+import com.composum.sling.tools.template.TemplateContext;
 import com.composum.sling.tools.template.TemplateContext.Values;
 import com.composum.sling.tools.template.TemplateReader;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -33,6 +34,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
@@ -46,10 +48,15 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
 
     private static final String DEFAULT_RESOURCE_ROOT = "/com/composum";
 
+    /**
+     * Default constructor.
+     */
     protected AbstractToolsPlugin() {
     }
 
     /**
+     * The manager this plugin is registered with.
+     *
      * @return the manager this plugin is registered with
      */
     protected abstract @NotNull Manager manager();
@@ -61,7 +68,37 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
         return manager().serverPath() + "." + key() + "." + widgetKey + ".html";
     }
 
+    @Override
+    public @Nullable String widgetViewLink(@NotNull final SlingHttpServletRequest request,
+                                           @NotNull final SlingHttpServletResponse response,
+                                           @NotNull final String widgetKey) {
+        return null;
+    }
+
+    @Override
+    public @NotNull String adjustLink(@NotNull final String link) {
+        return link.replaceFirst("^.+(" + Pattern.quote(manager().serverPath()) + ")", "$1");
+    }
+
     /**
+     * This plugin's own base link (no path).
+     *
+     * @return this plugin's own base link (no path)
+     */
+    public @NotNull String pluginLink() {
+        return pluginLink(null);
+    }
+
+    @Override
+    public @NotNull String pluginLink(@Nullable String path) {
+        return (StringUtils.isNotBlank(path) && path.matches("^(/com/composum)?/(lib|sling|aem)(/.*)?$"))
+                ? manager().serverPath() + "." + key() + ".resource.html" + path
+                : manager().serverPath() + "." + key() + ".html" + path;
+    }
+
+    /**
+     * The common template context values shared by every tools page.
+     *
      * @return the common template context values shared by every tools page (navigation, current
      * user, system client libraries)
      */
@@ -86,6 +123,8 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     }
 
     /**
+     * The space-separated CSS classes to apply to the HTML root element.
+     *
      * @param mainHtmlClass the main CSS class of the rendered HTML root element
      * @return the space-separated CSS classes to apply to the HTML root element (the main class,
      * the current runmode classes, and any classes contributed by {@link #collectHtmlCssClasses})
@@ -111,6 +150,8 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     // Repository access
 
     /**
+     * The resource's allowed properties.
+     *
      * @param resource the resource whose allowed properties to collect
      * @return the resource's allowed properties (per {@link Manager#isAllowedProperty})
      */
@@ -119,6 +160,8 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     }
 
     /**
+     * Collects the resource's allowed properties into the given map.
+     *
      * @param resource   the resource whose allowed properties to collect
      * @param properties the map to add the collected properties to
      * @return the given 'properties' map
@@ -136,6 +179,11 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     }
 
     // Templating
+
+    @Override
+    public @Nullable Template getTemplate(@NotNull TemplateContext context, @NotNull String path) {
+        return new Template(path, context, this);
+    }
 
     @Override
     public @NotNull XSSAPI xssapi() {
@@ -162,6 +210,8 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     }
 
     /**
+     * A reader that renders the given template's placeholders while being read.
+     *
      * @param template the template to render
      * @return a reader that renders the given template's placeholders while being read, or 'null'
      * if the template is 'null' or its content cannot be opened
@@ -183,6 +233,8 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     }
 
     /**
+     * The raw, unrendered content of the resource at the given path.
+     *
      * @param path the classpath-relative resource path to open
      * @return the raw, unrendered content of the resource at the given path, or 'null' if the
      * path is blank or the resource cannot be opened
@@ -232,6 +284,8 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
         protected final Iterable<?> delegate;
 
         /**
+         * Wraps the given iterable.
+         *
          * @param iterable the iterable to wrap
          */
         public ValuesIterable(Iterable<?> iterable) {
@@ -261,6 +315,8 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
         protected final Iterator<?> delegate;
 
         /**
+         * Wraps the given iterator.
+         *
          * @param iterator the iterator to wrap
          */
         public ValuesIterator(Iterator<?> iterator) {
@@ -281,6 +337,8 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     // File resources
 
     /**
+     * The classpath root under which this plugin's classpath (client) resources are located.
+     *
      * @return the classpath root under which this plugin's classpath (client) resources are located
      */
     protected @NotNull String resourceRoot() {
@@ -288,6 +346,8 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     }
 
     /**
+     * Prefixes the given path with {@link #resourceRoot()} unless it is already rooted.
+     *
      * @param path a resource path, either already rooted (at {@link #resourceRoot()} or the
      *             server path) or relative
      * @return the given path, prefixed with {@link #resourceRoot()} unless it is already rooted
@@ -314,6 +374,8 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     }
 
     /**
+     * The classpath resource's content at the given path.
+     *
      * @param path the resource path to open
      * @return the resource's content, or 'null' if the path is 'null' or not allowed (see
      * {@link #isAllowedResource})
@@ -329,6 +391,8 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     }
 
     /**
+     * Whether the given path is a client resource that may be served via {@link #resource}.
+     *
      * @param path the resource path to check
      * @return whether the given path is a client resource (script, stylesheet, image, font) under
      * {@link #resourceRoot()} that may be served via {@link #resource}
@@ -339,6 +403,8 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     }
 
     /**
+     * The class loader used to resolve classpath (client) resources.
+     *
      * @return the class loader used to resolve classpath (client) resources
      */
     protected @NotNull ClassLoader getResourceClassLoader() {

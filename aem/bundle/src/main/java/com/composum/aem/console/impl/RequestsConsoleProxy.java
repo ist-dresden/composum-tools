@@ -19,7 +19,14 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 @Designate(ocd = RequestsConsoleProxy.Config.class)
 public class RequestsConsoleProxy extends AbstractConsoleProxy {
 
+    /** this proxy's default selector key */
     public static final String KEY = "requests";
+
+    /**
+     * Default constructor.
+     */
+    public RequestsConsoleProxy() {
+    }
 
     /**
      * OSGi metatype configuration for this proxy's {@link #key()}, {@link #label()} and {@link #rank()}.
@@ -27,12 +34,21 @@ public class RequestsConsoleProxy extends AbstractConsoleProxy {
     @ObjectClassDefinition(name = "Composum Sling Requests Proxy")
     public @interface Config {
 
+        /**
+         * @return this proxy's selector key
+         */
         @AttributeDefinition()
         String key() default RequestsConsoleProxy.KEY;
 
+        /**
+         * @return this proxy's navigation label
+         */
         @AttributeDefinition()
         String label() default "Requests";
 
+        /**
+         * @return this proxy's navigation rank
+         */
         @AttributeDefinition()
         int rank() default 6000;
     }
@@ -50,6 +66,10 @@ public class RequestsConsoleProxy extends AbstractConsoleProxy {
         return console;
     }
 
+    /**
+     * @param bundleContext the bundle context of this component
+     * @param config        the current OSGi configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {

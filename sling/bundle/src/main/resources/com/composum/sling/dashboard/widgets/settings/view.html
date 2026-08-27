@@ -1,0 +1,9 @@
+<div class="settings view">
+    <link rel="stylesheet" href="${src:'/sling/dashboard/widgets/settings/style.css'}"/>
+    <div class="view-head">
+        <div class="view-title">Service Settings</div>
+    </div>
+    <div class="view-body">
+${each.service:services;'/sling/dashboard/widgets/settings/viewService.html'}
+    </div>
+</div>

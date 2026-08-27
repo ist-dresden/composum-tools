@@ -20,6 +20,7 @@ public class Tile extends Widget {
     @Override
     public @NotNull TemplateContext.Values values(@NotNull TemplateContext.Values values) {
         return values.with(key, new TemplateContext.Values()
+                .with("key", key)
                 .with("label", label)
         );
     }
