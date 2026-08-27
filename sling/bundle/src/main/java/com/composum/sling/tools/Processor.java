@@ -6,9 +6,14 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
+/**
+ * Something that handles requests routed to it by key, and that can be transiently disabled.
+ */
 public interface Processor {
 
     /**
+     * Whether this processor currently accepts requests.
+     *
      * @return whether this processor currently accepts requests
      */
     boolean isEnabled();

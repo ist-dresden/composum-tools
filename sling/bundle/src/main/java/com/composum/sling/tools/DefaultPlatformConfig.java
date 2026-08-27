@@ -1,6 +1,7 @@
 package com.composum.sling.tools;
 
-import com.composum.sling.browser.view.PropertiesView;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.settings.SlingSettingsService;
 import org.jetbrains.annotations.NotNull;
@@ -28,8 +29,11 @@ public class DefaultPlatformConfig implements PlatformConfig {
     @ObjectClassDefinition(name = "Composum Tools Platform Config")
     public @interface Config {
 
+        /**
+         * @return the resource path for checking the right to access the tools
+         */
         @AttributeDefinition()
-        String key() default PropertiesView.KEY;
+        String guardNode();
 
         @AttributeDefinition()
         String[] fileTypes() default {
@@ -45,16 +49,24 @@ public class DefaultPlatformConfig implements PlatformConfig {
     @Reference
     private SlingSettingsService settingsService;
 
+    protected String guardNode;
+    /** the configured file/binary resource types (see {@link Config#fileTypes()}) */
     protected List<String> fileTypes;
 
     @Activate
     @Modified
     protected void activate(final Config config) {
+        guardNode = config.guardNode();
         fileTypes = Arrays.asList(config.fileTypes());
     }
 
     protected SlingSettingsService settingsService() {
         return settingsService;
+    }
+
+    @Override
+    public boolean toolsAllowed(@NotNull final SlingHttpServletRequest request) {
+        return StringUtils.isBlank(guardNode) || request.getResourceResolver().getResource(guardNode) != null;
     }
 
     @Override

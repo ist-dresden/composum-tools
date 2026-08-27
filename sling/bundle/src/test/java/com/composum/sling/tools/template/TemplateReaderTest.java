@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.ResourceBundle;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -40,7 +41,7 @@ public class TemplateReaderTest {
      * encoding operation - the real {@link TestManager#XSSMOCK} is a pass-through and cannot show
      * that distinction
      */
-    protected static final TemplateBuilder TAGGING_BUILDER = new TemplateBuilder() {
+    protected final TemplateBuilder TAGGING_BUILDER = new TemplateBuilder() {
 
         @Override
         public @Nullable Template getTemplate(@NotNull TemplateContext context, @NotNull String key) {
@@ -55,6 +56,11 @@ public class TemplateReaderTest {
         @Override
         public @NotNull XSSAPI xssapi() {
             return TAGGING_XSSAPI;
+        }
+
+        @Override
+        public @NotNull String adjustLink(@NotNull final String link) {
+            return link.replaceFirst("^.+(" + Pattern.quote(manager.serverPath()) + ")", "$1");
         }
 
         @Override
@@ -158,6 +164,146 @@ public class TemplateReaderTest {
         @Override
         public String encodeForCSSString(String source) {
             return "CSS[" + source + "]";
+        }
+
+        @Override
+        public @NotNull String filterHTML(String source) {
+            return source;
+        }
+    };
+
+    /**
+     * a {@link TemplateBuilder} whose {@link XSSAPI#getValidHref} simulates an AEM Cloud Service
+     * publisher's implicit href externalization (e.g. via the resource resolver's request-based
+     * mapping): a relative href is prefixed with an absolute, external host; an already-absolute
+     * href (a genuine external link) is left untouched - used to verify that
+     * {@link TemplateBuilder#adjustLink} normalizes the former back to a link relative to this
+     * plugin's own server path, while leaving the latter alone
+     */
+    protected final TemplateBuilder MAPPING_BUILDER = new TemplateBuilder() {
+
+        @Override
+        public @Nullable Template getTemplate(@NotNull TemplateContext context, @NotNull String key) {
+            return null;
+        }
+
+        @Override
+        public @Nullable Reader openTemplate(@Nullable Template template) {
+            return null;
+        }
+
+        @Override
+        public @NotNull XSSAPI xssapi() {
+            return MAPPING_XSSAPI;
+        }
+
+        @Override
+        public @NotNull String adjustLink(@NotNull final String link) {
+            return link.replaceFirst("^.+(" + Pattern.quote(manager.serverPath()) + ")", "$1");
+        }
+
+        @Override
+        public @NotNull String pluginLink(@NotNull String path) {
+            return manager.serverPath() + ".test.resource.html" + path;
+        }
+
+        @Override
+        public @NotNull String toString(@NotNull Object value) {
+            return String.valueOf(value);
+        }
+
+        @Override
+        public @NotNull Object valuesOf(@NotNull Object value) {
+            return value;
+        }
+    };
+
+    protected static final XSSAPI MAPPING_XSSAPI = new XSSAPI() {
+
+        @Override
+        public Integer getValidInteger(String integer, int defaultValue) {
+            return defaultValue;
+        }
+
+        @Override
+        public Long getValidLong(String source, long defaultValue) {
+            return defaultValue;
+        }
+
+        @Override
+        public Double getValidDouble(String source, double defaultValue) {
+            return defaultValue;
+        }
+
+        @Override
+        public String getValidDimension(String dimension, String defaultValue) {
+            return dimension;
+        }
+
+        @Override
+        public @NotNull String getValidHref(String url) {
+            return url.matches("^[a-zA-Z][a-zA-Z0-9+.-]*://.*$") ? url
+                    : "https://publish-p123-e456.adobeaemcloud.com" + url;
+        }
+
+        @Override
+        public String getValidJSToken(String token, String defaultValue) {
+            return token;
+        }
+
+        @Override
+        public String getValidStyleToken(String token, String defaultValue) {
+            return token;
+        }
+
+        @Override
+        public String getValidCSSColor(String color, String defaultColor) {
+            return color;
+        }
+
+        @Override
+        public String getValidMultiLineComment(String comment, String defaultComment) {
+            return comment;
+        }
+
+        @Override
+        public String getValidJSON(String json, String defaultJson) {
+            return json;
+        }
+
+        @Override
+        public String getValidXML(String xml, String defaultXml) {
+            return xml;
+        }
+
+        @Override
+        public String encodeForHTML(String source) {
+            return source;
+        }
+
+        @Override
+        public String encodeForHTMLAttr(String source) {
+            return source;
+        }
+
+        @Override
+        public String encodeForXML(String source) {
+            return source;
+        }
+
+        @Override
+        public String encodeForXMLAttr(String source) {
+            return source;
+        }
+
+        @Override
+        public String encodeForJSString(String source) {
+            return source;
+        }
+
+        @Override
+        public String encodeForCSSString(String source) {
+            return source;
         }
 
         @Override
@@ -376,8 +522,30 @@ public class TemplateReaderTest {
 
         @Test
         public void srcTypeWithRealBuilderProducesActualPluginLink() throws Exception {
-            assertEquals("/apps/cpm/test.test.resource.html/img.png", render("${src:v}",
+            assertEquals("/apps/cpm/test.test.resource.html/lib/img.png", render("${src:v}",
+                    new Values().with("v", "/lib/img.png")));
+        }
+
+        @Test
+        public void linkTypeWithExternalizedHrefIsNormalizedBackToRelative() throws Exception {
+            // simulates an AEM Cloud Service publisher's XSSAPI implicitly externalizing a
+            // relative href with an absolute host - adjustLink must strip that host back off
+            assertEquals("/apps/cpm/test/some/page.html", render(MAPPING_BUILDER, "${link:v}",
+                    new Values().with("v", "/apps/cpm/test/some/page.html")));
+        }
+
+        @Test
+        public void srcTypeWithExternalizedHrefIsNormalizedBackToRelative() throws Exception {
+            assertEquals("/apps/cpm/test.test.resource.html/img.png", render(MAPPING_BUILDER, "${src:v}",
                     new Values().with("v", "/img.png")));
+        }
+
+        @Test
+        public void linkTypeLeavesGenuineExternalUrlUnchanged() throws Exception {
+            // a link that never contained this plugin's own server path (a real external URL)
+            // must pass through both getValidHref and adjustLink untouched
+            assertEquals("https://example.com/other", render(MAPPING_BUILDER, "${link:v}",
+                    new Values().with("v", "https://example.com/other")));
         }
 
         @Test

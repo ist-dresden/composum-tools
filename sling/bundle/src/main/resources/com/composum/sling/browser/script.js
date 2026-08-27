@@ -14,12 +14,39 @@ class BrowserActions extends ViewWidget {
     if (url) {
       this.loadContent(this.$el, `${url}${path}`, ($element) => {
         this.$currentAction = this.$el.find('.current-action');
+        this.dropdown = new bootstrap.Dropdown(this.$el.find('.dropdown-menu')[0]);
         this.lastAction()
         this.$el.find('.dropdown-item').on('click', (event) => {
           const $action = $(event.currentTarget);
           this.profile.set('lastAction', $action.data('key'));
-          this.lastAction()
+          this.lastAction();
         })
+        this.$el.find('.browser-action[data-method]').on('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          this.dropdown.hide();
+          const $action = $(event.currentTarget);
+          const method = $action.data('method');
+          const url = $action.attr('href');
+          const key = $action.data('key');
+          this.dismissActionResult();
+          this.showCurtain();
+          $.ajax({
+            type: method,
+            url: url,
+            success: (result) => {
+              this.hideCurtain();
+              this.showActionResult(key, result, true);
+            },
+            error: (jqXHR) => {
+              this.hideCurtain();
+              this.showActionResult(key, jqXHR.responseJSON, false);
+            },
+            async: true,
+            cache: false
+          });
+          return false;
+        });
       });
     }
   }
@@ -32,12 +59,70 @@ class BrowserActions extends ViewWidget {
     }
     if ($item.length > 0) {
       const $action = $item.find('a');
-      this.$currentAction.data('key', $action.data('key'));
+      this.$currentAction.attr('data-key', $action.data('key'));
       this.$currentAction.attr('href', $action.attr('href'));
+      const method = $action.data('method');
+      if (method) {
+        this.$currentAction.attr('data-method', method);
+      } else {
+        this.$currentAction.removeAttr('data-method');
+      }
       this.$currentAction.attr('title', $action.attr('title'));
       this.$currentAction.attr('target', $action.attr('target'));
       this.$currentAction.html($action.html());
     }
+  }
+
+  // dismisses a still-visible result alert from a previous action; called right when a new
+  // action starts, so a stale result never lingers into the next one
+  dismissActionResult() {
+    $('.browser-action_result').each((i, el) => bootstrap.Alert.getOrCreateInstance(el).close());
+  }
+
+  // shows a full-viewport, semi-transparent, click-consuming curtain with a spinner while a
+  // long-running action (e.g. a deep tree activation) is in flight, so a second click can't be
+  // fired accidentally; the curtain element is created once and reused across calls
+  showCurtain() {
+    if (!this.$curtain) {
+      this.$curtain = $('<div class="browser-action_curtain">'
+        + '<div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>'
+        + '</div>');
+      $('body').append(this.$curtain);
+    }
+    this.$curtain.addClass('shown');
+  }
+
+  hideCurtain() {
+    if (this.$curtain) {
+      this.$curtain.removeClass('shown');
+    }
+  }
+
+  // shows the outcome of an action (e.g. activate/deactivate) as a dismissible, self-closing
+  // Bootstrap alert; 'result' is the action's JSON response body ({targets, error}), if any -
+  // the returned target paths are rendered as a scrollable list (see .browser-action_result* in style.css)
+  showActionResult(key, result, success) {
+    const targets = (result && result.targets) || [];
+    const error = result && result.error;
+    const ok = success && !error;
+    const verb = key === 'activate' ? 'Activated' : key === 'deactivate' ? 'Deactivated' : 'Action applied to';
+    const summary = ok ? `${verb} ${targets.length} resource(s).` : (error || 'The action failed.');
+    const $alert = $('<div class="browser-action_result alert alert-dismissible fade show" role="alert"></div>')
+      .addClass(ok ? 'alert-success' : 'alert-danger')
+      .append($('<div class="message"></div>').text(summary))
+      .append('<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>');
+    if (targets.length > 0) {
+      const $list = $('<ul class="browser-action_result-targets"></ul>');
+      targets.forEach((path) => $list.append($('<li></li>').text(path)));
+      $alert.append($list);
+    }
+    $('body').append($alert);
+    window.setTimeout(() => {
+      const instance = bootstrap.Alert.getInstance($alert[0]);
+      if (instance) {
+        instance.close();
+      }
+    }, 8000);
   }
 }
 
@@ -90,6 +175,11 @@ class BrowserPathField extends ViewWidget {
 
   onPathSelected(event, path) {
     this.$el.val(path);
+    const $browserLink = $('.tools-navbar .tools-page-link_browser');
+    if ($browserLink.length > 0) {
+      const href = $browserLink.attr('href');
+      $browserLink.attr('href', href.replace(/\.html(\/.*)?$/, `.html${path}`));
+    }
   }
 }
 
@@ -212,7 +302,7 @@ class BrowserTree extends ViewWidget {
         this.openNode(path, function (path) {
           $(document).trigger('path:selected', [path]);
         }.bind(this), true);
-      }.bind(this), 400);
+      }.bind(this), 500);
     }
   }
 

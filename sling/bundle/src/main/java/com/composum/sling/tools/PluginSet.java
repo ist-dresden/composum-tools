@@ -2,8 +2,11 @@ package com.composum.sling.tools;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -12,8 +15,14 @@ import java.util.TreeSet;
 
 public abstract class PluginSet<T extends Plugin> {
 
+    private static final Logger LOG = LoggerFactory.getLogger(PluginSet.class);
+
     protected final Map<String, T> pluginMap = new TreeMap<>();
-    protected final Set<T> pluginSet = new TreeSet<>((o1, o2) -> Integer.compare(o2.rank(), o1.rank()));
+
+    protected final Set<T> pluginSet = new TreeSet<>((o1, o2) -> {
+        final int rankOrder = Integer.compare(o2.rank(), o1.rank());
+        return rankOrder != 0 ? rankOrder : o1.key().compareTo(o2.key());
+    });
 
     protected abstract boolean isEnabled(@NotNull T service);
 
@@ -31,6 +40,7 @@ public abstract class PluginSet<T extends Plugin> {
                     }
                 }
                 pluginSet.add(service);
+                LOG.info("attached {} to '{}' ({}:{})", service, key, pluginSet.size(), pluginSet);
             }
         }
     }
@@ -41,6 +51,7 @@ public abstract class PluginSet<T extends Plugin> {
             final T removed = pluginMap.remove(service.key());
             if (removed != null) {
                 pluginSet.remove(removed);
+                LOG.info("detached {} to '{}' ({}:{})", service, service.key(), pluginSet.size(), pluginSet);
             }
         }
     }
@@ -49,11 +60,7 @@ public abstract class PluginSet<T extends Plugin> {
         return Optional.ofNullable(key).map(pluginMap::get).orElse(null);
     }
 
-    public @NotNull Set<T> set() {
-        return pluginSet;
-    }
-
-    public Collection<T> list() {
-        return pluginSet;
+    public @NotNull Collection<T> list() {
+        return Collections.unmodifiableCollection(pluginSet);
     }
 }

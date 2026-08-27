@@ -9,16 +9,20 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 /**
- * A {@link Plugin} contributing one or more dashboard widgets.
+ * A {@link Plugin} contributing one or more tools pages or dashboard widgets.
  */
 public interface ToolsPlugin extends Plugin {
 
     /**
+     * The widgets contributed by this plugin.
+     *
      * @return the widgets contributed by this plugin
      */
     @NotNull List<Widget> widgets();
 
     /**
+     * The link to the given widget's own page (as shown in the dashboard tile).
+     *
      * @param request   the current request
      * @param response  the current response
      * @param widgetKey the key of the widget to build a link for
@@ -27,4 +31,17 @@ public interface ToolsPlugin extends Plugin {
     @Nullable String widgetLink(@NotNull SlingHttpServletRequest request,
                                 @NotNull SlingHttpServletResponse response,
                                 @NotNull String widgetKey);
+
+    /**
+     * The link to a detail view of the given widget, if it offers one in addition to its tile
+     * content; 'null' (the default) if it doesn't.
+     *
+     * @param request   the current request
+     * @param response  the current response
+     * @param widgetKey the key of the widget to build a link for
+     * @return the detail view link for the given widget, or 'null' if it doesn't offer one
+     */
+    @Nullable String widgetViewLink(@NotNull SlingHttpServletRequest request,
+                                    @NotNull SlingHttpServletResponse response,
+                                    @NotNull String widgetKey);
 }

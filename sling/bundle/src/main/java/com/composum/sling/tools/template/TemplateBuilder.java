@@ -60,6 +60,20 @@ public interface TemplateBuilder {
     @NotNull XSSAPI xssapi();
 
     /**
+     * normalizes a validated href/URL value back to a link relative to this plugin's own server
+     * path, undoing any scheme/host externalization a {@link #xssapi()} implementation may have
+     * applied while validating it (some platforms map a relative href to an absolute, externally
+     * routable URL as part of {@code getValidHref}, e.g. via the resource resolver's request-based
+     * mapping) - used by the 'link' and 'src' placeholder types of a {@link TemplateReader} after
+     * {@link XSSAPI#getValidHref}. A link that does not contain this plugin's own server path (a
+     * genuine external URL, or a link that is already relative) is returned unchanged.
+     *
+     * @param link the (already href-validated) link to normalize
+     * @return the given link, with any leading scheme/host up to this plugin's own server path removed
+     */
+    @NotNull String adjustLink(@NotNull String link);
+
+    /**
      * builds a templating 'src=...' link to the given resource path in the builder's context
      * (plugin) - used by the 'src' placeholder type of a {@link TemplateReader}
      *

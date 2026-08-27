@@ -12,11 +12,15 @@ import java.util.Collection;
 public interface View extends Plugin, Values.Provider {
 
     /**
+     * The client-side stylesheet resource paths this view needs.
+     *
      * @return the client-side stylesheet resource paths this view needs
      */
     @NotNull Collection<String> styles();
 
     /**
+     * The client-side script resource paths this view needs.
+     *
      * @return the client-side script resource paths this view needs
      */
     @NotNull Collection<String> scripts();

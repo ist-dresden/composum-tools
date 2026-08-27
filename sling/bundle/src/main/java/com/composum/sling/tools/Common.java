@@ -31,7 +31,9 @@ public interface Common {
     String NT_UNSTRUCTURED = "nt:unstructured";
     String NT_RESOURCE = "nt:resource";
     String NT_FILE = "nt:file";
+    String NT_FOLDER = "nt:folder";
     String SLING_FOLDER = "sling:Folder";
+    String ORDERED_FOLDER = "sling:OrderedFolder";
     String AC_POLICY = "rep:policy";
 
     String HTML_DATE_FORMAT = "yyyy-MM-dd MM:mm:ss";

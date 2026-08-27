@@ -20,7 +20,14 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 @Designate(ocd = ServletsConsoleProxy.Config.class)
 public class ServletsConsoleProxy extends AbstractConsoleProxy {
 
+    /** this proxy's default selector key */
     public static final String KEY = "servlets";
+
+    /**
+     * Default constructor.
+     */
+    public ServletsConsoleProxy() {
+    }
 
     /**
      * OSGi metatype configuration for this proxy's {@link #key()}, {@link #label()} and {@link #rank()}.
@@ -28,12 +35,21 @@ public class ServletsConsoleProxy extends AbstractConsoleProxy {
     @ObjectClassDefinition(name = "Composum Servlet Resolver Proxy")
     public @interface Config {
 
+        /**
+         * @return this proxy's selector key
+         */
         @AttributeDefinition()
         String key() default ServletsConsoleProxy.KEY;
 
+        /**
+         * @return this proxy's navigation label
+         */
         @AttributeDefinition()
         String label() default "Servlets";
 
+        /**
+         * @return this proxy's navigation rank
+         */
         @AttributeDefinition()
         int rank() default 2000;
     }
@@ -51,6 +67,10 @@ public class ServletsConsoleProxy extends AbstractConsoleProxy {
         return console;
     }
 
+    /**
+     * @param bundleContext the bundle context of this component
+     * @param config        the current OSGi configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {

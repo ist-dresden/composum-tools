@@ -44,7 +44,18 @@ import java.util.Optional;
 @Designate(ocd = Console.Config.class)
 public class Console extends AbstractToolsPlugin {
 
+    /** this plugin's default selector key */
     public static final String KEY = "console";
+    /** this plugin's default navigation label */
+    public static final String LABEL = "Console";
+    /** this plugin's default navigation rank */
+    public static final int RANK = 1000;
+
+    /**
+     * Default constructor.
+     */
+    public Console() {
+    }
 
     /**
      * OSGi metatype configuration for this console's key/label/rank, whether it is enabled, and
@@ -53,18 +64,33 @@ public class Console extends AbstractToolsPlugin {
     @ObjectClassDefinition(name = "Composum Tools Console")
     public @interface Config {
 
+        /**
+         * @return this plugin's selector key
+         */
         @AttributeDefinition()
         String key() default Console.KEY;
 
+        /**
+         * @return this plugin's navigation label
+         */
         @AttributeDefinition()
-        String label() default "Console";
+        String label() default Console.LABEL;
 
+        /**
+         * @return this plugin's navigation rank
+         */
         @AttributeDefinition()
-        int rank() default 1000;
+        int rank() default Console.RANK;
 
+        /**
+         * @return whether this plugin is enabled
+         */
         @AttributeDefinition()
         boolean enabled() default true;
 
+        /**
+         * @return the enabled {@link ConsoleProxy} keys, or empty to enable all implemented and active ones
+         */
         @AttributeDefinition()
         String[] views() default {
         /*      "requests",
@@ -73,6 +99,7 @@ public class Console extends AbstractToolsPlugin {
         };
     }
 
+    /** the enabled, registered {@link ConsoleProxy} implementations */
     protected PluginSet<ConsoleProxy> proxies = new PluginSet<>() {
         @Override
         protected boolean isEnabled(@NotNull ConsoleProxy service) {
@@ -80,14 +107,22 @@ public class Console extends AbstractToolsPlugin {
         }
     };
 
+    /** the manager this plugin is registered with */
     @Reference
     protected Manager manager;
 
+    /** the bundle context this plugin was activated with */
     protected BundleContext bundleContext;
+    /** the current OSGi configuration */
     protected Config config;
 
+    /** the configured enabled {@link ConsoleProxy} keys (see {@link Config#views()}) */
     protected transient List<String> views;
 
+    /**
+     * @param bundleContext the bundle context of this component
+     * @param config        the current OSGi configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {
@@ -97,6 +132,9 @@ public class Console extends AbstractToolsPlugin {
         manager.plugins().attach(this);
     }
 
+    /**
+     * Detaches this plugin from the manager.
+     */
     @Deactivate
     protected void deactivate() {
         manager.plugins().detach(this);
@@ -109,12 +147,12 @@ public class Console extends AbstractToolsPlugin {
 
     @Override
     public @NotNull String label() {
-        return Optional.ofNullable(config).map(Config::label).orElse("Console");
+        return Optional.ofNullable(config).map(Config::label).orElse(LABEL);
     }
 
     @Override
     public int rank() {
-        return Optional.ofNullable(config).map(Config::rank).orElse(1000);
+        return Optional.ofNullable(config).map(Config::rank).orElse(RANK);
     }
 
     @Override
@@ -122,10 +160,20 @@ public class Console extends AbstractToolsPlugin {
         return config.enabled();
     }
 
+    /**
+     * The manager this plugin is registered with.
+     *
+     * @return the manager this plugin is registered with
+     */
     public @NotNull Manager manager() {
         return manager;
     }
 
+    /**
+     * The enabled, registered {@link ConsoleProxy} implementations.
+     *
+     * @return the enabled, registered {@link ConsoleProxy} implementations
+     */
     public @NotNull PluginSet<ConsoleProxy> proxies() {
         return proxies;
     }
@@ -133,13 +181,19 @@ public class Console extends AbstractToolsPlugin {
     @Override
     public @NotNull List<Widget> widgets() {
         List<Widget> widgets = new ArrayList<>();
-        for (ConsoleProxy proxy : proxies.set()) {
+        for (ConsoleProxy proxy : proxies.list()) {
             final String key = proxy.key();
             widgets.add(new Page(key, proxy.label(), proxy.rank(), () -> proxyLink(proxy), widgets.isEmpty()));
         }
         return widgets;
     }
 
+    /**
+     * The link to the given proxy's own page.
+     *
+     * @param proxy the proxy to build a link for
+     * @return the link to the given proxy's own page
+     */
     protected @NotNull String proxyLink(@NotNull final ConsoleProxy proxy) {
         return manager().serverPath() + ".console." + proxy.key() + ".html";
     }
@@ -229,15 +283,5 @@ public class Console extends AbstractToolsPlugin {
         return Optional.ofNullable(templates.get(key))
                 .map(factory -> factory.create(context))
                 .orElse(key.startsWith("/") ? new Template(key, context, this) : null);
-    }
-
-    /**
-     * Builds a link back to this console's {@code "resource"} route (see {@link #processGet}), used
-     * e.g. by {@code AbstractConsoleProxy#rewriteResourceLink} to keep a proxied plugin's static
-     * resources (CSS/JS) loading through this console instead of the original console's own path.
-     */
-    @Override
-    public @NotNull String pluginLink(@NotNull String path) {
-        return manager.serverPath() + ".console.resource.html" + path;
     }
 }

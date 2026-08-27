@@ -24,10 +24,22 @@ public interface Actions {
     interface Action extends Values.Provider {
 
         /**
+         * The URL to invoke for this action.
+         *
          * @return the URL to invoke for this action, or 'null' if the action is not available for
          * the current resource
          */
         @Nullable String link();
+
+        /**
+         * The method to use for applying the link.
+         *
+         * @return the method to use for applying the link, if 'null' it a pure link, otherwise
+         * an ajax request should be used to apply this link
+         */
+        default @Nullable String method() {
+            return null;
+        }
 
         /**
          * Handles a request routed to this action (e.g. via a redirect from {@link #link()}).
@@ -45,17 +57,23 @@ public interface Actions {
     }
 
     /**
+     * The actions available for the current request's target resource.
+     *
      * @param request the current request
      * @return the actions available for the current request's target resource, keyed by their key
      */
     @NotNull Map<String, Action> set(@NotNull SlingHttpServletRequest request);
 
     /**
+     * The client-side stylesheet resource paths this action set needs.
+     *
      * @return the client-side stylesheet resource paths this action set needs
      */
     @NotNull Collection<String> styles();
 
     /**
+     * The client-side script resource paths this action set needs.
+     *
      * @return the client-side script resource paths this action set needs
      */
     @NotNull Collection<String> scripts();

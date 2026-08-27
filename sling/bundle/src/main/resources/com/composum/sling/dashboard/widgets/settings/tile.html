@@ -1,0 +1,9 @@
+<div class="settings card">
+    <link rel="stylesheet" href="${src:'/sling/dashboard/widgets/settings/style.css'}"/>
+    <div class="card-header">Service Settings</div>
+    <div class="card-body">
+        <ul class="list-group list-group-flush">
+            ${each.service:services;'/sling/dashboard/widgets/settings/tileService.html'}
+        </ul>
+    </div>
+</div>

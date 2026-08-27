@@ -40,6 +40,7 @@ public class Page extends Widget {
     @Override
     public @NotNull Values values(@NotNull Values values) {
         return values
+                .with("key", key)
                 .with("label", label)
                 .with("link", link)
                 .with("newGroup", newGroup);

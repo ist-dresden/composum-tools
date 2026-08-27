@@ -1,0 +1,65 @@
+
+.dashboard-page_dashboard .settings.view {
+    padding: 4px;
+}
+
+
+.composum-tools_widget .settings,
+.dashboard-page_dashboard .settings.view {
+    color: #212529;
+}
+
+.composum-tools_widget .settings .list-group {
+    max-height: 295px;
+    overflow: auto;
+}
+
+.composum-tools_widget .settings .list-group-item {
+    padding: 0.5rem 1rem;
+    line-height: 20px;
+    white-space: nowrap;
+}
+
+.dashboard-page_dashboard .settings.view .service-status,
+.composum-tools_widget .settings .service-status {
+    width: 25px;
+    height: 20px;
+    padding: 0;
+    line-height: 20px;
+    text-align: center;
+}
+
+.dashboard-page_dashboard .settings.view .service-status .bi,
+.composum-tools_widget .settings .service-status .bi {
+    font-size: 20px;
+    line-height: 20px;
+}
+
+.dashboard-page_dashboard .settings.view .card-header {
+    padding: 0.5rem;
+}
+
+.dashboard-page_dashboard .settings.view .card-header button {
+    width: 100%;
+    line-height: 20px;
+    text-decoration: none;
+}
+
+.composum-tools_widget .settings .card-body,
+.dashboard-page_dashboard .settings.view .card-body {
+    padding: 0;
+}
+
+.dashboard-page_dashboard .settings.view .table td {
+    padding: 0.3rem 0.6rem;
+}
+
+.dashboard-page_dashboard .settings.view .table td.value {
+    width: 100%;
+}
+
+.dashboard-page_dashboard .settings.view .table ul {
+    margin: 0;
+    padding: 0 0 0 18px;
+    list-style: circle;
+}

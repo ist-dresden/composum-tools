@@ -48,7 +48,7 @@ public class TestManager implements Manager {
     @Override
     public @NotNull List<Page> getToolsPages() {
         final List<Page> pages = new ArrayList<>();
-        for (ToolsPlugin plugin : plugins().set()) {
+        for (ToolsPlugin plugin : plugins().list()) {
             for (Widget widget : plugin.widgets()) {
                 if (widget instanceof Page) {
                     pages.add((Page) widget);

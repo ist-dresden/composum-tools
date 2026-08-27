@@ -20,7 +20,14 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 @Designate(ocd = ResolverConsoleProxy.Config.class)
 public class ResolverConsoleProxy extends AbstractConsoleProxy {
 
+    /** this proxy's default selector key */
     public static final String KEY = "resolver";
+
+    /**
+     * Default constructor.
+     */
+    public ResolverConsoleProxy() {
+    }
 
     /**
      * OSGi metatype configuration for this proxy's {@link #key()}, {@link #label()} and {@link #rank()}.
@@ -28,12 +35,21 @@ public class ResolverConsoleProxy extends AbstractConsoleProxy {
     @ObjectClassDefinition(name = "Composum Sling Resolver Proxy")
     public @interface Config {
 
+        /**
+         * @return this proxy's selector key
+         */
         @AttributeDefinition()
         String key() default ResolverConsoleProxy.KEY;
 
+        /**
+         * @return this proxy's navigation label
+         */
         @AttributeDefinition()
         String label() default "Resolver";
 
+        /**
+         * @return this proxy's navigation rank
+         */
         @AttributeDefinition()
         int rank() default 4000;
     }
@@ -51,6 +67,10 @@ public class ResolverConsoleProxy extends AbstractConsoleProxy {
         return console;
     }
 
+    /**
+     * @param bundleContext the bundle context of this component
+     * @param config        the current OSGi configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {

@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.composum.tools</groupId>
         <artifactId>composum-tools-aem-parent</artifactId>
-        <version>1.1.0-SNAPSHOT</version>
+        <version>1.1.0</version>
     </parent>
 
     <artifactId>composum-tools-aem-bundle</artifactId>
@@ -70,6 +70,20 @@
             <groupId>org.apache.sling</groupId>
             <artifactId>org.apache.sling.settings</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.apache.sling</groupId>
+            <artifactId>org.apache.sling.xss</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.sling</groupId>
+            <artifactId>org.apache.sling.caconfig.api</artifactId>
+        </dependency>
+
+        <!-- JCR API, Jackrabbit, VLT -->
+        <dependency>
+            <groupId>javax.jcr</groupId>
+            <artifactId>jcr</artifactId>
+        </dependency>
 
         <!-- Java sevlet, web API -->
         <dependency>
@@ -116,10 +130,6 @@
             <groupId>org.osgi</groupId>
             <artifactId>osgi.cmpn</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.osgi</groupId>
-            <artifactId>org.osgi.annotation</artifactId>
-        </dependency>
 
         <!-- Java Annotations / Lombok -->
         <dependency>
@@ -129,10 +139,6 @@
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
         </dependency>
 
     </dependencies>

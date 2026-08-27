@@ -1,6 +1,5 @@
 package com.composum.aem;
 
-import com.composum.sling.browser.view.PropertiesView;
 import com.composum.sling.tools.DefaultPlatformConfig;
 import com.composum.sling.tools.PlatformConfig;
 import org.apache.sling.api.resource.Resource;
@@ -17,7 +16,6 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 
 import static com.composum.sling.tools.Common.JCR_CONTENT;
 import static com.composum.sling.tools.Common.JCR_PRIMARY_TYPE;
@@ -31,8 +29,8 @@ import static com.composum.sling.tools.Common.JCR_PRIMARY_TYPE;
 @Designate(ocd = AemPlatformConfig.Config.class)
 public class AemPlatformConfig extends DefaultPlatformConfig {
 
-    public AemPlatformConfig() {
-    }
+    /** the AEM navigation console entry path guarding access to the tools */
+    public static final String AEM_TOOLS_ENTRY = "/apps/cq/core/content/nav/tools/general/composum";
 
     /**
      * OSGi metatype configuration for this platform config's file types and rank.
@@ -41,10 +39,10 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
     public @interface Config {
 
         /**
-         * @return unused; retained for configuration compatibility
+         * @return the resource path for checking the right to access the tools
          */
         @AttributeDefinition()
-        String key() default PropertiesView.KEY;
+        String guardNode();
 
         /**
          * @return the resource types treated as binary/file-like
@@ -68,15 +66,13 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
     @Reference
     private SlingSettingsService settingsService;
 
-    /** the configured file/binary resource types (see {@link Config#fileTypes()}) */
-    protected List<String> fileTypes;
-
     /**
      * @param config the current OSGi configuration
      */
     @Activate
     @Modified
     protected void activate(final Config config) {
+        guardNode = config.guardNode();
         fileTypes = Arrays.asList(config.fileTypes());
     }
 
