@@ -17,10 +17,13 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.composum.sling.tools.Common.EXT_HTML;
 import static com.composum.sling.tools.Common.HTTP_LOCATION;
+import static com.composum.sling.tools.Common.JCR_CONTENT;
+import static com.composum.sling.tools.Common.SLING_RESOURCE_TYPE;
 import static javax.servlet.http.HttpServletResponse.SC_MOVED_TEMPORARILY;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
@@ -134,7 +137,13 @@ public class DefaultActions implements Actions {
     }
 
     protected @Nullable String displayUrl(@Nullable final Resource target) {
-        return targetUrl(target, null, EXT_HTML);
+        final String resourceType = Optional.ofNullable(target)
+                .map(r -> r.getValueMap().get(SLING_RESOURCE_TYPE, String.class))
+                .orElse(Optional.ofNullable(target)
+                        .map(t -> t.getChild(JCR_CONTENT))
+                        .map(r -> r.getValueMap().get(SLING_RESOURCE_TYPE, String.class))
+                        .orElse(null));
+        return StringUtils.isNotBlank(resourceType) ? targetUrl(target, null, EXT_HTML) : null;
     }
 
     protected @NotNull Result<?> redirect(@Nullable final String redirectUrl) {
@@ -145,14 +154,16 @@ public class DefaultActions implements Actions {
 
     @Override
     public @NotNull Map<String, Action> set(@NotNull final SlingHttpServletRequest request) {
+        final Resource target = targetResource(request);
         Map<String, Action> actions = new LinkedHashMap<>();
-        actions.put("view", new ActionImpl("view", "display", "View", "_blank",
-                "open the selected resource in a fresh tab") {
-            @Override
-            public @Nullable String link() {
-                return displayUrl(targetResource(request));
-            }
-        });
+        Optional.ofNullable(displayUrl(target)).ifPresent(displayUrl ->
+                actions.put("view", new ActionImpl("view", "display", "View", "_blank",
+                        "open the selected resource in a fresh tab") {
+                    @Override
+                    public @Nullable String link() {
+                        return displayUrl;
+                    }
+                }));
         return actions;
     }
 

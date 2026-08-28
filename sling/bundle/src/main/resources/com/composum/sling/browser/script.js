@@ -53,12 +53,14 @@ class BrowserActions extends ViewWidget {
 
   lastAction() {
     const key = this.profile.get('lastAction');
-    let $item = key ? this.$el.find(`.dropdown-menu .action-${key}`) : [];
-    if ($item.length === 0) {
-      $item = this.$el.find('.dropdown-menu li:first-child');
+    let $action = key ? this.$el.find(`.dropdown-menu .action-${key} a`) : [];
+    if ($action.length === 0) {
+      $action = this.$el.find('.dropdown-menu li.action-item a');
+      if ($action.length > 1) {
+        $action = $($action[0]);
+      }
     }
-    if ($item.length > 0) {
-      const $action = $item.find('a');
+    if ($action.length > 0) {
       this.$currentAction.attr('data-key', $action.data('key'));
       this.$currentAction.attr('href', $action.attr('href'));
       const method = $action.data('method');
@@ -70,6 +72,13 @@ class BrowserActions extends ViewWidget {
       this.$currentAction.attr('title', $action.attr('title'));
       this.$currentAction.attr('target', $action.attr('target'));
       this.$currentAction.html($action.html());
+    } else {
+      this.$currentAction.attr('href', '');
+      this.$currentAction.removeAttr('data-key');
+      this.$currentAction.removeAttr('data-method');
+      this.$currentAction.removeAttr('title');
+      this.$currentAction.removeAttr('target');
+      this.$currentAction.html('--');
     }
   }
 
@@ -509,7 +518,7 @@ class BrowserTool extends BrowserPanel {
             this.$el.html(content);
             this.$parent.addClass('tool-visible');
             ToolLink.setActive(toolName);
-            this.onContentLoaded(this.$el);
+            this.onContentLoaded(undefined, this.$el);
           }.bind(this),
           error: function () {
             this.closeTool();
@@ -677,7 +686,7 @@ class BrowserView extends BrowserPanel {
             const $tab = this.$tabPane(tabId);
             $tab.html(content);
             $tab.data('loaded', 'true');
-            this.onContentLoaded($tab);
+            this.onContentLoaded(undefined, $tab);
             if (callback) {
               callback();
             }
@@ -690,7 +699,7 @@ class BrowserView extends BrowserPanel {
   }
 
   onContentLoaded(event, element) {
-    super.onContentLoaded(element);
+    super.onContentLoaded(event, element);
     $(element || this.el).find('.preview iframe').on('load.preview', function (event) {
       var url = event.currentTarget.contentDocument.URL;
       //$(document).trigger('page:changed', [url]); // FIXME...

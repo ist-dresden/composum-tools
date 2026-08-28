@@ -87,6 +87,11 @@ public class AemActions extends DefaultActions {
     /** child resources whose name matches this are skipped during a deep tree activation - JCR system/ACL nodes are not independently replicable resources, and are handled implicitly by their parent's replication */
     public static final Pattern JCR_SYSTEM_NODE = Pattern.compile("^(jcr|rep):.*$");
 
+    /** resource types treated as a folder/page for the purpose of a deep tree activation and manage action */
+    public static final List<String> FOLDER_TYPES = List.of(
+            NT_FOLDER, SLING_FOLDER, ORDERED_FOLDER, "cq:Page"
+    );
+
     /** the configured deep-activation exclude patterns (see {@link Config#deepActivationExcludePatterns()}) */
     protected List<Pattern> deepActivationExcludePatterns;
 
@@ -126,8 +131,8 @@ public class AemActions extends DefaultActions {
      * @return the closest {@code cq:Page} ancestor of the given resource (or the resource itself),
      * or {@code null} if none is found
      */
-    protected @Nullable Resource containingPage(@Nullable Resource resource) {
-        while (resource != null && !"cq:Page".equals(resource.getValueMap().get(JCR_PRIMARY_TYPE, String.class))) {
+    protected @Nullable Resource containingParent(@Nullable Resource resource, List<String> types) {
+        while (resource != null && !types.contains(resource.getValueMap().get(JCR_PRIMARY_TYPE, String.class))) {
             resource = resource.getParent();
         }
         return resource;
@@ -136,7 +141,7 @@ public class AemActions extends DefaultActions {
     @Override
     protected @Nullable String displayUrl(@Nullable final Resource target) {
         String url = super.displayUrl(target);
-        return platformConfig.runmodes().contains("author") ? url + "?wcmmode=disabled" : url;
+        return url != null ? (platformConfig.runmodes().contains("author") ? url + "?wcmmode=disabled" : url) : null;
     }
 
     /**
@@ -167,7 +172,8 @@ public class AemActions extends DefaultActions {
                 return null;
             } else if (path.matches("^/content/dam(/.*)?")) {
                 return null;
-            } else if (path.matches("^/content/.*") && (target = containingPage(target)) != null) {
+            } else if (path.matches("^/content/.*")
+                    && (target = containingParent(target, Collections.singletonList("cq:Page"))) != null) {
                 return targetUrl(target, "/editor.html", EXT_HTML);
             }
         }
@@ -185,7 +191,8 @@ public class AemActions extends DefaultActions {
             final String path = target.getPath();
             if (path.matches("^/content/dam(/.*)?")) {
                 return targetUrl(target, "/assets.html");
-            } else if (path.matches("^/content/.*") && (target = containingPage(target)) != null) {
+            } else if (path.matches("^/content(/.*)?")
+                    && (target = containingParent(target, FOLDER_TYPES)) != null) {
                 return targetUrl(target, "/sites.html");
             }
         }
@@ -269,11 +276,6 @@ public class AemActions extends DefaultActions {
         }
         return actions;
     }
-
-    /** resource types treated as a folder/page for the purpose of a deep tree activation */
-    public static final List<String> FOLDER_TYPES = List.of(
-            NT_FOLDER, SLING_FOLDER, ORDERED_FOLDER, "cq:Page"
-    );
 
     /**
      * Whether the given resource is a folder or page, and thus eligible for a deep tree activation.
@@ -446,7 +448,7 @@ public class AemActions extends DefaultActions {
          *
          * @param service the AEM {@code Replicator} service instance
          * @throws ReflectiveOperationException if the AEM replication API does not have the
-         *                                       expected shape
+         *                                      expected shape
          */
         public AemReplicator(@NotNull final Object service) throws ReflectiveOperationException {
             this.service = service;
