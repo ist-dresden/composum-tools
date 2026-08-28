@@ -53,12 +53,14 @@ class BrowserActions extends ViewWidget {
 
   lastAction() {
     const key = this.profile.get('lastAction');
-    let $item = key ? this.$el.find(`.dropdown-menu .action-${key}`) : [];
-    if ($item.length === 0) {
-      $item = this.$el.find('.dropdown-menu li:first-child');
+    let $action = key ? this.$el.find(`.dropdown-menu .action-${key} a`) : [];
+    if ($action.length === 0) {
+      $action = this.$el.find('.dropdown-menu li.action-item a');
+      if ($action.length > 1) {
+        $action = $($action[0]);
+      }
     }
-    if ($item.length > 0) {
-      const $action = $item.find('a');
+    if ($action.length > 0) {
       this.$currentAction.attr('data-key', $action.data('key'));
       this.$currentAction.attr('href', $action.attr('href'));
       const method = $action.data('method');
@@ -70,6 +72,13 @@ class BrowserActions extends ViewWidget {
       this.$currentAction.attr('title', $action.attr('title'));
       this.$currentAction.attr('target', $action.attr('target'));
       this.$currentAction.html($action.html());
+    } else {
+      this.$currentAction.attr('href', '');
+      this.$currentAction.removeAttr('data-key');
+      this.$currentAction.removeAttr('data-method');
+      this.$currentAction.removeAttr('title');
+      this.$currentAction.removeAttr('target');
+      this.$currentAction.html('--');
     }
   }
 
