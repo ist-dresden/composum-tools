@@ -26,7 +26,7 @@ class DashboardPanel extends ViewWidget {
                     this.setCurrentView(href);
                     this.$el.html(content);
                     this.$el.parent().addClass('view-visible');
-                    this.onContentLoaded(this.$el);
+                    this.onContentLoaded(undefined, this.$el);
                     this.$el.find('.view-head').on('click', (event) => {
                         this.setCurrentView('');
                         window.location.reload();

@@ -51,9 +51,9 @@ public interface Common {
     String EXT_HTML = "html";
     String EXT_JSON = "json";
 
-    String HTML_TYPE = "text/html";
+    String HTML_TYPE = "text/html;charset=utf-8";
     String JSON_TYPE = "application/json;charset=utf-8";
-    String TEXT_TYPE = "text/plain";
+    String TEXT_TYPE = "text/plain;charset=utf-8";
 
     static Map<String, String> extMimeTypes() {
         Map<String, String> set = new HashMap<>();

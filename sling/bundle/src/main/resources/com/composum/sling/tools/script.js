@@ -145,6 +145,20 @@ class ViewWidget {
     }
 
     attachLinkHandler(event, element) {
+        const toolsUri = $('body').data('tools-uri');
+        if (toolsUri) { // the re-adjustment of probably mapped tools links...
+            const toolsLinkPattern = new RegExp(`^.+(${toolsUri}\\..*)$`);
+            $('a').each(function () {
+                const $link = $(this);
+                const href = $link.attr('href');
+                if (href && '#' !== href) {
+                    const matcher = toolsLinkPattern.exec(href);
+                    if (matcher) {
+                        $link.attr('href', matcher[1]);
+                    }
+                }
+            });
+        }
         $(element || this.el).find('a[data-href]').click(function (event) {
             event.preventDefault();
             const $link = $(event.currentTarget);

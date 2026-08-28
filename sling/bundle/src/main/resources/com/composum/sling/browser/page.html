@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="${src:'/sling/browser/style.css'}"/>
     ${each.uri:browser.styles;'<link rel="stylesheet" href="${src:uri}"/>'}
 </head>
-<body class="browser-page_body">
+<body class="browser-page_body" data-tools-uri="${tools.uri}">
 ${include:'/sling/tools/navbar/navbar.html'}
 <div class="browser-page_body-content">
     <div class="browser-page_browser">

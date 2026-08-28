@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="${src:'/sling/tools/style.css'}"/>
     ${each.style:page.styles;'<link rel="stylesheet" href="${src:style}"/>'}
 </head>
-<body class="console-page_body">
+<body class="console-page_body" data-tools-uri="${tools.uri}">
 ${include:'/sling/tools/navbar/navbar.html'}
 <div class="console-page_body-content">
     ${content}

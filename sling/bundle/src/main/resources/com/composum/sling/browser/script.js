@@ -509,7 +509,7 @@ class BrowserTool extends BrowserPanel {
             this.$el.html(content);
             this.$parent.addClass('tool-visible');
             ToolLink.setActive(toolName);
-            this.onContentLoaded(this.$el);
+            this.onContentLoaded(undefined, this.$el);
           }.bind(this),
           error: function () {
             this.closeTool();
@@ -677,7 +677,7 @@ class BrowserView extends BrowserPanel {
             const $tab = this.$tabPane(tabId);
             $tab.html(content);
             $tab.data('loaded', 'true');
-            this.onContentLoaded($tab);
+            this.onContentLoaded(undefined, $tab);
             if (callback) {
               callback();
             }
@@ -690,7 +690,7 @@ class BrowserView extends BrowserPanel {
   }
 
   onContentLoaded(event, element) {
-    super.onContentLoaded(element);
+    super.onContentLoaded(event, element);
     $(element || this.el).find('.preview iframe').on('load.preview', function (event) {
       var url = event.currentTarget.contentDocument.URL;
       //$(document).trigger('page:changed', [url]); // FIXME...
