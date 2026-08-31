@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html class="${attr:html.cssClasses}" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+    <meta http-equiv="Pragma" content="no-cache"/>
+    <meta http-equiv="Expires" content="0"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${page.title}</title>
+    <link rel="shortcut icon" href="${src:'/sling/tools/common/logo.svg'}"/>
+    <link rel="stylesheet" href="${src:'/lib/bootstrap/5.2.3/css/bootstrap.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/bootstrap/icons/1.13.1/bootstrap-icons.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/jstree/3.3.17/themes/default/style.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/jstree/3.3.17/themes/proton/style.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/sling/tools/style.css'}"/>
+    <link rel="stylesheet" href="${src:'/sling/packages/style.css'}"/>
+</head>
+<body class="packages-page_body">
+${include:'/sling/tools/navbar/navbar.html'}
+<div class="packages-page_content">
+    <div class="packages-page_left-panel">
+        <div class="packages-page_tree-bar d-flex justify-content-between">
+            <a class="packages-page_mode-toggle btn btn-sm btn-link" href="${link:packages.modeLink}">
+                <i class="bi bi-arrow-left-right"></i> ${if:packages.modeIsJcr;'JCR mode'|'Registry mode'}
+            </a>
+            ${if:packages.writeEnabled;'/sling/packages/toolbar.html'}
+        </div>
+        <div class="packages-page_tree-panel">
+            <div class="packages-page_tree"
+                 data-mode="${attr:packages.mode}"
+                 data-tree-url="${attr:packages.tree}"></div>
+        </div>
+    </div>
+    <div class="packages-page_detail-panel"
+         data-mode="${attr:packages.mode}"
+         data-view-url="${attr:packages.view}"
+         data-dialog-url="${attr:packages.dialog}">
+    </div>
+</div>
+<script src="${src:'/lib/jquery/jquery-3.7.1.min.js'}"></script>
+${each.uri:system.clientlibs;'<script src="${link:uri}"></script>'}
+<script src="${src:'/lib/bootstrap/5.2.3/js/bootstrap.bundle.min.js'}"></script>
+<script src="${src:'/lib/jstree/3.3.17/jstree.min.js'}"></script>
+<script src="${src:'/sling/tools/script.js'}"></script>
+<script src="${src:'/sling/packages/script.js'}"></script>
+<script>
+  $(document).ready(function () {
+    CPM.widgets.initialize();
+  });
+</script>
+</body>
+</html>

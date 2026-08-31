@@ -274,3 +274,112 @@ class ResumingTabs extends ViewWidget {
 }
 
 CPM.widgets.register(ResumingTabs);
+
+/**
+ * An on-demand loaded Bootstrap modal dialog: 'open()' fetches the dialog's HTML fragment from
+ * 'url', appends it to <body> and shows it; whenever the modal is hidden again - on cancel, on
+ * backdrop/ESC dismissal, or programmatically after a successful submit (see 'DialogForm' below)
+ * - its markup is removed from the DOM again, so no dialog is ever left lingering in the page.
+ */
+class Dialog {
+
+  constructor(url) {
+    this.url = url;
+  }
+
+  open(onReady) {
+    $.ajax({
+      type: 'GET',
+      url: this.url,
+      success: function (html) {
+        this.$el = $(html).appendTo('body');
+        this.modal = new bootstrap.Modal(this.$el[0]);
+        // Bootstrap sets aria-hidden="true" on the modal root as the hide transition starts;
+        // if the element that triggered the close (e.g. the '.btn-close' button, or any field
+        // still focused when Cancel/Save is pressed) is still focused at that point, the
+        // browser logs an accessibility warning - blur it first so focus has already left the
+        // modal before aria-hidden is applied
+        this.$el.on('hide.bs.modal', function () {
+          const active = document.activeElement;
+          if (active && this.$el[0].contains(active)) {
+            active.blur();
+          }
+        }.bind(this));
+        this.$el.on('hidden.bs.modal', this.destroy.bind(this));
+        CPM.widgets.initialize(this.$el);
+        if (onReady) {
+          onReady(this.$el, this);
+        }
+        this.modal.show();
+      }.bind(this),
+      async: true,
+      cache: false
+    });
+    return this;
+  }
+
+  close() {
+    if (this.modal) {
+      this.modal.hide();
+    }
+  }
+
+  destroy() {
+    if (this.$el) {
+      this.$el.remove();
+    }
+    this.$el = undefined;
+    this.modal = undefined;
+  }
+}
+
+CPM.Dialog = Dialog;
+
+/**
+ * Generic AJAX submit handling for a form inside a 'Dialog' fragment (a '<form class="tools-dialog_form">'
+ * anywhere under the dialog's root element): submits as multipart form data, closes the enclosing
+ * modal on success (which triggers its removal from the DOM, see 'Dialog' above) and fires a
+ * 'dialog:success' document event carrying the response so the page can refresh itself, or shows
+ * the failure message inline (in a '.tools-dialog_error' element) on error.
+ */
+class DialogForm extends ViewWidget {
+
+  static selector = '.tools-dialog_form';
+
+  constructor(element) {
+    super(element);
+    this.$el.on('submit', this.onSubmit.bind(this));
+  }
+
+  onSubmit(event) {
+    event.preventDefault();
+    this.$el.find('.tools-dialog_error').addClass('d-none').text('');
+    $.ajax({
+      type: this.$el.attr('method') || 'POST',
+      url: this.$el.attr('action'),
+      data: this.formData(this.$el),
+      processData: false,
+      contentType: false,
+      success: this.onSuccess.bind(this),
+      error: this.onError.bind(this),
+      async: true,
+      cache: false
+    });
+    return false;
+  }
+
+  onSuccess(result) {
+    $(document).trigger('dialog:success', [this.el, result]);
+    const modalEl = this.$el.closest('.modal')[0];
+    if (modalEl) {
+      bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+    }
+  }
+
+  onError(jqXHR) {
+    const message = (jqXHR.responseJSON && jqXHR.responseJSON.message) || jqXHR.statusText || 'Request failed.';
+    this.$el.find('.tools-dialog_error').removeClass('d-none').text(message);
+  }
+}
+
+CPM.widgets.register(DialogForm);

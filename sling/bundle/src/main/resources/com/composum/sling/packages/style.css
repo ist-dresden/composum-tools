@@ -1,0 +1,120 @@
+.packages-page_content {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    font-family: 'Titillium Web', 'Helvetica', 'Arial', sans-serif
+}
+
+.packages-page_left-panel {
+    position: relative;
+    width: 35%;
+    min-width: 22%;
+    max-width: 500px;
+    border-right: 1px solid #777;
+}
+
+.packages-page_tree-bar,
+.packages-page_detail-actions {
+    height: 40px;
+    padding: 4px 4px 5px;
+    background: #777;
+    color: #ddd;
+}
+
+.packages-page_tree-bar {
+    border-right: 1px solid #aaa;
+}
+
+.packages-page_tree-bar a {
+    color: #ddd;
+    text-decoration: none;
+}
+
+.packages-page_content .btn-group .btn:last-child {
+    border-left-color: #777;
+}
+
+.packages-page_content .btn i.bi {
+    margin-right: 4px;
+}
+
+.packages-page_tree-panel {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 5px;
+    overflow: auto;
+}
+
+.packages-page_tree {
+    width: 100%;
+    height: 100%;
+}
+
+.packages-page_detail-panel {
+    width: 100%;
+    height: 100%;
+}
+
+.packages-page_hint {
+    color: #777;
+}
+
+.packages-page_detail-actions {
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+.packages-page_detail-actions > * {
+    margin-right: 8px;
+}
+
+.packages-page_detail-table th,
+.packages-page_detail-table td {
+    padding: 4px 12px;
+}
+
+.packages-page_detail-table th {
+    width: 180px;
+    white-space: nowrap;
+}
+
+.packages-page_detail-table ul {
+    margin: 0;
+    padding: 0 0 0 18px;
+    max-height: 106px;
+    overflow: auto;
+    list-style: circle;
+}
+
+.packages-page_tile-count {
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+.packages-page_tile-caption {
+    color: #777;
+}
+
+.packages-page_coverage {
+    max-height: 60vh;
+    overflow: auto;
+    font-size: 85%;
+}
+
+.packages-page_filter-root {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.packages-page_filters-rules {
+    font-family: monospace;
+    margin-top: 8px;
+}

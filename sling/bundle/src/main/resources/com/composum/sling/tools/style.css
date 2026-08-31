@@ -119,3 +119,8 @@ body {
 .tools-navbar .btn {
     line-height: 16px;
 }
+
+.tools-dialog_error {
+    color: #dc3545;
+    margin-bottom: 10px;
+}
