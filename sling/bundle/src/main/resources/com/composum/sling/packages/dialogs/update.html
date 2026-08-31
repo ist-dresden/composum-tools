@@ -8,30 +8,43 @@
                 </div>
                 <div class="modal-body">
                     <p class="tools-dialog_error d-none"></p>
+                    <div class="row">
+                        <div class="col-md-5 mb-3">
+                            <label class="form-label">Group</label>
+                            <input type="text" class="form-control" name="group" value="${attr:info.group}">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-control" name="name" value="${attr:info.name}" required>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Version</label>
+                            <input type="text" class="form-control" name="version" value="${attr:info.version}">
+                        </div>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">Description</label>
                         <textarea class="form-control" name="description" rows="2">${info.description}</textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">AC Handling</label>
-                        <input type="text" class="form-control" name="acHandling" value="${attr:info.acHandling}"
-                               list="packages-update_ac-handling-options">
-                        <datalist id="packages-update_ac-handling-options">
-                            <option value="ignore"></option>
-                            <option value="overwrite"></option>
-                            <option value="merge"></option>
-                            <option value="merge_preserve"></option>
-                            <option value="clear"></option>
-                        </datalist>
+                        <select class="form-control" name="acHandling" data-value="${attr:info.acHandling}">
+                            <option value="">-- --</option>
+                            <option value="IGNORE">ignore</option>
+                            <option value="OVERWRITE">overwrite</option>
+                            <option value="MERGE">merge</option>
+                            <option value="MERGE_PRESERVE">merge preserve</option>
+                            <option value="CLEAR">clear</option>
+                        </select>
                     </div>
-                    <div class="row">
-                        <div class="col-md-4 form-check mb-3">
+                    <div class="row mt-4 mb-4">
+                        <div class="col-md-4 form-check ms-3">
                             <input type="hidden" name="requiresRestart" value="false">
                             <input type="checkbox" class="form-check-input" id="packages-update_requires-restart"
                                    name="requiresRestart" value="true" ${if:info.requiresRestart;'checked'}>
                             <label class="form-check-label" for="packages-update_requires-restart">Requires Restart</label>
                         </div>
-                        <div class="col-md-4 form-check mb-3">
+                        <div class="col-md-4 form-check">
                             <input type="hidden" name="requiresRoot" value="false">
                             <input type="checkbox" class="form-check-input" id="packages-update_requires-root"
                                    name="requiresRoot" value="true" ${if:info.requiresRoot;'checked'}>

@@ -34,6 +34,7 @@ import org.jetbrains.annotations.Nullable;
 import org.osgi.framework.BundleContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
@@ -85,7 +86,8 @@ import static javax.servlet.http.HttpServletResponse.SC_OK;
  * or upload+install) lets Maven deployment tooling that still speaks '/crx/packmgr/service.jsp'
  * target this instead.
  */
-@Component(service = {ToolsPlugin.class, PackageManager.class}, immediate = true)
+@Component(service = {ToolsPlugin.class, PackageManager.class},
+        configurationPolicy = ConfigurationPolicy.REQUIRE, immediate = true)
 @Designate(ocd = PackageManager.Config.class)
 public class PackageManager extends AbstractToolsPlugin {
 
@@ -247,6 +249,8 @@ public class PackageManager extends AbstractToolsPlugin {
                 return resource(request);
             case "tree":
                 return treeNode(request);
+            case "ancestors":
+                return ancestorsOf(request);
             case "view":
                 return viewPackage(request);
             case "download":
@@ -261,7 +265,10 @@ public class PackageManager extends AbstractToolsPlugin {
                 final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
                         .with("packages.modeIsJcr", !registryMode)
                         .with("packages.mode", mode)
-                        .with("packages.modeLink", pageLink() + "?mode=" + (registryMode ? "jcr" : MODE_REGISTRY))
+                        .with("packages.modeLink", pageLink() + (registryMode ? "" : "?mode=" + MODE_REGISTRY))
+                        .with("packages.createEnabled", !registryMode && config.writeEnabled())
+                        // pre-selects this path in the tree on initial load, see PackagesTree
+                        .with("packages.path", targetPath(request))
                 ), "page"));
                 return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
             }
@@ -396,6 +403,28 @@ public class PackageManager extends AbstractToolsPlugin {
                 node = manager != null ? new JcrPackageTree(manager).nodeAt(targetPath(request)) : null;
             }
             return node != null ? new Result<>(node) : new Result<>(SC_NOT_FOUND);
+        } catch (RepositoryException | IOException ex) {
+            LOG.error(ex.getMessage(), ex);
+            return new Result<>(SC_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * The tree (folder) paths leading down to the package addressed by the request's suffix path -
+     * lets the client drill a jstree open down to a specific selection (initial page load, browser
+     * back/forward navigation, or reselecting a package after an edit), see 'PackagesTree#openNode'.
+     */
+    protected @NotNull Result<?> ancestorsOf(@NotNull final SlingHttpServletRequest request) {
+        try {
+            final List<String> ancestors;
+            if (isRegistryMode(request)) {
+                ancestors = new RegistryTree(registryOperations().packages()).ancestorsOf(targetPath(request));
+            } else {
+                final Session session = session(request);
+                final JcrPackageManager manager = session != null ? jcrOperations.packageManager(session) : null;
+                ancestors = manager != null ? new JcrPackageTree(manager).ancestorsOf(targetPath(request)) : List.of();
+            }
+            return new Result<>(ancestors);
         } catch (RepositoryException | IOException ex) {
             LOG.error(ex.getMessage(), ex);
             return new Result<>(SC_INTERNAL_SERVER_ERROR);
@@ -620,13 +649,18 @@ public class PackageManager extends AbstractToolsPlugin {
 
     protected @NotNull Result<?> updatePackage(@NotNull final SlingHttpServletRequest request) {
         try {
-            final JcrPackage jcrPackage = openPackage(request);
+            final JcrPackageManager jcrPackageManager = jcrOperations.packageManager(session(request));
+            JcrPackage jcrPackage = jcrOperations.open(jcrPackageManager, targetPath(request));
             if (jcrPackage == null) {
                 return new Result<>(SC_NOT_FOUND);
             }
-            jcrOperations.update(jcrPackage, request.getParameterMap());
-            return new Result<>(Map.of("path", targetPath(request)));
-        } catch (RepositoryException ex) {
+            // a group/name/version change renames (moves) the underlying node, so the response
+            // must report the package's possibly new path back to the client - it's still
+            // selected by its old path otherwise, which no longer exists afterwards
+            jcrPackage = jcrOperations.update(jcrPackageManager, jcrPackage, request.getParameterMap());
+            return new Result<>(Map.of("path", StringUtils.defaultString(
+                    JcrPackageOperations.relativePath(jcrPackageManager, jcrPackage))));
+        } catch (RepositoryException | PackageException ex) {
             LOG.error(ex.getMessage(), ex);
             return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
         }
@@ -874,6 +908,7 @@ public class PackageManager extends AbstractToolsPlugin {
                             .with("packages", new Values()
                                     .with("uri", pageLink())
                                     .with("tree", manager.serverPath() + "." + key() + ".tree.json")
+                                    .with("ancestors", manager.serverPath() + "." + key() + ".ancestors.json")
                                     .with("view", manager.serverPath() + "." + key() + ".view.json")
                                     .with("dialog", manager.serverPath() + "." + key() + ".dialog.")
                                     .with("writeEnabled", config.writeEnabled()))

@@ -6,7 +6,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <pre class="packages-page_coverage">${each.line:coverage.lines;'${line}'}</pre>
+                <ul class="packages-page_coverage">${each.line:coverage.lines;'<li>${line}</li>'}</ul>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>

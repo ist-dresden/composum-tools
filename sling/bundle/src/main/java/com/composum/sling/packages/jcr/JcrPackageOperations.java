@@ -186,7 +186,10 @@ public class JcrPackageOperations {
                 final FilterRootInfo info = new FilterRootInfo();
                 info.setRoot(filterSet.getRoot());
                 final ImportMode mode = filterSet.getImportMode();
-                info.setImportMode(mode.name().toLowerCase());
+                // uppercase enum constant name, matching both the dialog's <select> option
+                // values and the vault-native property format (see AccessControlHandling/
+                // ImportMode.valueOf, which are case-sensitive)
+                info.setImportMode(mode.name());
                 final StringBuilder rules = new StringBuilder();
                 for (final FilterSet.Entry<PathFilter> entry : filterSet.getEntries()) {
                     final PathFilter pathFilter = entry.getFilter();
@@ -351,22 +354,46 @@ public class JcrPackageOperations {
         DEFINITION_SETTERS.put("testedWith", STRING_SETTER);
     }
 
+    private static @Nullable String formValue(@NotNull final Map<String, String[]> formFields, @NotNull final String key) {
+        final String[] values = formFields.get(key);
+        return values != null && values.length > 0 ? values[0].trim() : null;
+    }
+
     /**
      * Applies the Update dialog's submitted field values (as {@code request.getParameterMap()})
-     * to the package's definition; unrecognized keys are ignored.
+     * to the package: group/name/version become a rename ({@link JcrPackageManager#rename}
+     * moves the underlying node, so the given package handle becomes stale and the returned one
+     * must be used from here on - the caller needs it to report the package's possibly new path
+     * back to the client), every other recognized key updates the definition property directly;
+     * unrecognized keys are ignored.
      */
-    public void update(@NotNull final JcrPackage jcrPackage, @NotNull final Map<String, String[]> formFields)
-            throws RepositoryException {
-        final JcrPackageDefinition definition = jcrPackage.getDefinition();
+    public @NotNull JcrPackage update(@NotNull final JcrPackageManager manager, @NotNull JcrPackage jcrPackage,
+                                      @NotNull final Map<String, String[]> formFields)
+            throws RepositoryException, PackageException {
+        JcrPackageDefinition definition = jcrPackage.getDefinition();
         if (definition == null) {
-            return;
+            return jcrPackage;
         }
-        for (final Map.Entry<String, DefinitionSetter> entry : DEFINITION_SETTERS.entrySet()) {
-            final String[] values = formFields.get(entry.getKey());
-            if (values != null) {
-                entry.getValue().set(definition, entry.getKey(), values);
+        final String name = formValue(formFields, "name");
+        if (StringUtils.isNotBlank(name)) {
+            final String group = StringUtils.defaultString(formValue(formFields, "group"));
+            final String version = StringUtils.defaultString(formValue(formFields, "version"));
+            if (!group.equals(StringUtils.defaultString(definition.get(JcrPackageDefinition.PN_GROUP)))
+                    || !name.equals(StringUtils.defaultString(definition.get(JcrPackageDefinition.PN_NAME)))
+                    || !version.equals(StringUtils.defaultString(definition.get(JcrPackageDefinition.PN_VERSION)))) {
+                jcrPackage = manager.rename(jcrPackage, group, name, version);
+                definition = jcrPackage.getDefinition();
             }
         }
+        if (definition != null) {
+            for (final Map.Entry<String, DefinitionSetter> entry : DEFINITION_SETTERS.entrySet()) {
+                final String[] values = formFields.get(entry.getKey());
+                if (values != null) {
+                    entry.getValue().set(definition, entry.getKey(), values);
+                }
+            }
+        }
+        return jcrPackage;
     }
 
     /**

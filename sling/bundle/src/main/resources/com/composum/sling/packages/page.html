@@ -23,12 +23,15 @@ ${include:'/sling/tools/navbar/navbar.html'}
             <a class="packages-page_mode-toggle btn btn-sm btn-link" href="${link:packages.modeLink}">
                 <i class="bi bi-arrow-left-right"></i> ${if:packages.modeIsJcr;'JCR mode'|'Registry mode'}
             </a>
-            ${if:packages.writeEnabled;'/sling/packages/toolbar.html'}
+            ${if:packages.createEnabled;'/sling/packages/toolbar.html'}
         </div>
         <div class="packages-page_tree-panel">
             <div class="packages-page_tree"
                  data-mode="${attr:packages.mode}"
-                 data-tree-url="${attr:packages.tree}"></div>
+                 data-tree-url="${attr:packages.tree}"
+                 data-ancestors-url="${attr:packages.ancestors}"
+                 data-page-url="${attr:packages.uri}"
+                 data-path="${attr:packages.path}"></div>
         </div>
     </div>
     <div class="packages-page_detail-panel"

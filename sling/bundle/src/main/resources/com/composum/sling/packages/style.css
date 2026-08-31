@@ -16,6 +16,10 @@
     border-right: 1px solid #777;
 }
 
+.packages-page_toolbar {
+    margin-right: 8px;
+}
+
 .packages-page_tree-bar,
 .packages-page_detail-actions {
     height: 40px;
@@ -28,7 +32,11 @@
     border-right: 1px solid #aaa;
 }
 
-.packages-page_tree-bar a {
+.packages-page_tree-bar a,
+.packages-page_tree-bar a:hover,
+.packages-page_tree-bar a:focus,
+.packages-page_tree-bar a:active,
+.packages-page_tree-bar a:visited {
     color: #ddd;
     text-decoration: none;
 }
@@ -43,11 +51,10 @@
 
 .packages-page_tree-panel {
     position: absolute;
-    top: 40px;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    padding: 5px;
+    top: 44px;
+    left: 8px;
+    right: 8px;
+    bottom: 4px;
     overflow: auto;
 }
 
@@ -56,7 +63,36 @@
     height: 100%;
 }
 
+.packages-page_tree.jstree-proton .jstree-node {
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.packages-page_tree.jstree-proton > .jstree-no-dots .jstree-open > .jstree-ocl,
+.packages-page_tree.jstree-proton > .jstree-no-dots .jstree-closed > .jstree-ocl {
+    background-position-y: -3px;
+}
+
+.packages-page_tree.jstree-proton .jstree-wholerow {
+    height: 28px;
+}
+
+.packages-page_tree.jstree-proton .jstree-icon,
+.packages-page_tree.jstree-proton .jstree-anchor {
+    line-height: 27px;
+}
+
+.packages-page_tree .jstree-container-ul {
+    padding-bottom: 12px;
+}
+
 .packages-page_detail-panel {
+    width: 100%;
+    height: 100%;
+}
+
+.packages-page_detail {
+    position: relative;
     width: 100%;
     height: 100%;
 }
@@ -68,10 +104,20 @@
 .packages-page_detail-actions {
     padding-left: 12px;
     padding-right: 12px;
+    text-align: right;
 }
 
 .packages-page_detail-actions > * {
-    margin-right: 8px;
+    margin-left: 8px;
+}
+
+.packages-page_detail_content {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: auto;
 }
 
 .packages-page_detail-table th,
@@ -87,7 +133,7 @@
 .packages-page_detail-table ul {
     margin: 0;
     padding: 0 0 0 18px;
-    max-height: 106px;
+    max-height: 352px;
     overflow: auto;
     list-style: circle;
 }
@@ -117,4 +163,10 @@
 .packages-page_filters-rules {
     font-family: monospace;
     margin-top: 8px;
+}
+
+.packages-page_coverage {
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }

@@ -11,13 +11,6 @@
                     <p class="packages-page_hint">One include/exclude rule per line in a root's rules box, as
                         '+ pattern' or '- pattern' (pattern is a regular expression matched against the full
                         repository path). The order of the roots is the filter order.</p>
-                    <datalist id="packages-filters_mode-options">
-                        <option value="replace"></option>
-                        <option value="merge"></option>
-                        <option value="update"></option>
-                        <option value="merge_properties"></option>
-                        <option value="update_properties"></option>
-                    </datalist>
                     <div class="packages-page_filter-roots">
                         ${each.entry:filterRoots;'/sling/packages/dialogs/filterRoot.html'}
                     </div>

@@ -1,43 +1,45 @@
 <div class="packages-page_detail">
     ${include:'/sling/packages/details/toolbar.html'}
-    <table class="packages-page_detail-table table table-sm table-striped">
-        <tr>
-            <th>Group</th>
-            <td>${packages.info.group}</td>
-        </tr>
-        <tr>
-            <th>Name</th>
-            <td>${packages.info.name}</td>
-        </tr>
-        <tr>
-            <th>Version</th>
-            <td>${packages.info.version}</td>
-        </tr>
-        <tr>
-            <th>Description</th>
-            <td>${packages.info.description}</td>
-        </tr>
-        <tr>
-            <th>Size</th>
-            <td>${packages.info.size}</td>
-        </tr>
-        <tr>
-            <th>Installed</th>
-            <td>${packages.info.installed}</td>
-        </tr>
-        <tr>
-            <th>Valid</th>
-            <td>${packages.info.valid}</td>
-        </tr>
-        <tr>
-            <th>Created by</th>
-            <td>${packages.info.createdBy}</td>
-        </tr>
-        <tr>
-            <th>Filter roots</th>
-            <td><ul>
-                ${each:packages.info.filterRoots;'<li>${item}</li>'}
-            </ul></td>
-        </tr>
-    </table>
+    <div class="packages-page_detail_content">
+        <table class="packages-page_detail-table table table-sm table-striped">
+            <tr>
+                <th>Group</th>
+                <td>${packages.info.group}</td>
+            </tr>
+            <tr>
+                <th>Name</th>
+                <td>${packages.info.name}</td>
+            </tr>
+            <tr>
+                <th>Version</th>
+                <td>${packages.info.version}</td>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <td>${packages.info.description}</td>
+            </tr>
+            <tr>
+                <th>Size</th>
+                <td>${packages.info.size;'%,1d'}</td>
+            </tr>
+            <tr>
+                <th>Installed</th>
+                <td>${packages.info.installed}</td>
+            </tr>
+            <tr>
+                <th>Valid</th>
+                <td>${packages.info.valid}</td>
+            </tr>
+            <tr>
+                <th>Last Installed</th>
+                <td>${packages.info.lastUnpacked}</td>
+            </tr>
+            <tr>
+                <th>Filter roots</th>
+                <td><ul>
+                    ${each:packages.info.filterRoots;'<li>${item}</li>'}
+                </ul></td>
+            </tr>
+        </table>
+    </div>
 </div>

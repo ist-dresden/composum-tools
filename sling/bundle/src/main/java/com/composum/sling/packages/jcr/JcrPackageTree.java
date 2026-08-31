@@ -85,6 +85,36 @@ public class JcrPackageTree {
         return toTreeNode(node, true);
     }
 
+    /**
+     * The tree (folder) paths leading from the root down to the given leaf (version) path, in
+     * top-down order, not including the leaf itself - lets the client drill a jstree open down to
+     * a specific package version without assuming the leaf path is itself a hierarchical
+     * continuation of its parent folder paths (it generally is not: a leaf's path is the real
+     * vault-relative package path, e.g. '/group/name-1.0.zip', not '/group/name/1.0').
+     *
+     * @param leafPath the target leaf's tree path
+     * @return the ancestor folder paths, top-down, or an empty list if no such leaf exists
+     */
+    public @NotNull List<String> ancestorsOf(@NotNull final String leafPath) {
+        final List<String> chain = new ArrayList<>();
+        findAncestors(root, leafPath, chain);
+        return chain;
+    }
+
+    private boolean findAncestors(@NotNull final Node node, @NotNull final String leafPath, @NotNull final List<String> chain) {
+        for (final Node child : node.children.values()) {
+            if (child.path.equals(leafPath)) {
+                return true;
+            }
+            chain.add(child.path);
+            if (findAncestors(child, leafPath, chain)) {
+                return true;
+            }
+            chain.remove(chain.size() - 1);
+        }
+        return false;
+    }
+
     private @NotNull PackageTreeNode toTreeNode(@NotNull final Node node, final boolean resolveChildren) {
         List<PackageTreeNode> children = null;
         PackageTreeNode.State state = null;
