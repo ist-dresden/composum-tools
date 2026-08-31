@@ -26,29 +26,29 @@
                         <label class="form-label">Description</label>
                         <textarea class="form-control" name="description" rows="2">${info.description}</textarea>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">AC Handling</label>
-                        <select class="form-control" name="acHandling" data-value="${attr:info.acHandling}">
-                            <option value="">-- --</option>
-                            <option value="IGNORE">ignore</option>
-                            <option value="OVERWRITE">overwrite</option>
-                            <option value="MERGE">merge</option>
-                            <option value="MERGE_PRESERVE">merge preserve</option>
-                            <option value="CLEAR">clear</option>
-                        </select>
-                    </div>
                     <div class="row mt-4 mb-4">
-                        <div class="col-md-4 form-check ms-3">
+                        <div class="col-md-4">
                             <input type="hidden" name="requiresRestart" value="false">
                             <input type="checkbox" class="form-check-input" id="packages-update_requires-restart"
                                    name="requiresRestart" value="true" ${if:info.requiresRestart;'checked'}>
-                            <label class="form-check-label" for="packages-update_requires-restart">Requires Restart</label>
+                            <label class="form-check-label ms-1" for="packages-update_requires-restart">Requires Restart</label>
                         </div>
-                        <div class="col-md-4 form-check">
+                        <div class="col-md-4">
                             <input type="hidden" name="requiresRoot" value="false">
                             <input type="checkbox" class="form-check-input" id="packages-update_requires-root"
                                    name="requiresRoot" value="true" ${if:info.requiresRoot;'checked'}>
-                            <label class="form-check-label" for="packages-update_requires-root">Requires Root</label>
+                            <label class="form-check-label ms-1" for="packages-update_requires-root">Requires Root</label>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">AC Handling</label>
+                            <select class="form-control" name="acHandling" data-value="${attr:info.acHandling}">
+                                <option value="">-- --</option>
+                                <option value="IGNORE">ignore</option>
+                                <option value="OVERWRITE">overwrite</option>
+                                <option value="MERGE">merge</option>
+                                <option value="MERGE_PRESERVE">merge preserve</option>
+                                <option value="CLEAR">clear</option>
+                            </select>
                         </div>
                     </div>
                     <div class="mb-3">
