@@ -23,16 +23,19 @@
                 <td>${packages.info.size;'%,1d'}</td>
             </tr>
             <tr>
-                <th>Installed</th>
-                <td>${packages.info.installed}</td>
-            </tr>
-            <tr>
-                <th>Valid</th>
-                <td>${packages.info.valid}</td>
+                <th>Status</th>
+                <td>
+                <span class="status-value">${if:packages.info.installed;'installed'}</span>
+                / <span class="status-value">${if:packages.info.valid;'valid'}</span>
+                </td>
             </tr>
             <tr>
                 <th>Last Installed</th>
                 <td>${packages.info.lastUnpacked}</td>
+            </tr>
+            <tr>
+                <th>Last Modified</th>
+                <td>${packages.info.lastModified}</td>
             </tr>
             <tr>
                 <th>Filter roots</th>

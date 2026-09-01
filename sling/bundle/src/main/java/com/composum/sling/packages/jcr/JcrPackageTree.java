@@ -1,10 +1,12 @@
 package com.composum.sling.packages.jcr;
 
+import com.composum.sling.packages.PackageListEntry;
 import com.composum.sling.packages.PackageTreeNode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.jackrabbit.vault.packaging.JcrPackage;
 import org.apache.jackrabbit.vault.packaging.JcrPackageDefinition;
 import org.apache.jackrabbit.vault.packaging.JcrPackageManager;
+import org.apache.jackrabbit.vault.packaging.Version;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -73,6 +75,30 @@ public class JcrPackageTree {
      * @return the resolved node, or 'null' if no such path exists
      */
     public @Nullable PackageTreeNode nodeAt(@NotNull final String path) {
+        final Node node = findNode(path);
+        return node != null ? toTreeNode(node, true) : null;
+    }
+
+    /**
+     * Every package (leaf) nested anywhere under the given tree path, recursively - for the
+     * intermediate (group/name) node's "packages under here" list view. A leaf's label is its
+     * tree node names from (but not including) the given path down to it, joined by '/' - not
+     * its path, which (unlike a folder path) is not a hierarchical continuation of it, see
+     * {@link #ancestorsOf}.
+     *
+     * @param path the tree path (group or name folder) to list packages under
+     * @return the nested packages, or an empty list if the path does not exist or has none
+     */
+    public @NotNull List<PackageListEntry> leavesUnder(@NotNull final String path) {
+        final Node node = findNode(path);
+        final List<PackageListEntry> result = new ArrayList<>();
+        if (node != null) {
+            collectLeaves(node, "", result);
+        }
+        return result;
+    }
+
+    private @Nullable Node findNode(@NotNull final String path) {
         Node node = root;
         if (!"/".equals(path)) {
             for (final String segment : StringUtils.split(path, "/")) {
@@ -82,7 +108,62 @@ public class JcrPackageTree {
                 }
             }
         }
-        return toTreeNode(node, true);
+        return node;
+    }
+
+    private void collectLeaves(@NotNull final Node node, @NotNull final String prefix, @NotNull final List<PackageListEntry> result) {
+        for (final Node child : node.children.values()) {
+            final String label = prefix.isEmpty() ? child.name : prefix + "/" + child.name;
+            if ("package".equals(child.type)) {
+                result.add(new PackageListEntry(label, child.path));
+            } else {
+                collectLeaves(child, label, result);
+            }
+        }
+    }
+
+    /**
+     * The leaf (version) paths that a "purge" under the given tree path would delete: every
+     * version except the highest one in each name-folder found (recursively) under it - so
+     * calling this on a name folder purges that one package's old versions, and calling it on a
+     * group folder purges every package nested under it. A name-folder is recognized structurally
+     * (all of its children are "package" leaves), not by path depth, so this works regardless of
+     * how many group segments lead down to it.
+     *
+     * @param path the tree path (group or name folder) to purge old versions under
+     * @return the leaf (version) paths to delete, or an empty list if there is nothing to purge
+     */
+    public @NotNull List<String> purgeCandidates(@NotNull final String path) {
+        final Node node = findNode(path);
+        final List<String> result = new ArrayList<>();
+        if (node != null) {
+            collectPurgeCandidates(node, result);
+        }
+        return result;
+    }
+
+    private void collectPurgeCandidates(@NotNull final Node node, @NotNull final List<String> result) {
+        final boolean isNameFolder = !node.children.isEmpty()
+                && node.children.values().stream().allMatch(child -> "package".equals(child.type));
+        if (isNameFolder) {
+            Node latest = null;
+            for (final Node child : node.children.values()) {
+                if (latest == null || Version.create(child.name).compareTo(Version.create(latest.name)) > 0) {
+                    latest = child;
+                }
+            }
+            for (final Node child : node.children.values()) {
+                if (child != latest) {
+                    result.add(child.path);
+                }
+            }
+        } else {
+            for (final Node child : node.children.values()) {
+                if (!"package".equals(child.type)) {
+                    collectPurgeCandidates(child, result);
+                }
+            }
+        }
     }
 
     /**

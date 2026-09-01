@@ -42,12 +42,18 @@ class PackagesTree extends ViewWidget {
 
   onNodeSelected(event, data) {
     const node = data.node;
-    if (node.original && node.original.type === 'package') {
-      if (this.suppressEvent) {
-        $(document).trigger('package:selected', [node.original.path]);
-      } else {
-        this.triggerPathSelected(node.original.path);
-      }
+    if (!node.original) {
+      return;
+    }
+    if (node.original.type !== 'package') {
+      // an intermediate (group/name) node: always ensure it is open - jstree's own 'open_node'
+      // is a no-op if it already is, so a click here never collapses it again, only expands
+      this.jstree.open_node(node);
+    }
+    if (this.suppressEvent) {
+      $(document).trigger('package:selected', [node.original.path]);
+    } else {
+      this.triggerPathSelected(node.original.path);
     }
   }
 
@@ -298,13 +304,22 @@ class PackagesDetail extends ViewWidget {
     // (see details/action.html); the ones that open a dialog all use the same mode-agnostic
     // dialog file, just with '?mode=registry' appended when the package is registry-backed -
     // 'download' is a plain link with its href already set server-side, no handler needed here
-    ['edit:update', 'filters', 'install', 'uninstall', 'assemble', 'coverage', 'delete']
+    ['edit:update', 'filters', 'install', 'uninstall', 'assemble', 'coverage', 'delete', 'purge']
       .forEach((entry) => {
         const [actionKey, dialogName] = entry.split(':');
         const dialog = (dialogName || actionKey) + '.html';
         this.$el.find('.packages-page_action-' + actionKey).on('click',
           () => new CPM.Dialog(this.dialogUrl + dialog + this.path + this.modeQuery).open());
       });
+    // an intermediate (group/name) node's list view (see details/folder.html): clicking an
+    // entry navigates straight to it, exactly like clicking the same package in the tree would
+    this.$el.find('.packages-page_folder-entry-link').on('click', function (event) {
+      event.preventDefault();
+      const path = $(event.currentTarget).data('path');
+      if (path) {
+        $(document).trigger('path:select', [path]);
+      }
+    });
   }
 
   onDialogSuccess(event, el, result) {

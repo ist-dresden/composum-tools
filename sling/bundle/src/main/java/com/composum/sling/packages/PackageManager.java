@@ -17,6 +17,7 @@ import com.composum.sling.tools.template.TemplateBuilder;
 import com.composum.sling.tools.template.TemplateContext;
 import com.composum.sling.tools.template.TemplateContext.Values;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.jackrabbit.vault.fs.api.ProgressTrackerListener;
 import org.apache.jackrabbit.vault.packaging.JcrPackage;
 import org.apache.jackrabbit.vault.packaging.JcrPackageDefinition;
 import org.apache.jackrabbit.vault.packaging.JcrPackageManager;
@@ -296,16 +297,69 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * The detail view for the request's suffix path: for a package (leaf), the usual property
+     * table + action bar; for an intermediate (group/name) node, a navigable list of every
+     * package nested under it instead, with its own action bar (currently just Purge Old
+     * Versions) - see {@link #actions} / {@link #viewFolder}.
+     */
     protected @NotNull Result<?> viewPackage(@NotNull final SlingHttpServletRequest request) {
-        final PackageInfo info = packageInfo(request);
-        if (info == null) {
+        final String path = targetPath(request);
+        if ("/".equals(path)) {
             return new Result<>(SC_NOT_FOUND);
         }
+        // a package (leaf) path is resolved directly against the repository/registry, independent
+        // of the tree structure - a leaf's tree-node key is its whole path, not a path segment, so
+        // it can't be found by splitting the path the way a folder path can (see JcrPackageTree/
+        // RegistryTree#findNode); only if that fails do we treat the path as an intermediate node
+        final PackageInfo info = packageInfo(request);
+        if (info != null) {
+            final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
+                    .with("packages.actions", (Supplier<?>) () -> actions(info))
+                    .with("packages.info", (Supplier<?>) () -> valuesOf(info))
+            ), "/sling/packages/details/content.html"));
+            return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
+        }
+        try {
+            final List<PackageListEntry> leaves;
+            if (isRegistryMode(request)) {
+                leaves = new RegistryTree(registryOperations().packages()).leavesUnder(path);
+            } else {
+                final Session session = session(request);
+                final JcrPackageManager manager = session != null ? jcrOperations.packageManager(session) : null;
+                leaves = manager != null ? new JcrPackageTree(manager).leavesUnder(path) : List.of();
+            }
+            return leaves.isEmpty() ? new Result<>(SC_NOT_FOUND) : viewFolder(leaves);
+        } catch (RepositoryException | IOException ex) {
+            LOG.error(ex.getMessage(), ex);
+            return new Result<>(SC_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    protected @NotNull Result<?> viewFolder(@NotNull final List<PackageListEntry> entries) {
+        final List<Values> actions = config.writeEnabled()
+                ? List.of(action("purge", "trash", "Purge Old Versions"))
+                : List.of();
         final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
-                .with("packages.actions", (Supplier<?>) () -> actions(info))
-                .with("packages.info", (Supplier<?>) () -> valuesOf(info))
-        ), "/sling/packages/details/content.html"));
+                .with("packages.actions", actions)
+                .with("packages.entries", entries)
+        ), "/sling/packages/details/folder.html"));
         return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
+    }
+
+    /**
+     * The leaf (version) paths a "purge" of the request's suffix path would delete, in whichever
+     * backend {@link #isRegistryMode} selects - see {@link JcrPackageTree#purgeCandidates} /
+     * {@link RegistryTree#purgeCandidates}.
+     */
+    protected @NotNull List<String> purgeCandidates(@NotNull final SlingHttpServletRequest request, @NotNull final String path)
+            throws RepositoryException, IOException {
+        if (isRegistryMode(request)) {
+            return new RegistryTree(registryOperations().packages()).purgeCandidates(path);
+        }
+        final Session session = session(request);
+        final JcrPackageManager manager = session != null ? jcrOperations.packageManager(session) : null;
+        return manager != null ? new JcrPackageTree(manager).purgeCandidates(path) : List.of();
     }
 
     public @NotNull Result<?> processPost(@NotNull final SlingHttpServletRequest request,
@@ -336,6 +390,8 @@ public class PackageManager extends AbstractToolsPlugin {
                 return assemblePackage(request);
             case "delete":
                 return deletePackage(request);
+            case "purge":
+                return purgePackages(request);
             case "filters":
                 return filtersPackage(request);
             default:
@@ -496,6 +552,8 @@ public class PackageManager extends AbstractToolsPlugin {
                 return filtersDialog(request);
             case "coverage":
                 return coverageDialog(request);
+            case "purge":
+                return purgeDialog(request);
             case "install":
             case "uninstall":
             case "assemble":
@@ -581,6 +639,23 @@ public class PackageManager extends AbstractToolsPlugin {
             }
             return renderDialog(DIALOGS_ROOT + "coverage.html", new Values().with("coverage.lines", lines));
         } catch (RepositoryException ex) {
+            LOG.error(ex.getMessage(), ex);
+            return new Result<>(SC_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    protected @NotNull Result<?> purgeDialog(@NotNull final SlingHttpServletRequest request) {
+        final String path = targetPath(request);
+        try {
+            final int count = purgeCandidates(request, path).size();
+            return renderDialog(DIALOGS_ROOT + "confirm.html", new Values()
+                    .with("dialog.action", actionLink("purge") + path + (isRegistryMode(request) ? "?mode=" + MODE_REGISTRY : ""))
+                    .with("dialog.title", "Purge Old Versions")
+                    .with("dialog.message", count > 0
+                            ? "Delete " + count + " old version" + (count == 1 ? "" : "s")
+                            + " here, keeping only the latest of each package?"
+                            : "There are no old versions to purge here."));
+        } catch (RepositoryException | IOException ex) {
             LOG.error(ex.getMessage(), ex);
             return new Result<>(SC_INTERNAL_SERVER_ERROR);
         }
@@ -756,6 +831,56 @@ public class PackageManager extends AbstractToolsPlugin {
             }
             jcrOperations.delete(manager, jcrPackage);
             return new Result<>(Map.of("deleted", targetPath(request)));
+        } catch (RepositoryException | IOException ex) {
+            LOG.error(ex.getMessage(), ex);
+            return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
+        }
+    }
+
+    /**
+     * Deletes every old version under the request's suffix path (a group or name folder), keeping
+     * only the latest version of each package found there - see {@link #purgeCandidates}. Returns
+     * the same '{log, error}' shape as install/uninstall/assemble, so the client's generic dialog
+     * success handler shows the same result popup with the list of what was purged.
+     */
+    protected @NotNull Result<?> purgePackages(@NotNull final SlingHttpServletRequest request) {
+        final String path = targetPath(request);
+        try {
+            final List<String> candidates = purgeCandidates(request, path);
+            final JcrPackageOperations.OperationLog log = new JcrPackageOperations.OperationLog();
+            if (isRegistryMode(request)) {
+                for (final String leafPath : candidates) {
+                    final PackageId id = RegistryOperations.packageId(leafPath);
+                    if (id != null) {
+                        try {
+                            registryOperations().remove(id);
+                            log.onMessage(ProgressTrackerListener.Mode.TEXT, "Deleted", leafPath);
+                        } catch (IOException ex) {
+                            log.onError(ProgressTrackerListener.Mode.TEXT, leafPath, ex);
+                        }
+                    }
+                }
+            } else {
+                final JcrPackageManager manager = jcrOperations.packageManager(session(request));
+                if (manager == null) {
+                    return new Result<>(SC_INTERNAL_SERVER_ERROR);
+                }
+                for (final String leafPath : candidates) {
+                    final JcrPackage jcrPackage = jcrOperations.open(manager, leafPath);
+                    if (jcrPackage != null) {
+                        try {
+                            jcrOperations.delete(manager, jcrPackage);
+                            log.onMessage(ProgressTrackerListener.Mode.TEXT, "Deleted", leafPath);
+                        } catch (RepositoryException ex) {
+                            log.onError(ProgressTrackerListener.Mode.TEXT, leafPath, ex);
+                        }
+                    }
+                }
+            }
+            if (candidates.isEmpty()) {
+                log.onMessage(ProgressTrackerListener.Mode.TEXT, "No old versions found under", path);
+            }
+            return operationResult(log);
         } catch (RepositoryException | IOException ex) {
             LOG.error(ex.getMessage(), ex);
             return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
