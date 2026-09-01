@@ -44,4 +44,10 @@ public interface ToolsPlugin extends Plugin {
     @Nullable String widgetViewLink(@NotNull SlingHttpServletRequest request,
                                     @NotNull SlingHttpServletResponse response,
                                     @NotNull String widgetKey);
+
+    default @Nullable String widgetViewTarget(@NotNull SlingHttpServletRequest request,
+                                              @NotNull SlingHttpServletResponse response,
+                                              @NotNull String widgetKey) {
+        return null;
+    }
 }

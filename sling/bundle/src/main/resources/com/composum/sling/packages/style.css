@@ -1,0 +1,242 @@
+.packages-page_content {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    font-family: 'Titillium Web', 'Helvetica', 'Arial', sans-serif
+}
+
+.packages-page_left-panel {
+    position: relative;
+    width: 35%;
+    min-width: 22%;
+    max-width: 500px;
+    border-right: 1px solid #777;
+}
+
+.packages-page_toolbar {
+    margin-right: 8px;
+}
+
+.packages-page_tree-bar,
+.packages-page_detail-actions {
+    height: 40px;
+    padding: 4px 4px 5px;
+    background: #777;
+    color: #ddd;
+}
+
+.packages-page_tree-bar {
+    border-right: 1px solid #aaa;
+}
+
+.packages-page_tree-bar a,
+.packages-page_tree-bar a:hover,
+.packages-page_tree-bar a:focus,
+.packages-page_tree-bar a:active,
+.packages-page_tree-bar a:visited {
+    color: #ddd;
+}
+
+.packages-page_tree-bar a,
+.packages-page_tree-bar a:hover,
+.packages-page_tree-bar a:focus,
+.packages-page_tree-bar a:active,
+.packages-page_tree-bar a:visited,
+.packages-page_detail_content a,
+.packages-page_detail_content a:hover,
+.packages-page_detail_content a:focus,
+.packages-page_detail_content a:active,
+.packages-page_detail_content a:visited {
+    text-decoration: none;
+}
+
+.packages-page_content .btn-group .btn:last-child {
+    border-left-color: #777;
+}
+
+.packages-page_tree-bar .btn,
+.packages-page_detail-actions .btn {
+    white-space: nowrap;
+}
+
+.packages-page_content .btn i.bi {
+    margin-right: 4px;
+}
+
+.packages-page_tree-panel {
+    position: absolute;
+    top: 44px;
+    left: 8px;
+    right: 8px;
+    bottom: 4px;
+    overflow: auto;
+}
+
+.packages-page_tree {
+    width: 100%;
+    height: 100%;
+}
+
+.packages-page_tree.jstree-proton .jstree-node {
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.packages-page_tree.jstree-proton > .jstree-no-dots .jstree-open > .jstree-ocl,
+.packages-page_tree.jstree-proton > .jstree-no-dots .jstree-closed > .jstree-ocl {
+    background-position-y: -3px;
+}
+
+.packages-page_tree.jstree-proton .jstree-wholerow {
+    height: 28px;
+}
+
+.packages-page_tree.jstree-proton .jstree-icon,
+.packages-page_tree.jstree-proton .jstree-anchor {
+    line-height: 27px;
+}
+
+.packages-page_tree .jstree-container-ul {
+    padding-bottom: 12px;
+}
+
+.packages-page_detail-panel {
+    width: 100%;
+    height: 100%;
+}
+
+.packages-page_detail {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.packages-page_hint {
+    color: #777;
+}
+
+.packages-page_detail-actions {
+    padding-left: 12px;
+    padding-right: 12px;
+    text-align: right;
+}
+
+.packages-page_detail-actions > * {
+    margin-left: 8px;
+}
+
+.packages-page_detail_content {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: auto;
+}
+
+.packages-page_detail-table th,
+.packages-page_detail-table td {
+    padding: 4px 12px;
+}
+
+.packages-page_detail-table th {
+    width: 180px;
+    white-space: nowrap;
+}
+
+.packages-page_detail-table ul {
+    margin: 0;
+    padding: 0 0 0 18px;
+    max-height: 352px;
+    overflow: auto;
+    list-style: circle;
+}
+
+.packages-page_tile .card-body {
+    padding: 8px;
+    overflow: auto;
+}
+
+.packages-page_tile-caption {
+    color: #777;
+}
+
+.packages-page_tile-subtitle {
+    margin-top: 13px;
+    color: #777;
+    font-size: 85%;
+}
+
+.packages-page_tile-installed {
+    margin: 7px -8px 0 -8px;
+    font-size: 90%;
+}
+
+.packages-page_tile-installed td {
+    padding: 4px 8px;
+    white-space: nowrap;
+}
+
+.packages-page_tile-installed .version,
+.packages-page_tile-installed .date-value {
+    color: #777 !important;
+}
+
+.packages-page_coverage {
+    max-height: 60vh;
+    overflow: auto;
+    font-size: 85%;
+}
+
+.packages-page_filter-root {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.packages-page_filters-rules {
+    font-family: monospace;
+    margin-top: 8px;
+}
+
+.packages-page_coverage {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.packages-page_readme {
+    max-width: 640px;
+    padding: 16px;
+}
+
+.packages-page_readme ul {
+    padding-left: 18px;
+}
+
+.packages-page_readme li {
+    margin-bottom: 6px;
+}
+
+.packages-page_folder-list {
+    margin: 0;
+    padding: 12px;
+    list-style: none;
+}
+
+.packages-page_folder-entry {
+    padding: 4px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.packages-page_folder-entry-link,
+.packages-page_folder-entry-link:hover,
+.packages-page_folder-entry-link:focus,
+.packages-page_folder-entry-link:active,
+.packages-page_folder-entry-link:visited {
+    text-decoration: none;
+}

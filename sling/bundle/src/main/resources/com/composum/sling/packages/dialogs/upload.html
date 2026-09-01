@@ -1,0 +1,28 @@
+<div class="modal fade tools-dialog" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form class="tools-dialog_form" method="post" action="${attr:dialog.action}" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title">Upload Package</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="tools-dialog_error d-none"></p>
+                    <div class="mb-3">
+                        <label class="form-label">Package file (.zip)</label>
+                        <input type="file" class="form-control" name="file" accept=".zip,.jar" required>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="hidden" name="force" value="false">
+                        <input type="checkbox" class="form-check-input" id="packages-upload_force" name="force" value="true">
+                        <label class="form-check-label" for="packages-upload_force">Overwrite an existing package with the same name/version</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

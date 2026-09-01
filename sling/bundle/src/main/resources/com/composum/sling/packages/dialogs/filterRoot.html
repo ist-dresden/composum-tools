@@ -1,0 +1,26 @@
+<div class="packages-page_filter-root">
+    <div class="row g-2 align-items-end">
+        <div class="col-6">
+            <label class="form-label">Root</label>
+            <input type="text" class="form-control" name="root" value="${attr:entry.root}">
+        </div>
+        <div class="col-3">
+            <label class="form-label">Import Mode</label>
+            <select class="form-control" name="mode" data-value="${attr:entry.importMode}">
+                <option value="REPLACE">replace (default)</option>
+                <option value="MERGE">merge (existing content is not modified)</option>
+                <option value="UPDATE">update (existing content is not deleted)</option>
+            </select>
+        </div>
+        <div class="col-3 text-end">
+            <label class="form-label d-block">&nbsp;</label>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-secondary packages-page_filter-root-up" title="Move up"><i class="bi bi-arrow-up"></i></button>
+                <button type="button" class="btn btn-outline-secondary packages-page_filter-root-down" title="Move down"><i class="bi bi-arrow-down"></i></button>
+                <button type="button" class="btn btn-outline-danger packages-page_filter-root-remove" title="Remove"><i class="bi bi-trash"></i></button>
+            </div>
+        </div>
+    </div>
+    <textarea class="form-control packages-page_filters-rules" name="rules" rows="3"
+              spellcheck="false" placeholder="+ include-pattern&#10;- exclude-pattern">${entry.rulesText}</textarea>
+</div>

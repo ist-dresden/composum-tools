@@ -1,0 +1,8 @@
+<div class="packages-page_detail">
+    ${include:'/sling/packages/details/toolbar.html'}
+    <div class="packages-page_detail_content">
+        <ul class="packages-page_folder-list">
+            ${each.entry:packages.entries;'/sling/packages/details/folderEntry.html'}
+        </ul>
+    </div>
+</div>
