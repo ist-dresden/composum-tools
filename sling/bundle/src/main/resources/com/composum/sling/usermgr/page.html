@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html class="${attr:html.cssClasses}" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+    <meta http-equiv="Pragma" content="no-cache"/>
+    <meta http-equiv="Expires" content="0"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${page.title}</title>
+    <link rel="shortcut icon" href="${src:'/sling/tools/common/logo.svg'}"/>
+    <link rel="stylesheet" href="${src:'/lib/bootstrap/5.2.3/css/bootstrap.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/bootstrap/icons/1.13.1/bootstrap-icons.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/jstree/3.3.17/themes/default/style.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/jstree/3.3.17/themes/proton/style.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/sling/tools/style.css'}"/>
+    <link rel="stylesheet" href="${src:'/sling/usermgr/style.css'}"/>
+</head>
+<body class="usermgr-page_body">
+${include:'/sling/tools/navbar/navbar.html'}
+<div class="usermgr-page_content">
+    <div class="usermgr-page_left-panel">
+        <div class="usermgr-page_tree-bar">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="usermgr-page_tree-title">Users &amp; Groups</span>
+                ${if:users.writeEnabled;'/sling/usermgr/toolbar.html'}
+            </div>
+            <div class="usermgr-page_search" data-query-url="${attr:users.query}">
+                <input type="search" class="form-control form-control-sm usermgr-page_search-input"
+                       placeholder="Find..." autocomplete="off">
+                <ul class="usermgr-page_search-results d-none"></ul>
+            </div>
+        </div>
+        <div class="usermgr-page_tree-panel">
+            <div class="usermgr-page_tree"
+                 data-tree-url="${attr:users.tree}"
+                 data-ancestors-url="${attr:users.ancestors}"
+                 data-page-url="${attr:users.uri}"
+                 data-path="${attr:users.path}"></div>
+        </div>
+    </div>
+    <div class="usermgr-page_detail-panel" data-page-url="${attr:users.uri}" data-view-url="${attr:users.view}"
+         data-dialog-url="${attr:users.dialog}">
+        <div class="usermgr-page_detail">
+            <div class="usermgr-page_detail-actions">
+            </div>
+            <div class="usermgr-page_detail_content">
+                <p class="usermgr-page_hint">Select a user, group, or folder in the tree on the left.</p>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="${src:'/lib/jquery/jquery-3.7.1.min.js'}"></script>
+${each.uri:system.clientlibs;'<script src="${link:uri}"></script>'}
+<script src="${src:'/lib/bootstrap/5.2.3/js/bootstrap.bundle.min.js'}"></script>
+<script src="${src:'/lib/jstree/3.3.17/jstree.min.js'}"></script>
+<script src="${src:'/sling/tools/script.js'}"></script>
+<script src="${src:'/sling/usermgr/script.js'}"></script>
+<script>
+  $(document).ready(function () {
+    CPM.widgets.initialize();
+  });
+</script>
+</body>
+</html>

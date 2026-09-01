@@ -102,7 +102,7 @@ public class PackageManager extends AbstractToolsPlugin {
     private static final String DIALOGS_ROOT = "/sling/packages/dialogs/";
     private static final String MODE_REGISTRY = "registry";
 
-    @ObjectClassDefinition(name = "Composum Package Manager")
+    @ObjectClassDefinition(name = "Composum Tools Package Manager")
     public @interface Config {
 
         @AttributeDefinition()

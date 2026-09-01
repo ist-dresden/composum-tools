@@ -15,9 +15,9 @@ Composum Tools is a from-scratch, purpose-built successor to two older, independ
 projects:
 
 - the full [Composum Nodes](https://github.com/ist-dresden/composum-nodes) JCR browser,
-  including many features (user management, Groovy console, ACL editor, ...) that have not been
-  migrated yet, but will be added later if useful or necessary. Its package manager *has* been
-  migrated — see [Package Manager](#package-manager) below.
+  including several features (Groovy console, ACL editor, ...) that have not been migrated yet,
+  but will be added later if useful or necessary. Its package manager and user manager *have*
+  been migrated — see [Package Manager](#package-manager) / [User Manager](#user-manager) below.
 - the more lightweight [Composum Dashboard](https://github.com/ist-dresden/composum-dashboard),
   an earlier attempt at replacing Nodes with a tile-based framework for arranging a small set of
   read-only tools.
@@ -111,6 +111,48 @@ not specific to the Package Manager): a dialog's HTML fragment is fetched on dem
 opened and removed from the DOM again once it is closed (cancelled or successfully submitted) —
 no dialog markup is ever left lingering in the page.
 
+### User Manager
+
+Browses and manages Jackrabbit users, system users and groups under `/home` — a tree on the left
+(`/home/users`/`/home/groups`, arbitrarily nested via intermediate `rep:AuthorizableFolder`
+paths, resolved **lazily one node at a time** since a real repository's `/home` can hold
+thousands of authorizables — unlike the Package Manager's tree, which builds its whole, much
+smaller tree eagerly per request), the selected authorizable's details and actions on the right.
+Selecting an intermediate folder shows its immediate children (not a recursive listing, for the
+same scaling reason). A **"Find"** input in the tree bar does an indexed id search instead
+(`UserManager#findAuthorizables`), so a deeply-nested authorizable doesn't need manual tree
+expansion. **Requires an OSGi configuration to activate** — see
+[Activation: opt-in by design](#activation-opt-in-by-design) below.
+
+Unlike the Package Manager, there is exactly one backend (Jackrabbit's own `UserManager`, via
+`((JackrabbitSession) session).getUserManager()`), so there is no mode toggle.
+
+- **User** — identity, enabled/disabled state and reason, **Enable**/**Disable** (with a reason),
+  **Change Password** (admin bypass, no old password required), **Groups** tab (add/remove which
+  groups this user declares membership in), **Delete**.
+- **System User** — identity, **Groups** tab, **Delete** — no password/enable-disable (a system
+  user has no interactive login).
+- **Group** — identity, **Members** tab (add/remove this group's own declared members), **Groups**
+  tab (which groups this group itself is a member of), **Delete**.
+- **Affected Paths** — a read-only report (for every type) of every repository path where an ACL
+  grants or denies a privilege to the authorizable's principal (`rep:GrantACE`/`rep:DenyACE`),
+  always available regardless of write access — the equivalent of the Package Manager's Coverage
+  dialog.
+- **Create User** / **Create System User** / **Create Group**, each with an optional intermediate
+  path.
+
+`admin`/`anonymous` can never be deleted — enforced both server-side and by omitting the Delete
+button entirely for them. Group membership is a single, symmetric operation reused from both
+entry points (a user/group's own Groups tab, and a group's own Members tab) — adding/removing
+from either side produces identical repository state.
+
+Deliberately **not** carried forward from Nodes' user manager: the relationship-graph
+visualization (would have pulled in a CDN-loaded D3/Graphviz/WASM dependency chain, at odds with
+this project's minimal-footprint goal — group memberships are shown as plain Groups/Members
+tables instead), free-form Profile/Preferences property editing (no reusable generic
+JCR-property-editor widget exists yet in this project's Browser module to build it on), and
+virtual Sling `ServiceUserMapping` authorizables (only real, JCR-backed system users are managed).
+
 ### Console (AEM only)
 
 Embeds selected read-only [Felix Web Console](https://felix.apache.org/documentation/subprojects/apache-felix-web-console.html)
@@ -171,6 +213,7 @@ Once the bundle(s) are active, open (default servlet path `/apps/cpm/tools`, con
 | `/apps/cpm/tools.dashboard.html` | Dashboard overview |
 | `/apps/cpm/tools.browser.html` | JCR Browser |
 | `/apps/cpm/tools.packages.html` | Package Manager |
+| `/apps/cpm/tools.users.html` | User Manager |
 | `/apps/cpm/tools.console.html` | Felix Console proxy (AEM only) |
 
 ## Configuration & customization
@@ -186,8 +229,8 @@ OSGi configuration mechanism.
 present at all — it is the part of the toolset that is virtually always wanted, so there is
 deliberately no extra step between deploying the bundle and being able to use it.
 
-**Every other top-level page — `Dashboard`, `PackageManager`, and `Console` (AEM only) —
-requires an explicit OSGi configuration to activate**
+**Every other top-level page — `Dashboard`, `PackageManager`, `UserManager`, and `Console`
+(AEM only) — requires an explicit OSGi configuration to activate**
 (`configurationPolicy = ConfigurationPolicy.REQUIRE`); without one, the component simply does not
 start, and its page/tile/proxy is not registered anywhere. An **empty configuration (`{}`) is
 enough** — this is not about setting any particular value, it is a deliberate per-instance
@@ -216,6 +259,9 @@ The most commonly adjusted settings, once a component is active:
 - **Package Manager write access**: `PackageManager.Config#writeEnabled()` — `false` makes it a
   read-only browser/installer-of-nothing (Create/Upload/Edit/Filters/Install/Uninstall/Build/
   Delete all return `403`, listing/viewing/downloading/coverage stay available).
+- **User Manager write access**: `UserManager.Config#writeEnabled()` — same pattern, `false`
+  makes it read-only (Create/Delete/Enable/Disable/Change-Password/group-membership all return
+  `403`; browsing, search, and Affected Paths stay available).
 
 For extension beyond configuration — a new tool, view, action set or console proxy — implement
 the relevant small interface (`Tool`, `View`, `Actions`, `ConsoleProxy`) as its own OSGi
@@ -224,10 +270,15 @@ component; it registers itself with the framework via `PluginSet#attach()`/`#det
 [`Favorites`](sling/bundle/src/main/java/com/composum/sling/browser/tool/Favorites.java) or
 [`JsonView`](sling/bundle/src/main/java/com/composum/sling/browser/view/JsonView.java) as a
 template). A whole new top-level page (its own `ToolsPlugin`, like Browser/Dashboard/Package
-Manager) is the same idea one level up — see
+Manager/User Manager) is the same idea one level up — see
 [`PackageManager`](sling/bundle/src/main/java/com/composum/sling/packages/PackageManager.java)
-as the most recently added example, including how it gates its own optional dependency
-(`Packaging`/FileVault) via a plain mandatory `@Reference`.
+for a two-backend example (including how it gates its own optional dependency, `Packaging`/
+FileVault, via a plain mandatory `@Reference`) or
+[`UserManager`](sling/bundle/src/main/java/com/composum/sling/usermgr/UserManager.java) for a
+single-backend one (and, in
+[`JcrAuthorizableTree`](sling/bundle/src/main/java/com/composum/sling/usermgr/jcr/JcrAuthorizableTree.java),
+a lazy per-node tree instead of `JcrPackageTree`'s eager one — the right model whenever the tree
+can be large).
 
 Note that all HTML templates and static assets (JS/CSS/icons) are plain Java classpath resources
 bundled *inside* the OSGi bundle — there is deliberately no JCR content package backing the UI.

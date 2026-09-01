@@ -1,0 +1,43 @@
+<div class="usermgr-page_detail">
+    ${include:'/sling/usermgr/details/toolbar.html'}
+    <div class="usermgr-page_detail_content">
+        <table class="usermgr-page_detail-table table table-sm table-striped">
+            <tr>
+                <th>ID</th>
+                <td>${users.info.id}</td>
+            </tr>
+            <tr>
+                <th>Path</th>
+                <td>${users.info.path}</td>
+            </tr>
+            <tr>
+                <th>Principal</th>
+                <td>${users.info.principalName}</td>
+            </tr>
+        </table>
+        <div class="resuming-tabs" data-tabs-id="usermgr-group-tabs">
+            <ul class="resuming-tabs_nav nav nav-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link active" data-bs-toggle="tab" href="#usermgr-tab-members" role="tab" aria-controls="usermgr-tab-members">Members</a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link" data-bs-toggle="tab" href="#usermgr-tab-groups" role="tab" aria-controls="usermgr-tab-groups">Groups</a>
+                </li>
+            </ul>
+            <div class="resuming-tabs_pane tab-content">
+                <div class="tab-pane fade show active" id="usermgr-tab-members" role="tabpanel">
+                    ${if:users.writeEnabled;'<div class="usermgr-page_tab-toolbar"><button type="button" class="usermgr-page_action-addMember btn btn-sm btn-dark"><i class="bi bi-plus-lg"></i> Add Member</button></div>'}
+                    <ul class="usermgr-page_folder-list">
+                        ${each.entry:users.info.members;'/sling/usermgr/details/membersEntry.html'}
+                    </ul>
+                </div>
+                <div class="tab-pane fade" id="usermgr-tab-groups" role="tabpanel">
+                    ${if:users.writeEnabled;'<div class="usermgr-page_tab-toolbar"><button type="button" class="usermgr-page_action-addToGroup btn btn-sm btn-dark"><i class="bi bi-plus-lg"></i> Add to Group</button></div>'}
+                    <ul class="usermgr-page_folder-list">
+                        ${each.entry:users.info.groups;'/sling/usermgr/details/groupsEntry.html'}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

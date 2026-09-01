@@ -1,0 +1,224 @@
+.usermgr-page_content {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    font-family: 'Titillium Web', 'Helvetica', 'Arial', sans-serif
+}
+
+.usermgr-page_left-panel {
+    position: relative;
+    width: 35%;
+    min-width: 22%;
+    max-width: 500px;
+    border-right: 1px solid #777;
+    display: flex;
+    flex-direction: column;
+}
+
+.usermgr-page_detail-actions {
+    height: 40px;
+    padding: 4px 12px;
+    background: #777;
+    color: #ddd;
+}
+
+.usermgr-page_tree-bar {
+    flex: 0 0 auto;
+    padding: 6px 12px 10px;
+    background: #777;
+    color: #ddd;
+    border-right: 1px solid #aaa;
+}
+
+.usermgr-page_content .btn-group .btn:last-child {
+    border-left-color: #777;
+}
+
+.usermgr-page_content .btn i.bi {
+    margin-right: 4px;
+}
+
+.usermgr-page_search {
+    position: relative;
+    width: 100%;
+    margin-top: 8px;
+}
+
+.usermgr-page_search-input {
+    width: 100%;
+}
+
+.usermgr-page_search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    margin: 2px 0 0;
+    padding: 4px 0;
+    list-style: none;
+    background: #fff;
+    color: #212529;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    max-height: 320px;
+    overflow: auto;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.usermgr-page_search-results li {
+    padding: 0;
+}
+
+.usermgr-page_search-results a {
+    display: block;
+    padding: 6px 12px;
+    color: #212529;
+    text-decoration: none;
+}
+
+.usermgr-page_search-results a:hover {
+    background: #f0f0f0;
+}
+
+.usermgr-page_search-empty {
+    padding: 6px 12px;
+    color: #777;
+}
+
+.usermgr-page_tree-panel {
+    flex: 1 1 auto;
+    position: relative;
+    overflow: auto;
+    padding: 4px 8px;
+}
+
+.usermgr-page_tree {
+    width: 100%;
+    height: 100%;
+}
+
+.usermgr-page_tree.jstree-proton .jstree-node {
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.usermgr-page_tree.jstree-proton > .jstree-no-dots .jstree-open > .jstree-ocl,
+.usermgr-page_tree.jstree-proton > .jstree-no-dots .jstree-closed > .jstree-ocl {
+    background-position-y: -3px;
+}
+
+.usermgr-page_tree.jstree-proton .jstree-wholerow {
+    height: 28px;
+}
+
+.usermgr-page_tree.jstree-proton .jstree-icon,
+.usermgr-page_tree.jstree-proton .jstree-anchor {
+    line-height: 27px;
+}
+
+.usermgr-page_tree .jstree-container-ul {
+    padding-bottom: 12px;
+}
+
+.usermgr-page_detail-panel {
+    width: 100%;
+    height: 100%;
+}
+
+.usermgr-page_detail {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.usermgr-page_hint {
+    color: #777;
+    padding: 16px;
+}
+
+.usermgr-page_detail-actions {
+    padding-left: 12px;
+    padding-right: 12px;
+    text-align: right;
+}
+
+.usermgr-page_detail-actions > * {
+    margin-left: 8px;
+}
+
+.usermgr-page_detail_content {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: auto;
+}
+
+.usermgr-page_detail-table th,
+.usermgr-page_detail-table td {
+    padding: 4px 12px;
+}
+
+.usermgr-page_detail-table th {
+    width: 180px;
+    white-space: nowrap;
+}
+
+.usermgr-page_detail_content .resuming-tabs {
+    margin-top: 12px;
+}
+
+.usermgr-page_folder-list {
+    margin: 0;
+    padding: 12px;
+    list-style: none;
+}
+
+.usermgr-page_folder-entry {
+    padding: 4px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.usermgr-page_membership-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.usermgr-page_membership-remove {
+    border: none;
+    background: none;
+    color: #999;
+    padding: 2px 6px;
+}
+
+.usermgr-page_membership-remove:hover {
+    color: #c00;
+}
+
+.usermgr-page_tab-toolbar {
+    margin: 12px 0 4px;
+}
+
+.usermgr-page_affected-paths {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-height: 60vh;
+    overflow: auto;
+    font-size: 85%;
+    font-family: monospace;
+}
+
+.usermgr-page_folder-entry-link,
+.usermgr-page_folder-entry-link:hover,
+.usermgr-page_folder-entry-link:focus,
+.usermgr-page_folder-entry-link:active,
+.usermgr-page_folder-entry-link:visited {
+    text-decoration: none;
+}

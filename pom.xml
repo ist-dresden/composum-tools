@@ -304,6 +304,21 @@
                     </exclusion>
                 </exclusions>
             </dependency>
+            <dependency>
+                <!-- Jackrabbit's user-management API (UserManager/Authorizable/User/Group,
+                     JackrabbitSession) - Oak's own build of it (vault itself depends on this
+                     artifact, not the older 'jackrabbit-api', for the same classes), 'provided'
+                     since every target runtime (Sling/AEM) already bundles an Oak implementation.
+                     Version is a placeholder picked from Maven Central for compile-time API
+                     resolution only (the APIs used here have been stable for many years) -
+                     verify against the actual target instance's bundled Oak version before first
+                     deploy, same caveat as the vault dependency above. -->
+                <groupId>org.apache.jackrabbit</groupId>
+                <artifactId>oak-jackrabbit-api</artifactId>
+                <version>1.74.0</version>
+                <scope>provided</scope>
+                <optional>true</optional>
+            </dependency>
 
             <!-- Java servlet, web API -->
             <dependency>

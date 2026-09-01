@@ -1,0 +1,8 @@
+<div class="usermgr-page_detail">
+    ${include:'/sling/usermgr/details/toolbar.html'}
+    <div class="usermgr-page_detail_content">
+        <ul class="usermgr-page_folder-list">
+            ${each.entry:users.entries;'/sling/usermgr/details/folderEntry.html'}
+        </ul>
+    </div>
+</div>

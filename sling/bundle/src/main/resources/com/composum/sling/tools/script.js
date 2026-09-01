@@ -242,7 +242,7 @@ class ResumingTabs extends ViewWidget {
         super(element)
         this.onShownCallback = onShownCallback;
         this.profile = new Profile(identifier || this.$el.data('tabs-id'));
-        this.$(ResumingTabs.css.nav + ' a[data-toggle="tab"]').on('shown.bs.tab', this.onTabShown.bind(this));
+        this.$(ResumingTabs.css.nav + ' a[data-bs-toggle="tab"]').on('shown.bs.tab', this.onTabShown.bind(this));
         this.showTab(this.profile.get('currentTab'), true);
     }
 
@@ -265,10 +265,9 @@ class ResumingTabs extends ViewWidget {
 
     showTab(tabId, force) {
         const $tab = this.$(ResumingTabs.css.link + '[aria-controls="' + tabId + '"]');
-        if ($tab.length > 0) {
-            $tab.tab('show');
-        } else if (force) {
-            this.$(ResumingTabs.css.link).first().tab('show');
+        const $target = $tab.length > 0 ? $tab : (force ? this.$(ResumingTabs.css.link).first() : undefined);
+        if ($target && $target.length > 0) {
+            bootstrap.Tab.getOrCreateInstance($target[0]).show();
         }
     }
 }

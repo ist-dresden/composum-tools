@@ -79,7 +79,7 @@ public class Browser extends AbstractToolsPlugin {
      * OSGi metatype configuration for the browser's key/label/rank, its favorites/query templates,
      * exposed CA configurations, and which tools/views are enabled.
      */
-    @ObjectClassDefinition(name = "Composum Browser")
+    @ObjectClassDefinition(name = "Composum Tools Browser")
     public @interface Config {
 
         /**
