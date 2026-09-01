@@ -55,6 +55,7 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,7 +98,6 @@ public class PackageManager extends AbstractToolsPlugin {
     public static final String KEY = "packages";
     public static final String LABEL = "Packages";
     public static final int RANK = 4000;
-    public static final String TILE_KEY = "tile";
 
     private static final String DIALOGS_ROOT = "/sling/packages/dialogs/";
     private static final String MODE_REGISTRY = "registry";
@@ -116,6 +116,10 @@ public class PackageManager extends AbstractToolsPlugin {
 
         @AttributeDefinition()
         boolean enabled() default true;
+
+        @AttributeDefinition(name = "Show Packages Tile",
+                description = "whether Package Managers dashboard tile should be shown in the Tools Dashboard")
+        boolean showTile() default true;
 
         @AttributeDefinition(name = "Write Enabled",
                 description = "whether mutating operations (create/upload/update/install/uninstall/assemble/delete) are allowed")
@@ -196,6 +200,26 @@ public class PackageManager extends AbstractToolsPlugin {
     }
 
     /**
+     * Whether the given checkbox parameter is checked - checked, and not just present, since the
+     * standard checkbox/hidden-field pattern (an accompanying hidden 'false' fallback so an
+     * unchecked box still submits a value) submits the field twice when checked; unlike
+     * {@link SlingHttpServletRequest#getParameter}, which only ever sees the first of multiple
+     * values for the same name (here the hidden 'false', regardless of the checkbox's own state),
+     * this checks every submitted value.
+     */
+    protected boolean isChecked(@NotNull final SlingHttpServletRequest request, @NotNull final String name) {
+        final String[] values = request.getParameterValues(name);
+        if (values != null) {
+            for (final String value : values) {
+                if ("true".equalsIgnoreCase(value) || "on".equalsIgnoreCase(value)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * The '?mode=registry' query suffix to append to a mode-agnostic URL built for the given
      * package, or an empty string for a JCR-backed one - so the client never has to know which
      * backend a given path belongs to, it just carries the mode along.
@@ -206,17 +230,26 @@ public class PackageManager extends AbstractToolsPlugin {
 
     @Override
     public @NotNull List<Widget> widgets() {
-        return List.of(
-                new Page(key(), label(), rank(), this::pageLink),
-                new Tile(TILE_KEY, label(), rank())
-        );
+        List<Widget> widgets = new ArrayList<>();
+        widgets.add(new Page(key(), label(), rank(), this::pageLink));
+        if (config.showTile()) {
+            widgets.add(new Tile(key(), label(), rank()));
+        }
+        return widgets;
     }
 
     @Override
     public @Nullable String widgetViewLink(@NotNull final SlingHttpServletRequest request,
                                            @NotNull final SlingHttpServletResponse response,
                                            @NotNull final String widgetKey) {
-        return TILE_KEY.equals(widgetKey) ? pageLink() : super.widgetViewLink(request, response, widgetKey);
+        return pageLink();
+    }
+
+    @Override
+    public @Nullable String widgetViewTarget(@NotNull final SlingHttpServletRequest request,
+                                             @NotNull final SlingHttpServletResponse response,
+                                             @NotNull final String widgetKey) {
+        return "_self";
     }
 
     @Override
@@ -274,6 +307,33 @@ public class PackageManager extends AbstractToolsPlugin {
                 return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
             }
         }
+    }
+
+    public final Map<String, TemplateBuilder.Factory> templates = Map.of(
+            "page", current -> new Template("/sling/packages/page.html",
+                    new TemplateContext(current, new Values()
+                            .with("page", new Values()
+                                    .with("key", key())
+                                    .with("link", pageLink())
+                                    .with("label", label())
+                                    .with("title", "Composum Package Manager"))
+                            .with("packages", new Values()
+                                    .with("uri", pageLink())
+                                    .with("tree", manager.serverPath() + "." + key() + ".tree.json")
+                                    .with("ancestors", manager.serverPath() + "." + key() + ".ancestors.json")
+                                    .with("view", manager.serverPath() + "." + key() + ".view.json")
+                                    .with("dialog", manager.serverPath() + "." + key() + ".dialog.")
+                                    .with("writeEnabled", config.writeEnabled()))
+                            .with("html.cssClasses", (Supplier<?>) () -> getHtmlCssClasses("packages-page"))
+                            .with(toolsValues())
+                    ), this)
+    );
+
+    @Override
+    public @Nullable Template getTemplate(@NotNull TemplateContext context, @NotNull String key) {
+        return Optional.ofNullable(templates.get(key))
+                .map(factory -> factory.create(context))
+                .orElse(key.startsWith("/") ? new Template(key, context, this) : null);
     }
 
     /**
@@ -348,21 +408,6 @@ public class PackageManager extends AbstractToolsPlugin {
                 .with("packages.entries", entries)
         ), "/sling/packages/details/folder.html"));
         return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
-    }
-
-    /**
-     * The leaf (version) paths a "purge" of the request's suffix path would delete, in whichever
-     * backend {@link #isRegistryMode} selects - see {@link JcrPackageTree#purgeCandidates} /
-     * {@link RegistryTree#purgeCandidates}.
-     */
-    protected @NotNull List<String> purgeCandidates(@NotNull final SlingHttpServletRequest request, @NotNull final String path)
-            throws RepositoryException, IOException {
-        if (isRegistryMode(request)) {
-            return new RegistryTree(registryOperations().packages()).purgeCandidates(path);
-        }
-        final Session session = session(request);
-        final JcrPackageManager manager = session != null ? jcrOperations.packageManager(session) : null;
-        return manager != null ? new JcrPackageTree(manager).purgeCandidates(path) : List.of();
     }
 
     public @NotNull Result<?> processPost(@NotNull final SlingHttpServletRequest request,
@@ -479,15 +524,7 @@ public class PackageManager extends AbstractToolsPlugin {
      */
     protected @NotNull Result<?> ancestorsOf(@NotNull final SlingHttpServletRequest request) {
         try {
-            final List<String> ancestors;
-            if (isRegistryMode(request)) {
-                ancestors = new RegistryTree(registryOperations().packages()).ancestorsOf(targetPath(request));
-            } else {
-                final Session session = session(request);
-                final JcrPackageManager manager = session != null ? jcrOperations.packageManager(session) : null;
-                ancestors = manager != null ? new JcrPackageTree(manager).ancestorsOf(targetPath(request)) : List.of();
-            }
-            return new Result<>(ancestors);
+            return new Result<>(ancestorChain(request, targetPath(request)));
         } catch (RepositoryException | IOException ex) {
             LOG.error(ex.getMessage(), ex);
             return new Result<>(SC_INTERNAL_SERVER_ERROR);
@@ -525,20 +562,51 @@ public class PackageManager extends AbstractToolsPlugin {
         return id != null ? registryOperations().open(id) : null;
     }
 
+    protected static final int TILE_LAST_INSTALLED_LIMIT = 7;
+
     protected @NotNull Result<?> renderTile(@NotNull final SlingHttpServletRequest request) {
         try {
             final Session session = session(request);
-            JcrPackageManager manager = jcrOperations.packageManager(session);
-            final int count = manager != null ? manager.listPackages().size() : 0;
+            final JcrPackageManager manager = jcrOperations.packageManager(session);
+            final List<JcrPackage> packages = manager != null ? manager.listPackages() : List.of();
             final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
                     .with("label", label())
-                    .with("tile.count", count)
+                    .with("tile.count", packages.size())
+                    .with("packages.lastInstalled", lastInstalled(packages, TILE_LAST_INSTALLED_LIMIT))
             ), "/sling/packages/tile.html"));
             return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);
             return new Result<>(SC_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /**
+     * The (up to) 'limit' most recently installed packages, newest first - for the Dashboard
+     * tile. 'lastUnpacked' (FileVault's own term for "last installed") is used both as the sort
+     * key and as the displayed timestamp; a package never installed has no 'lastUnpacked' and is
+     * excluded. The raw {@link JcrPackageDefinition#getLastUnpacked()} 'Calendar' is passed
+     * through as-is (not via {@link #valuesOf}, which would flatten it to a JSON timestamp) so
+     * the template's own date formatting (see 'AbstractToolsPlugin#toString') applies.
+     */
+    protected @NotNull List<Values> lastInstalled(@NotNull final List<JcrPackage> packages, final int limit)
+            throws RepositoryException {
+        final List<JcrPackageDefinition> definitions = new ArrayList<>();
+        for (final JcrPackage jcrPackage : packages) {
+            final JcrPackageDefinition definition = jcrPackage.getDefinition();
+            if (definition != null && definition.getLastUnpacked() != null) {
+                definitions.add(definition);
+            }
+        }
+        definitions.sort(Comparator.comparing(JcrPackageDefinition::getLastUnpacked, Comparator.reverseOrder()));
+        final List<Values> result = new ArrayList<>();
+        for (final JcrPackageDefinition definition : definitions.subList(0, Math.min(limit, definitions.size()))) {
+            result.add(new Values()
+                    .with("name", definition.get(JcrPackageDefinition.PN_NAME))
+                    .with("version", definition.get(JcrPackageDefinition.PN_VERSION))
+                    .with("lastInstalled", definition.getLastUnpacked()));
+        }
+        return result;
     }
 
     // Dialogs (loaded on demand, see the shared 'CPM.Dialog' client framework)
@@ -710,8 +778,7 @@ public class PackageManager extends AbstractToolsPlugin {
             return errorResult(SC_BAD_REQUEST, "A package file is required.");
         }
         try {
-            final boolean force = "true".equalsIgnoreCase(request.getParameter("force"))
-                    || "on".equalsIgnoreCase(request.getParameter("force"));
+            final boolean force = isChecked(request, "force");
             final JcrPackageManager jcrPackageManager = jcrOperations.packageManager(session(request));
             if (jcrPackageManager != null) {
                 try (InputStream input = file.getInputStream()) {
@@ -731,17 +798,17 @@ public class PackageManager extends AbstractToolsPlugin {
 
     protected @NotNull Result<?> updatePackage(@NotNull final SlingHttpServletRequest request) {
         try {
-            final JcrPackageManager jcrPackageManager = jcrOperations.packageManager(session(request));
-            JcrPackage jcrPackage = jcrOperations.open(jcrPackageManager, targetPath(request));
+            final JcrPackageManager manager = jcrOperations.packageManager(session(request));
+            JcrPackage jcrPackage = manager != null ? jcrOperations.open(manager, targetPath(request)) : null;
             if (jcrPackage == null) {
                 return new Result<>(SC_NOT_FOUND);
             }
             // a group/name/version change renames (moves) the underlying node, so the response
             // must report the package's possibly new path back to the client - it's still
             // selected by its old path otherwise, which no longer exists afterwards
-            jcrPackage = jcrOperations.update(jcrPackageManager, jcrPackage, request.getParameterMap());
+            jcrPackage = jcrOperations.update(manager, jcrPackage, request.getParameterMap());
             return new Result<>(Map.of("path", StringUtils.defaultString(
-                    JcrPackageOperations.relativePath(jcrPackageManager, jcrPackage))));
+                    JcrPackageOperations.relativePath(manager, jcrPackage))));
         } catch (RepositoryException | PackageException ex) {
             LOG.error(ex.getMessage(), ex);
             return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
@@ -822,26 +889,109 @@ public class PackageManager extends AbstractToolsPlugin {
     }
 
     protected @NotNull Result<?> deletePackage(@NotNull final SlingHttpServletRequest request) {
+        final String path = targetPath(request);
         try {
+            // the full ancestor chain (top-down) must be captured before the delete itself -
+            // afterward the package is gone from the tree to look it up by
+            final List<String> ancestors = ancestorChain(request, path);
             if (isRegistryMode(request)) {
-                final PackageId id = RegistryOperations.packageId(targetPath(request));
+                final PackageId id = RegistryOperations.packageId(path);
                 if (id == null) {
                     return new Result<>(SC_NOT_FOUND);
                 }
                 registryOperations().remove(id);
-                return new Result<>(Map.of("deleted", targetPath(request)));
+            } else {
+                final JcrPackageManager manager = jcrOperations.packageManager(session(request));
+                final JcrPackage jcrPackage = manager != null ? jcrOperations.open(manager, path) : null;
+                if (jcrPackage == null) {
+                    return new Result<>(SC_NOT_FOUND);
+                }
+                jcrOperations.delete(manager, jcrPackage);
             }
-            final JcrPackageManager manager = jcrOperations.packageManager(session(request));
-            final JcrPackage jcrPackage = manager != null ? jcrOperations.open(manager, targetPath(request)) : null;
-            if (jcrPackage == null) {
-                return new Result<>(SC_NOT_FOUND);
-            }
-            jcrOperations.delete(manager, jcrPackage);
-            return new Result<>(Map.of("deleted", targetPath(request)));
+            return deletedResult(path, survivingAncestor(request, ancestors));
         } catch (RepositoryException | IOException ex) {
             LOG.error(ex.getMessage(), ex);
             return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
         }
+    }
+
+    /**
+     * The leaf (version) paths a "purge" of the request's suffix path would delete, in whichever
+     * backend {@link #isRegistryMode} selects - see {@link JcrPackageTree#purgeCandidates} /
+     * {@link RegistryTree#purgeCandidates}.
+     */
+    protected @NotNull List<String> purgeCandidates(@NotNull final SlingHttpServletRequest request, @NotNull final String path)
+            throws RepositoryException, IOException {
+        if (isRegistryMode(request)) {
+            return new RegistryTree(registryOperations().packages()).purgeCandidates(path);
+        }
+        final Session session = session(request);
+        final JcrPackageManager manager = session != null ? jcrOperations.packageManager(session) : null;
+        return manager != null ? new JcrPackageTree(manager).purgeCandidates(path) : List.of();
+    }
+
+    protected @NotNull Result<?> deletedResult(@NotNull final String path, @Nullable final String parent) {
+        final Map<String, Object> data = new LinkedHashMap<>();
+        data.put("deleted", path);
+        if (parent != null) {
+            data.put("parent", parent);
+        }
+        return new Result<>(data);
+    }
+
+    /**
+     * The tree (folder) paths leading down to the given package path, top-down, in whichever
+     * backend {@link #isRegistryMode} selects - see {@link JcrPackageTree#ancestorsOf} /
+     * {@link RegistryTree#ancestorsOf}.
+     */
+    protected @NotNull List<String> ancestorChain(@NotNull final SlingHttpServletRequest request, @NotNull final String path)
+            throws RepositoryException, IOException {
+        if (isRegistryMode(request)) {
+            return new RegistryTree(registryOperations().packages()).ancestorsOf(path);
+        }
+        final Session session = session(request);
+        final JcrPackageManager manager = session != null ? jcrOperations.packageManager(session) : null;
+        return manager != null ? new JcrPackageTree(manager).ancestorsOf(path) : List.of();
+    }
+
+    /**
+     * The deepest folder in the given (top-down) ancestor chain that still exists - for deciding
+     * which folder to select and show after deleting a package (see
+     * {@code PackagesDetail#onDialogSuccess}): if the deleted package was the only one in its
+     * name folder, that folder no longer exists, so its parent group folder is tried next, and so
+     * on up the chain - possibly all the way up if the package was the sole occupant of its
+     * entire group.
+     *
+     * @param ancestors the chain as captured by {@link #ancestorChain} <em>before</em> the delete
+     * @return the deepest still-existing folder, or 'null' if none of them do (e.g. the chain
+     * itself was empty, or every folder in it is now gone)
+     */
+    protected @Nullable String survivingAncestor(@NotNull final SlingHttpServletRequest request, @NotNull final List<String> ancestors)
+            throws RepositoryException, IOException {
+        if (ancestors.isEmpty()) {
+            return null;
+        }
+        if (isRegistryMode(request)) {
+            final RegistryTree tree = new RegistryTree(registryOperations().packages());
+            for (int i = ancestors.size() - 1; i >= 0; i--) {
+                if (tree.nodeAt(ancestors.get(i)) != null) {
+                    return ancestors.get(i);
+                }
+            }
+            return null;
+        }
+        final Session session = session(request);
+        final JcrPackageManager manager = session != null ? jcrOperations.packageManager(session) : null;
+        if (manager == null) {
+            return null;
+        }
+        final JcrPackageTree tree = new JcrPackageTree(manager);
+        for (int i = ancestors.size() - 1; i >= 0; i--) {
+            if (tree.nodeAt(ancestors.get(i)) != null) {
+                return ancestors.get(i);
+            }
+        }
+        return null;
     }
 
     /**
@@ -986,8 +1136,7 @@ public class PackageManager extends AbstractToolsPlugin {
         if (session == null) {
             return crxResponse("", "", "500", "no session");
         }
-        final boolean force = "true".equalsIgnoreCase(request.getParameter("force"))
-                || "on".equalsIgnoreCase(request.getParameter("force"));
+        final boolean force = isChecked(request, "force");
         final JcrPackageManager jcrPackageManager = jcrOperations.packageManager(session);
         if (jcrPackageManager != null) {
             final JcrPackage jcrPackage;
@@ -995,7 +1144,7 @@ public class PackageManager extends AbstractToolsPlugin {
                 if (input != null) {
                     jcrPackage = jcrOperations.upload(jcrPackageManager, input, force);
                 } else {
-                    return new Result<>(SC_NOT_FOUND);
+                    return crxResponse("", "", "400", "no package content found");
                 }
             }
             final JcrPackageOperations.OperationLog log = jcrOperations.install(jcrPackage);
@@ -1004,7 +1153,7 @@ public class PackageManager extends AbstractToolsPlugin {
                     ? crxResponse("", data, "500", "install does not succeed")
                     : crxResponse("", data, "200", "ok");
         }
-        return new Result<>(SC_INTERNAL_SERVER_ERROR);
+        return crxResponse("", "", "500", "internal error");
     }
 
     protected @NotNull Result<?> crxResponse(@NotNull final String requestXml, @NotNull final String dataXml,
@@ -1027,32 +1176,5 @@ public class PackageManager extends AbstractToolsPlugin {
             xml.append("<param name=\"group\" value=\"").append(JcrPackageOperations.xmlEscape(group)).append("\"/>");
         }
         return xml.append("</request>").toString();
-    }
-
-    public final Map<String, TemplateBuilder.Factory> templates = Map.of(
-            "page", current -> new Template("/sling/packages/page.html",
-                    new TemplateContext(current, new Values()
-                            .with("page", new Values()
-                                    .with("key", key())
-                                    .with("link", pageLink())
-                                    .with("label", label())
-                                    .with("title", "Composum Package Manager"))
-                            .with("packages", new Values()
-                                    .with("uri", pageLink())
-                                    .with("tree", manager.serverPath() + "." + key() + ".tree.json")
-                                    .with("ancestors", manager.serverPath() + "." + key() + ".ancestors.json")
-                                    .with("view", manager.serverPath() + "." + key() + ".view.json")
-                                    .with("dialog", manager.serverPath() + "." + key() + ".dialog.")
-                                    .with("writeEnabled", config.writeEnabled()))
-                            .with("html.cssClasses", (Supplier<?>) () -> getHtmlCssClasses("packages-page"))
-                            .with(toolsValues())
-                    ), this)
-    );
-
-    @Override
-    public @Nullable Template getTemplate(@NotNull TemplateContext context, @NotNull String key) {
-        return Optional.ofNullable(templates.get(key))
-                .map(factory -> factory.create(context))
-                .orElse(key.startsWith("/") ? new Template(key, context, this) : null);
     }
 }

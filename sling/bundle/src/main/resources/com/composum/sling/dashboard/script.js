@@ -8,11 +8,15 @@ class DashboardPanel extends ViewWidget {
         this.profile = new Profile('dashboard');
         this.currentView = this.profile.get('currentView');
         this.$el.find('.composum-tools_widget > .composum-tools_widget_tile-link').on('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
             const href = $(event.target).attr('href');
-            this.openView(href);
-            return false;
+            const target = $(event.target).attr('target');
+            if (href && !target) {
+                event.preventDefault();
+                event.stopPropagation();
+                this.openView(href);
+                return false;
+            }
+            return true;
         });
         this.openView(this.currentView);
     }

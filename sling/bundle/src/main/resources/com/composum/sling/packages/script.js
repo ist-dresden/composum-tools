@@ -269,6 +269,7 @@ class PackagesDetail extends ViewWidget {
     super(element);
     this.mode = this.$el.data('mode');
     this.dialogUrl = this.$el.data('dialog-url');
+    this.pageUrl = this.$el.data('page-url');
     $(document).on('package:selected', this.onPackageSelected.bind(this));
     $(document).on('dialog:success', this.onDialogSuccess.bind(this));
   }
@@ -324,9 +325,17 @@ class PackagesDetail extends ViewWidget {
 
   onDialogSuccess(event, el, result) {
     if (result && result.deleted) {
-      $(document).trigger('packages:refresh');
-      this.path = undefined;
-      this.$el.html('<p class="packages-page_hint">Package deleted - select another version in the tree.</p>');
+      // show the parent (group/name) folder the deleted package lived in instead of a dead end -
+      // 'result.parent' is 'undefined' in the rare case it could not be determined server-side,
+      // in which case a plain reload of the page (with no path) is the next best thing, showing
+      // the same initial readme a fresh visit would
+      if (result.parent) {
+        this.path = result.parent;
+        $(document).trigger('packages:refresh', [this.path]);
+        this.load();
+      } else {
+        window.location.href = this.pageUrl;
+      }
     } else {
       if (result && result.path) {
         // e.g. a group/name/version change in the Edit dialog renames (moves) the package -
@@ -342,6 +351,7 @@ class PackagesDetail extends ViewWidget {
       }
     }
   }
+
 }
 
 CPM.widgets.register(PackagesDetail);

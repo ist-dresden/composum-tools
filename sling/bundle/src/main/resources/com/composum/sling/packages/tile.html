@@ -1,7 +1,13 @@
 <div class="card packages-page_tile">
+    <link rel="stylesheet" href="${src:'/sling/packages/style.css'}"/>
     <div class="card-header">${label}</div>
     <div class="card-body">
-        <div class="packages-page_tile-count">${tile.count}</div>
-        <div class="packages-page_tile-caption">installed packages</div>
+        <div class="packages-page_tile-caption">
+            <span class="number">${tile.count}</span>&nbsp;<span class="text">installed packages</span>
+        </div>
+        <div class="packages-page_tile-subtitle">last installed</div>
+        <table class="packages-page_tile-installed table table-sm table-striped"><tbody>
+            ${each.pckg:packages.lastInstalled;'<tr><td class="name">${pckg.name}</td><td class="version">${pckg.version}</td><td class="date-value">${pckg.lastInstalled}</td></tr>'}
+        </tbody></table>
     </div>
 </div>

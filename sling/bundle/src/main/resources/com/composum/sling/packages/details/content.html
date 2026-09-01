@@ -28,7 +28,7 @@
                 <td colspan="2">
                     <span class="status-value text-${if:packages.info.installed;'success'|'danger'}">${if:packages.info.installed;'installed'|'not installed'}</span>
                     ${if:packages.info.sealed;'/ <span class="status-value">sealed</span>'}
-                    / <span class="status-value text-${if:packages.info.installed;'success'|'danger'}">${if:packages.info.valid;'valid'|'invalid'}</span>
+                    / <span class="status-value text-${if:packages.info.valid;'success'|'danger'}">${if:packages.info.valid;'valid'|'invalid'}</span>
                 </td>
             </tr>
             <tr>

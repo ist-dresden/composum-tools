@@ -155,13 +155,34 @@
     list-style: circle;
 }
 
-.packages-page_tile-count {
-    font-size: 2rem;
-    font-weight: bold;
+.packages-page_tile .card-body {
+    padding: 8px;
+    overflow: auto;
 }
 
 .packages-page_tile-caption {
     color: #777;
+}
+
+.packages-page_tile-subtitle {
+    margin-top: 13px;
+    color: #777;
+    font-size: 85%;
+}
+
+.packages-page_tile-installed {
+    margin: 7px -8px 0 -8px;
+    font-size: 90%;
+}
+
+.packages-page_tile-installed td {
+    padding: 4px 8px;
+    white-space: nowrap;
+}
+
+.packages-page_tile-installed .version,
+.packages-page_tile-installed .date-value {
+    color: #777 !important;
 }
 
 .packages-page_coverage {
