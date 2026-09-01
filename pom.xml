@@ -5,7 +5,7 @@
 
     <groupId>com.composum.tools</groupId>
     <artifactId>composum-tools</artifactId>
-    <version>1.1.2</version>
+    <version>1.2.0</version>
     <packaging>pom</packaging>
 
     <name>Composum Tools</name>
@@ -286,6 +286,23 @@
                 <artifactId>jcr</artifactId>
                 <version>2.0</version>
                 <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.jackrabbit.vault</groupId>
+                <artifactId>org.apache.jackrabbit.vault</artifactId>
+                <version>3.7.2</version>
+                <scope>provided</scope>
+                <optional>true</optional>
+                <!-- the vault API classes we use are all in this one jar - its own POM drags in
+                     a large, partly test-scoped (junit 4.8.2 et al.) implementation dependency tree
+                     (jackrabbit-core, tika, poi, pdfbox, lucene, ...) that is never needed at compile
+                     time and breaks Surefire (junit 4.8.2 vs. this project's junit-jupiter tests) -->
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <!-- Java servlet, web API -->

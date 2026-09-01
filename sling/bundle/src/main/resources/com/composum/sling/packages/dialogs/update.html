@@ -1,0 +1,90 @@
+<div class="modal fade tools-dialog" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form class="tools-dialog_form" method="post" action="${attr:dialog.action}" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Package</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="tools-dialog_error d-none"></p>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Group</label>
+                            <input type="text" class="form-control" name="group" value="${attr:info.group}">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-control" name="name" value="${attr:info.name}" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Version</label>
+                            <input type="text" class="form-control" name="version" value="${attr:info.version}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="2">${info.description}</textarea>
+                    </div>
+                    <div class="row mt-4 mb-4">
+                        <div class="col-md-4">
+                            <input type="hidden" name="requiresRestart" value="false">
+                            <input type="checkbox" class="form-check-input" id="packages-update_requires-restart"
+                                   name="requiresRestart" value="true" ${if:info.requiresRestart;'checked'}>
+                            <label class="form-check-label ms-1" for="packages-update_requires-restart">Requires Restart</label>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="hidden" name="requiresRoot" value="false">
+                            <input type="checkbox" class="form-check-input" id="packages-update_requires-root"
+                                   name="requiresRoot" value="true" ${if:info.requiresRoot;'checked'}>
+                            <label class="form-check-label ms-1" for="packages-update_requires-root">Requires Root</label>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">AC Handling</label>
+                            <select class="form-control" name="acHandling" data-value="${attr:info.acHandling}">
+                                <option value="">-- --</option>
+                                <option value="IGNORE">ignore</option>
+                                <option value="OVERWRITE">overwrite</option>
+                                <option value="MERGE">merge</option>
+                                <option value="MERGE_PRESERVE">merge preserve</option>
+                                <option value="CLEAR">clear</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Dependencies (group:name:version, one per line)</label>
+                        <textarea class="form-control" name="dependencies" rows="3">${info.dependenciesText}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Replaces (group:name:version, one per line)</label>
+                        <textarea class="form-control" name="replaces" rows="2">${info.replacesText}</textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Provider Name</label>
+                            <input type="text" class="form-control" name="providerName" value="${attr:info.providerName}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Provider URL</label>
+                            <input type="text" class="form-control" name="providerUrl" value="${attr:info.providerUrl}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Provider Link</label>
+                            <input type="text" class="form-control" name="providerLink" value="${attr:info.providerLink}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tested With</label>
+                            <input type="text" class="form-control" name="testedWith" value="${attr:info.testedWith}">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

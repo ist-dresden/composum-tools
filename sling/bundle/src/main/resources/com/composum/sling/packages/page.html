@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html class="${attr:html.cssClasses}" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+    <meta http-equiv="Pragma" content="no-cache"/>
+    <meta http-equiv="Expires" content="0"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${page.title}</title>
+    <link rel="shortcut icon" href="${src:'/sling/tools/common/logo.svg'}"/>
+    <link rel="stylesheet" href="${src:'/lib/bootstrap/5.2.3/css/bootstrap.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/bootstrap/icons/1.13.1/bootstrap-icons.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/jstree/3.3.17/themes/default/style.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/jstree/3.3.17/themes/proton/style.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/sling/tools/style.css'}"/>
+    <link rel="stylesheet" href="${src:'/sling/packages/style.css'}"/>
+</head>
+<body class="packages-page_body">
+${include:'/sling/tools/navbar/navbar.html'}
+<div class="packages-page_content">
+    <div class="packages-page_left-panel">
+        <div class="packages-page_tree-bar d-flex justify-content-between">
+            <a class="packages-page_mode-toggle btn btn-sm btn-link" href="${link:packages.modeLink}">
+                <i class="bi bi-arrow-left-right"></i> ${if:packages.modeIsJcr;'JCR mode'|'Registry mode'}
+            </a>
+            ${if:packages.createEnabled;'/sling/packages/toolbar.html'}
+        </div>
+        <div class="packages-page_tree-panel">
+            <div class="packages-page_tree"
+                 data-mode="${attr:packages.mode}"
+                 data-tree-url="${attr:packages.tree}"
+                 data-ancestors-url="${attr:packages.ancestors}"
+                 data-page-url="${attr:packages.uri}"
+                 data-path="${attr:packages.path}"></div>
+        </div>
+    </div>
+    <div class="packages-page_detail-panel"
+         data-mode="${attr:packages.mode}"
+         data-view-url="${attr:packages.view}"
+         data-dialog-url="${attr:packages.dialog}"
+         data-page-url="${attr:packages.uri}">
+        <div class="packages-page_detail">
+            <div class="packages-page_detail-actions">
+            </div>
+            <div class="packages-page_detail_content">
+                <div class="packages-page_readme">
+                    <h5>Package Manager</h5>
+                    <p>Browses, inspects and manages FileVault content packages. Pick a package
+                        version in the tree on the left to see its details and actions; pick a
+                        group or name folder instead to see every package version nested under
+                        it, with a <strong>Purge Old Versions</strong> action that deletes all but
+                        the latest version of each package found there.</p>
+                    <p>Two backends, switched with the mode toggle above the tree (a full page
+                        reload - there is no live in-place switch):</p>
+                    <ul>
+                        <li><strong>JCR mode</strong> (default) - the classic, single-source
+                            package store under <code>/etc/packages</code>. Full lifecycle:
+                            Create, Upload, Edit, Filters, Install, Uninstall, Build, Coverage,
+                            Download, Delete.
+                        </li>
+                        <li><strong>Registry mode</strong> - every bound FileVault
+                            <code>PackageRegistry</code> service, merged into one tree. Read-only
+                            management: Install, Uninstall, Download, Delete - no Create, Upload,
+                            Edit, Filters or Build.
+                        </li>
+                    </ul>
+                    <p class="packages-page_hint">Install, Uninstall and Build run synchronously
+                        on the request - there is no async job queue and no persisted install
+                        history; each operation's log is shown once, in the result popup of the
+                        request that triggered it.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="${src:'/lib/jquery/jquery-3.7.1.min.js'}"></script>
+${each.uri:system.clientlibs;'<script src="${link:uri}"></script>'}
+<script src="${src:'/lib/bootstrap/5.2.3/js/bootstrap.bundle.min.js'}"></script>
+<script src="${src:'/lib/jstree/3.3.17/jstree.min.js'}"></script>
+<script src="${src:'/sling/tools/script.js'}"></script>
+<script src="${src:'/sling/packages/script.js'}"></script>
+<script>
+  $(document).ready(function () {
+    CPM.widgets.initialize();
+  });
+</script>
+</body>
+</html>

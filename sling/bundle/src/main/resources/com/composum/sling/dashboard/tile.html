@@ -1,5 +1,5 @@
 <div class="composum-tools_widget col-lg-4 col-md-6 col-12"><a class="composum-tools_widget_tile-link"
-        ${if:widget.uri.view;'href="${widget.uri.view}"'} style="text-decoration: none;"></a>
+        ${if:widget.uri.view;'href="${widget.uri.view}"'}${if:widget.uri.target;' target="${widget.uri.target}"'} style="text-decoration: none;"></a>
     ${include:widget.content}
     <div class="composum-tools_widget-time">${widget.duration}<br/>ms</div>
 </div>

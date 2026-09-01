@@ -30,6 +30,10 @@
     color: #888;
 }
 
+.composum-tools_widget > a.composum-tools_widget_tile-link[target]:after {
+    content: '\F1C5';
+}
+
 .composum-tools_widget .composum-tools_widget-time {
     position: absolute;
     display: inline-block;

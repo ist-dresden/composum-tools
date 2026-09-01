@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static com.composum.sling.tools.Common.HTML_TYPE;
@@ -195,14 +196,18 @@ public class Dashboard extends AbstractToolsPlugin {
             for (final Widget widget : plugin.widgets()) {
                 if (widget instanceof Tile) {
                     final Tile tile = (Tile) widget;
-                    final long start = System.currentTimeMillis();
+                    AtomicLong start = new AtomicLong();
                     tiles.add(new Values()
                             .with("key", tile.getKey())
                             .with("label", tile.getLabel())
                             .with("rank", tile.getRank())
-                            .with("uri.view", plugin.widgetViewLink(request, response, widget.getKey()))
-                            .with("duration", (Supplier<?>) () -> System.currentTimeMillis() - start)
-                            .with("content", (Supplier<?>) () -> include(request, response, plugin, tile.getKey()))
+                            .with("uri.view", (Supplier<?>) () -> plugin.widgetViewLink(request, response, widget.getKey()))
+                            .with("uri.target", (Supplier<?>) () -> plugin.widgetViewTarget(request, response, widget.getKey()))
+                            .with("duration", (Supplier<?>) () -> System.currentTimeMillis() - start.get())
+                            .with("content", (Supplier<?>) () -> {
+                                start.set(System.currentTimeMillis());
+                                return include(request, response, plugin, tile.getKey());
+                            })
                     );
                 }
             }

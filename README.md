@@ -15,8 +15,9 @@ Composum Tools is a from-scratch, purpose-built successor to two older, independ
 projects:
 
 - the full [Composum Nodes](https://github.com/ist-dresden/composum-nodes) JCR browser,
-  including many features (package manager, user management, Groovy console, ACL editor, ...)
-  that have not been migrated yet, but will be added later if useful or necessary.
+  including many features (user management, Groovy console, ACL editor, ...) that have not been
+  migrated yet, but will be added later if useful or necessary. Its package manager *has* been
+  migrated — see [Package Manager](#package-manager) below.
 - the more lightweight [Composum Dashboard](https://github.com/ist-dresden/composum-dashboard),
   an earlier attempt at replacing Nodes with a tile-based framework for arranging a small set of
   read-only tools.
@@ -68,13 +69,55 @@ selected resource.
 
 A single overview page (`Page`/`Tile` widgets) listing all enabled tools as tiles, each linking
 to its detail page. Every module below contributes its own widget automatically once enabled.
+**Requires an OSGi configuration to activate** — see
+[Activation: opt-in by design](#activation-opt-in-by-design) below.
+
+### Package Manager
+
+Browses, installs, uninstalls and deletes FileVault content packages — a tree on the left
+(group/name/version), the selected package's details and actions on the right; selecting a
+group or name folder instead of a version shows every package nested under it, with a **Purge
+Old Versions** action that deletes every version except the latest of each package found there.
+Requires FileVault (`org.apache.jackrabbit.vault`) to actually be installed; the component simply
+does not activate otherwise, and installs no extra dependency footprint of its own beyond the
+(optional, `provided`) compile-time API. **Also requires an OSGi configuration to activate** —
+see [Activation: opt-in by design](#activation-opt-in-by-design) below; this matters in
+particular here, since a package manager rarely makes sense on e.g. a Publish instance. Two
+backends, switched with a mode toggle (`?mode=jcr|registry`, a full page reload — there is no
+live in-place switch):
+
+- **JCR mode** (default) — the classic, single-source `JcrPackageManager` (`/etc/packages`).
+  Supports the full lifecycle: **Create**, **Upload**, **Edit** (description, AC handling,
+  dependencies, replaces, provider info, requires-restart/-root), **Filters** (workspace filter
+  roots, one `/path` or `/path;importMode` per line — order is filter order), **Install**,
+  **Uninstall**, **Build** (assemble the package from its filter), **Coverage** (dumps every
+  repository path the filter would touch), **Download**, **Delete**.
+- **Registry mode** — every bound FileVault `PackageRegistry` OSGi service (merged into one
+  tree). The SPI is read/install/uninstall/remove only, so **Create/Upload/Edit/Filters/Build**
+  are not available here — only **Install**/**Uninstall**, **Download**, **Delete**.
+
+Install/uninstall/build run **synchronously** on the request thread — there is deliberately no
+async job queue and no persisted audit trail or install history; the operation's log is only
+ever returned in the HTTP response of the request that triggered it.
+
+A **CRX Package Manager compatibility endpoint** (`POST .packages.service.html`) reimplements the
+classic `/crx/packmgr/service.jsp` wire protocol (`cmd=ls|rm|build|uninst`, or upload+install when
+a `file` is posted without a `cmd`) for Maven deployment tooling (`content-package-maven-plugin`
+and forks) that still speaks it — point such a plugin's `serviceURL` here.
+
+Dialogs (Create/Upload/Edit/Filters/Install/Uninstall/Build/Purge confirmations) use a small,
+generic, reusable client-side framework (`CPM.Dialog` / `DialogForm` in `sling/tools/script.js`,
+not specific to the Package Manager): a dialog's HTML fragment is fetched on demand when it is
+opened and removed from the DOM again once it is closed (cancelled or successfully submitted) —
+no dialog markup is ever left lingering in the page.
 
 ### Console (AEM only)
 
 Embeds selected read-only [Felix Web Console](https://felix.apache.org/documentation/subprojects/apache-felix-web-console.html)
 plugins (Requests, JCR Resolver, Servlet Resolver) inside the tools UI, rewriting their internal
 resource/content links so they work without direct access to `/system/console` — useful on
-AEMaaCS, where that console is not reachable.
+AEMaaCS, where that console is not reachable. **Requires an OSGi configuration to activate** —
+see [Activation: opt-in by design](#activation-opt-in-by-design) below.
 
 ## Getting started
 
@@ -127,6 +170,7 @@ Once the bundle(s) are active, open (default servlet path `/apps/cpm/tools`, con
 |---|---|
 | `/apps/cpm/tools.dashboard.html` | Dashboard overview |
 | `/apps/cpm/tools.browser.html` | JCR Browser |
+| `/apps/cpm/tools.packages.html` | Package Manager |
 | `/apps/cpm/tools.console.html` | Felix Console proxy (AEM only) |
 
 ## Configuration & customization
@@ -134,7 +178,27 @@ Once the bundle(s) are active, open (default servlet path `/apps/cpm/tools`, con
 Every building block (`Dashboard`, `Browser`, `Favorites`, `Query`, each `View`, `DefaultActions`
 / `AemActions`, each `ConsoleProxy`, ...) is a separate OSGi component with its own
 `@ObjectClassDefinition`, configurable per environment (author/publish/dev/...) through the usual
-OSGi configuration mechanism. The most commonly adjusted settings:
+OSGi configuration mechanism.
+
+### Activation: opt-in by design
+
+**`Browser` is the only top-level page that activates on its own**, with no OSGi configuration
+present at all — it is the part of the toolset that is virtually always wanted, so there is
+deliberately no extra step between deploying the bundle and being able to use it.
+
+**Every other top-level page — `Dashboard`, `PackageManager`, and `Console` (AEM only) —
+requires an explicit OSGi configuration to activate**
+(`configurationPolicy = ConfigurationPolicy.REQUIRE`); without one, the component simply does not
+start, and its page/tile/proxy is not registered anywhere. An **empty configuration (`{}`) is
+enough** — this is not about setting any particular value, it is a deliberate per-instance
+opt-in: which of these makes sense varies by environment (a package manager, in particular, is
+rarely wanted on a Publish instance), so the decision is left to whoever configures each
+instance rather than being made once for every deployment. Create the configuration via the
+usual OSGi config mechanism (`/system/console/configMgr`, a `.cfg.json` file, a Sling
+`ConfigurationAdmin` factory, ...) under the component's PID (e.g.
+`com.composum.sling.packages.PackageManager`).
+
+The most commonly adjusted settings, once a component is active:
 
 - **Enable/disable** a whole module: `Browser.Config#tools()` / `Browser.Config#views()` — empty
   means "all enabled", otherwise only the listed keys are active. Same pattern (`enabled()`) on
@@ -149,6 +213,9 @@ OSGi configuration mechanism. The most commonly adjusted settings:
 - **Exposed CA configurations**: `Browser.Config#caConfigurations()`.
 - **JSON/XML "source mode" noise filters**: `JsonView.Config#nonSourceProperties()` /
   `nonSourceMixins()` (and the equivalent on `XmlView`).
+- **Package Manager write access**: `PackageManager.Config#writeEnabled()` — `false` makes it a
+  read-only browser/installer-of-nothing (Create/Upload/Edit/Filters/Install/Uninstall/Build/
+  Delete all return `403`, listing/viewing/downloading/coverage stay available).
 
 For extension beyond configuration — a new tool, view, action set or console proxy — implement
 the relevant small interface (`Tool`, `View`, `Actions`, `ConsoleProxy`) as its own OSGi
@@ -156,7 +223,11 @@ component; it registers itself with the framework via `PluginSet#attach()`/`#det
 `@Activate`/`@Deactivate` methods, exactly like the built-in ones (see e.g.
 [`Favorites`](sling/bundle/src/main/java/com/composum/sling/browser/tool/Favorites.java) or
 [`JsonView`](sling/bundle/src/main/java/com/composum/sling/browser/view/JsonView.java) as a
-template).
+template). A whole new top-level page (its own `ToolsPlugin`, like Browser/Dashboard/Package
+Manager) is the same idea one level up — see
+[`PackageManager`](sling/bundle/src/main/java/com/composum/sling/packages/PackageManager.java)
+as the most recently added example, including how it gates its own optional dependency
+(`Packaging`/FileVault) via a plain mandatory `@Reference`.
 
 Note that all HTML templates and static assets (JS/CSS/icons) are plain Java classpath resources
 bundled *inside* the OSGi bundle — there is deliberately no JCR content package backing the UI.

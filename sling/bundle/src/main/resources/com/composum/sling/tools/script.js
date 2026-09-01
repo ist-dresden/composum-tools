@@ -274,3 +274,201 @@ class ResumingTabs extends ViewWidget {
 }
 
 CPM.widgets.register(ResumingTabs);
+
+/**
+ * A full-viewport, semi-transparent, click-consuming curtain with a centered spinner, shown
+ * while a long-running request (dialog open or submit) is in flight, so a second click can't be
+ * fired accidentally - shared by 'Dialog'/'DialogForm' below via 'CPM.curtain.show()'/'.hide()';
+ * the curtain element is created once and reused across calls.
+ */
+class Curtain {
+
+  show() {
+    if (!this.$el) {
+      this.$el = $('<div class="tools-action_curtain">'
+        + '<div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>'
+        + '</div>');
+      $('body').append(this.$el);
+    }
+    this.$el.addClass('shown');
+  }
+
+  hide() {
+    if (this.$el) {
+      this.$el.removeClass('shown');
+    }
+  }
+}
+
+(window.CPM = window.CPM || {}).curtain = new Curtain();
+
+/**
+ * Shows the outcome of a completed action as a dismissible, self-closing Bootstrap alert - used
+ * for a 'DialogForm' submit whose response carries a 'log' (e.g. install/uninstall/assemble's
+ * line-per-change operation log, see 'JcrPackageOperations.OperationLog'), rendered as a
+ * scrollable list beneath the summary message. Any still-visible alert from a previous action is
+ * dismissed first, so a stale result never lingers into the next one.
+ */
+CPM.showActionResult = function (message, lines, success) {
+  $('.tools-action_result').each((i, el) => bootstrap.Alert.getOrCreateInstance(el).close());
+  const $alert = $('<div class="tools-action_result alert alert-dismissible fade show" role="alert"></div>')
+    .addClass(success ? 'alert-success' : 'alert-danger')
+    .append($('<div class="message"></div>').text(message))
+    .append('<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>');
+  if (lines && lines.length > 0) {
+    const $list = $('<ul class="tools-action_result-lines"></ul>');
+    lines.forEach((line) => $list.append($('<li></li>').text(line)));
+    $alert.append($list);
+  }
+  $('body').append($alert);
+  window.setTimeout(() => {
+    const instance = bootstrap.Alert.getInstance($alert[0]);
+    if (instance) {
+      instance.close();
+    }
+  }, 8000);
+};
+
+/**
+ * An on-demand loaded Bootstrap modal dialog: 'open()' fetches the dialog's HTML fragment from
+ * 'url', appends it to <body> and shows it; whenever the modal is hidden again - on cancel, on
+ * backdrop/ESC dismissal, or programmatically after a successful submit (see 'DialogForm' below)
+ * - its markup is removed from the DOM again, so no dialog is ever left lingering in the page.
+ * Shows 'CPM.curtain' while the fragment is being fetched.
+ */
+class Dialog {
+
+  constructor(url) {
+    this.url = url;
+  }
+
+  open(onReady) {
+    CPM.curtain.show();
+    $.ajax({
+      type: 'GET',
+      url: this.url,
+      success: function (html) {
+        this.$el = $(html).appendTo('body');
+        this.modal = new bootstrap.Modal(this.$el[0]);
+        // Bootstrap sets aria-hidden="true" on the modal root as the hide transition starts;
+        // if the element that triggered the close (e.g. the '.btn-close' button, or any field
+        // still focused when Cancel/Save is pressed) is still focused at that point, the
+        // browser logs an accessibility warning - blur it first so focus has already left the
+        // modal before aria-hidden is applied
+        this.$el.on('hide.bs.modal', function () {
+          const active = document.activeElement;
+          if (active && this.$el[0].contains(active)) {
+            active.blur();
+          }
+        }.bind(this));
+        this.$el.on('hidden.bs.modal', this.destroy.bind(this));
+        CPM.widgets.initialize(this.$el);
+        if (onReady) {
+          onReady(this.$el, this);
+        }
+        this.modal.show();
+      }.bind(this),
+      complete: () => CPM.curtain.hide(),
+      async: true,
+      cache: false
+    });
+    return this;
+  }
+
+  close() {
+    if (this.modal) {
+      this.modal.hide();
+    }
+  }
+
+  destroy() {
+    if (this.$el) {
+      this.$el.remove();
+    }
+    this.$el = undefined;
+    this.modal = undefined;
+  }
+}
+
+CPM.Dialog = Dialog;
+
+/**
+ * Generic AJAX submit handling for a form inside a 'Dialog' fragment (a '<form class="tools-dialog_form">'
+ * anywhere under the dialog's root element): submits as multipart form data, closes the enclosing
+ * modal on success (which triggers its removal from the DOM, see 'Dialog' above) and fires a
+ * 'dialog:success' document event carrying the response so the page can refresh itself, or shows
+ * the failure message inline (in a '.tools-dialog_error' element) on error. Shows 'CPM.curtain'
+ * while the request is in flight, and - if the response carries a 'log' array - a final
+ * {@link CPM.showActionResult} summary of what changed.
+ */
+class DialogForm extends ViewWidget {
+
+  static selector = '.tools-dialog_form';
+
+  constructor(element) {
+    super(element);
+    this.$el.on('submit', this.onSubmit.bind(this));
+  }
+
+  onSubmit(event) {
+    event.preventDefault();
+    this.$el.find('.tools-dialog_error').addClass('d-none').text('');
+    CPM.curtain.show();
+    $.ajax({
+      type: this.$el.attr('method') || 'POST',
+      url: this.$el.attr('action'),
+      data: this.formData(this.$el),
+      processData: false,
+      contentType: false,
+      success: this.onSuccess.bind(this),
+      error: this.onError.bind(this),
+      complete: () => CPM.curtain.hide(),
+      async: true,
+      cache: false
+    });
+    return false;
+  }
+
+  onSuccess(result) {
+    // captured before hide()/destroy() removes the dialog from the DOM - so the result alert
+    // (which can still be sitting there a while later) shows which action it belongs to
+    const title = this.$el.closest('.modal').find('.modal-title').text().trim();
+    $(document).trigger('dialog:success', [this.el, result]);
+    const modalEl = this.$el.closest('.modal')[0];
+    if (modalEl) {
+      bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+    }
+    if (result && Array.isArray(result.log)) {
+      const message = result.error ? 'Completed with errors.' : 'Completed successfully.';
+      CPM.showActionResult(title ? title + ': ' + message : message, result.log, !result.error);
+    }
+  }
+
+  onError(jqXHR) {
+    const message = (jqXHR.responseJSON && jqXHR.responseJSON.message) || jqXHR.statusText || 'Request failed.';
+    this.$el.find('.tools-dialog_error').removeClass('d-none').text(message);
+  }
+}
+
+CPM.widgets.register(DialogForm);
+
+/**
+ * Pre-selects a '<select data-value="...">' from its own 'data-value' attribute - the template
+ * engine can only test truthiness (no per-option equality check), so a select whose current value
+ * must be pre-selected server-side is rendered with a 'data-value' attribute instead of a
+ * per-option 'selected', and this widget applies it once the element is in the DOM.
+ */
+class SelectValue extends ViewWidget {
+
+  static selector = 'select[data-value]';
+
+  constructor(element) {
+    super(element);
+    const value = this.$el.data('value');
+    if (value !== undefined && value !== '') {
+      this.el.value = value;
+    }
+  }
+}
+
+CPM.widgets.register(SelectValue);
