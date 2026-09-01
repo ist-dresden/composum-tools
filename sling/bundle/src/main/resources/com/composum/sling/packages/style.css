@@ -38,11 +38,28 @@
 .packages-page_tree-bar a:active,
 .packages-page_tree-bar a:visited {
     color: #ddd;
+}
+
+.packages-page_tree-bar a,
+.packages-page_tree-bar a:hover,
+.packages-page_tree-bar a:focus,
+.packages-page_tree-bar a:active,
+.packages-page_tree-bar a:visited,
+.packages-page_detail_content a,
+.packages-page_detail_content a:hover,
+.packages-page_detail_content a:focus,
+.packages-page_detail_content a:active,
+.packages-page_detail_content a:visited {
     text-decoration: none;
 }
 
 .packages-page_content .btn-group .btn:last-child {
     border-left-color: #777;
+}
+
+.packages-page_tree-bar .btn,
+.packages-page_detail-actions .btn {
+    white-space: nowrap;
 }
 
 .packages-page_content .btn i.bi {
@@ -169,6 +186,19 @@
     margin: 0;
     padding: 0;
     list-style: none;
+}
+
+.packages-page_readme {
+    max-width: 640px;
+    padding: 16px;
+}
+
+.packages-page_readme ul {
+    padding-left: 18px;
+}
+
+.packages-page_readme li {
+    margin-bottom: 6px;
 }
 
 .packages-page_folder-list {

@@ -69,15 +69,22 @@ selected resource.
 
 A single overview page (`Page`/`Tile` widgets) listing all enabled tools as tiles, each linking
 to its detail page. Every module below contributes its own widget automatically once enabled.
+**Requires an OSGi configuration to activate** — see
+[Activation: opt-in by design](#activation-opt-in-by-design) below.
 
 ### Package Manager
 
 Browses, installs, uninstalls and deletes FileVault content packages — a tree on the left
-(group/name/version), the selected package's details and actions on the right. Requires FileVault
-(`org.apache.jackrabbit.vault`) to actually be installed; the component simply does not activate
-otherwise, and installs no extra dependency footprint of its own beyond the (optional, `provided`)
-compile-time API. Two backends, switched with a mode toggle (`?mode=jcr|registry`, a full page
-reload — there is no live in-place switch):
+(group/name/version), the selected package's details and actions on the right; selecting a
+group or name folder instead of a version shows every package nested under it, with a **Purge
+Old Versions** action that deletes every version except the latest of each package found there.
+Requires FileVault (`org.apache.jackrabbit.vault`) to actually be installed; the component simply
+does not activate otherwise, and installs no extra dependency footprint of its own beyond the
+(optional, `provided`) compile-time API. **Also requires an OSGi configuration to activate** —
+see [Activation: opt-in by design](#activation-opt-in-by-design) below; this matters in
+particular here, since a package manager rarely makes sense on e.g. a Publish instance. Two
+backends, switched with a mode toggle (`?mode=jcr|registry`, a full page reload — there is no
+live in-place switch):
 
 - **JCR mode** (default) — the classic, single-source `JcrPackageManager` (`/etc/packages`).
   Supports the full lifecycle: **Create**, **Upload**, **Edit** (description, AC handling,
@@ -98,18 +105,19 @@ classic `/crx/packmgr/service.jsp` wire protocol (`cmd=ls|rm|build|uninst`, or u
 a `file` is posted without a `cmd`) for Maven deployment tooling (`content-package-maven-plugin`
 and forks) that still speaks it — point such a plugin's `serviceURL` here.
 
-Dialogs (Create/Upload/Edit/Filters/Install/Uninstall/Build confirmations) use a small, generic,
-reusable client-side framework (`CPM.Dialog` / `DialogForm` in `sling/tools/script.js`, not
-specific to the Package Manager): a dialog's HTML fragment is fetched on demand when it is opened
-and removed from the DOM again once it is closed (cancelled or successfully submitted) — no
-dialog markup is ever left lingering in the page.
+Dialogs (Create/Upload/Edit/Filters/Install/Uninstall/Build/Purge confirmations) use a small,
+generic, reusable client-side framework (`CPM.Dialog` / `DialogForm` in `sling/tools/script.js`,
+not specific to the Package Manager): a dialog's HTML fragment is fetched on demand when it is
+opened and removed from the DOM again once it is closed (cancelled or successfully submitted) —
+no dialog markup is ever left lingering in the page.
 
 ### Console (AEM only)
 
 Embeds selected read-only [Felix Web Console](https://felix.apache.org/documentation/subprojects/apache-felix-web-console.html)
 plugins (Requests, JCR Resolver, Servlet Resolver) inside the tools UI, rewriting their internal
 resource/content links so they work without direct access to `/system/console` — useful on
-AEMaaCS, where that console is not reachable.
+AEMaaCS, where that console is not reachable. **Requires an OSGi configuration to activate** —
+see [Activation: opt-in by design](#activation-opt-in-by-design) below.
 
 ## Getting started
 
@@ -170,7 +178,27 @@ Once the bundle(s) are active, open (default servlet path `/apps/cpm/tools`, con
 Every building block (`Dashboard`, `Browser`, `Favorites`, `Query`, each `View`, `DefaultActions`
 / `AemActions`, each `ConsoleProxy`, ...) is a separate OSGi component with its own
 `@ObjectClassDefinition`, configurable per environment (author/publish/dev/...) through the usual
-OSGi configuration mechanism. The most commonly adjusted settings:
+OSGi configuration mechanism.
+
+### Activation: opt-in by design
+
+**`Browser` is the only top-level page that activates on its own**, with no OSGi configuration
+present at all — it is the part of the toolset that is virtually always wanted, so there is
+deliberately no extra step between deploying the bundle and being able to use it.
+
+**Every other top-level page — `Dashboard`, `PackageManager`, and `Console` (AEM only) —
+requires an explicit OSGi configuration to activate**
+(`configurationPolicy = ConfigurationPolicy.REQUIRE`); without one, the component simply does not
+start, and its page/tile/proxy is not registered anywhere. An **empty configuration (`{}`) is
+enough** — this is not about setting any particular value, it is a deliberate per-instance
+opt-in: which of these makes sense varies by environment (a package manager, in particular, is
+rarely wanted on a Publish instance), so the decision is left to whoever configures each
+instance rather than being made once for every deployment. Create the configuration via the
+usual OSGi config mechanism (`/system/console/configMgr`, a `.cfg.json` file, a Sling
+`ConfigurationAdmin` factory, ...) under the component's PID (e.g.
+`com.composum.sling.packages.PackageManager`).
+
+The most commonly adjusted settings, once a component is active:
 
 - **Enable/disable** a whole module: `Browser.Config#tools()` / `Browser.Config#views()` — empty
   means "all enabled", otherwise only the listed keys are active. Same pattern (`enabled()`) on

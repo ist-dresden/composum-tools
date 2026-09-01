@@ -317,6 +317,9 @@ public class PackageManager extends AbstractToolsPlugin {
             final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
                     .with("packages.actions", (Supplier<?>) () -> actions(info))
                     .with("packages.info", (Supplier<?>) () -> valuesOf(info))
+                    .with("packages.downloadUri", (Supplier<?>) () -> downloadUri(info))
+                    .with("packages.downloadLabel", (Supplier<?>) () -> StringUtils.substringAfterLast(info.getPath(), "/"))
+                    .with("packages.isModified", (Supplier<?>) () -> info.getLastModified() != null && info.getLastModified().after(info.getLastUnpacked()))
             ), "/sling/packages/details/content.html"));
             return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
         }
@@ -432,7 +435,7 @@ public class PackageManager extends AbstractToolsPlugin {
             lastGroup.add(action("assemble", "arrow-repeat", "Build"));
         }
         lastGroup.add(action("download", "download", "Download")
-                .with("link", manager.serverPath() + "." + key() + ".download.html" + info.getPath() + modeQuery(info)));
+                .with("link", downloadUri(info)));
         result.add(actionGroup(lastGroup.toArray(new Values[0])));
         if (isJcr) {
             result.add(action("coverage", "card-list", "Coverage"));
@@ -441,6 +444,10 @@ public class PackageManager extends AbstractToolsPlugin {
             result.add(action("delete", "trash", "Delete"));
         }
         return result;
+    }
+
+    protected @NotNull String downloadUri(@NotNull final PackageInfo info) {
+        return manager.serverPath() + "." + key() + ".download.html" + info.getPath() + modeQuery(info);
     }
 
     // Read operations

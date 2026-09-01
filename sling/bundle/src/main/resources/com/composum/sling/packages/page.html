@@ -42,6 +42,32 @@ ${include:'/sling/tools/navbar/navbar.html'}
             <div class="packages-page_detail-actions">
             </div>
             <div class="packages-page_detail_content">
+                <div class="packages-page_readme">
+                    <h5>Package Manager</h5>
+                    <p>Browses, inspects and manages FileVault content packages. Pick a package
+                        version in the tree on the left to see its details and actions; pick a
+                        group or name folder instead to see every package version nested under
+                        it, with a <strong>Purge Old Versions</strong> action that deletes all but
+                        the latest version of each package found there.</p>
+                    <p>Two backends, switched with the mode toggle above the tree (a full page
+                        reload - there is no live in-place switch):</p>
+                    <ul>
+                        <li><strong>JCR mode</strong> (default) - the classic, single-source
+                            package store under <code>/etc/packages</code>. Full lifecycle:
+                            Create, Upload, Edit, Filters, Install, Uninstall, Build, Coverage,
+                            Download, Delete.
+                        </li>
+                        <li><strong>Registry mode</strong> - every bound FileVault
+                            <code>PackageRegistry</code> service, merged into one tree. Read-only
+                            management: Install, Uninstall, Download, Delete - no Create, Upload,
+                            Edit, Filters or Build.
+                        </li>
+                    </ul>
+                    <p class="packages-page_hint">Install, Uninstall and Build run synchronously
+                        on the request - there is no async job queue and no persisted install
+                        history; each operation's log is shown once, in the result popup of the
+                        request that triggered it.</p>
+                </div>
             </div>
         </div>
     </div>

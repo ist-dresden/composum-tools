@@ -30,6 +30,7 @@ public class JcrPackageInfo implements PackageInfo {
     protected boolean installed;
     protected boolean valid;
     protected boolean sealed;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     protected Calendar created;
     protected String createdBy;
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")

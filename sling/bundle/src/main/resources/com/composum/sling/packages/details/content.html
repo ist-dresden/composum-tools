@@ -4,44 +4,50 @@
         <table class="packages-page_detail-table table table-sm table-striped">
             <tr>
                 <th>Group</th>
-                <td>${packages.info.group}</td>
+                <td colspan="2">${packages.info.group}</td>
             </tr>
             <tr>
                 <th>Name</th>
-                <td>${packages.info.name}</td>
+                <th colspan="2">${packages.info.name}</th>
             </tr>
             <tr>
                 <th>Version</th>
-                <td>${packages.info.version}</td>
+                <td colspan="2">${packages.info.version}</td>
             </tr>
             <tr>
                 <th>Description</th>
-                <td>${packages.info.description}</td>
+                <td colspan="2">${packages.info.description}</td>
             </tr>
             <tr>
                 <th>Size</th>
-                <td>${packages.info.size;'%,1d'}</td>
+                <td style="min-width:120px;">${packages.info.size;'%,1d'}</td>
+                <td style="width:100%;"><a href="${packages.downloadUri}"><i class="bi bi-download"></i>&nbsp;${packages.downloadLabel}</a></td>
             </tr>
             <tr>
                 <th>Status</th>
-                <td>
-                <span class="status-value">${if:packages.info.installed;'installed'}</span>
-                / <span class="status-value">${if:packages.info.valid;'valid'}</span>
+                <td colspan="2">
+                    <span class="status-value text-${if:packages.info.installed;'success'|'danger'}">${if:packages.info.installed;'installed'|'not installed'}</span>
+                    ${if:packages.info.sealed;'/ <span class="status-value">sealed</span>'}
+                    / <span class="status-value text-${if:packages.info.installed;'success'|'danger'}">${if:packages.info.valid;'valid'|'invalid'}</span>
                 </td>
             </tr>
             <tr>
                 <th>Last Installed</th>
-                <td>${packages.info.lastUnpacked}</td>
+                <td colspan="2"><span class="date-value">${packages.info.lastUnpacked}</span>${if:packages.info.lastUnpackedBy;' by <span class="user-value">${packages.info.lastUnpackedBy}</span>'}
+                </td>
             </tr>
             <tr>
                 <th>Last Modified</th>
-                <td>${packages.info.lastModified}</td>
+                <td colspan="2"><span class="date-value${if:packages.isModified;' text-primary'|''}">${packages.info.lastModified}</span>${if:packages.info.lastModifiedBy;' by <span class="user-value">${packages.info.lastModifiedBy}</span>'}
+                </td>
             </tr>
             <tr>
                 <th>Filter roots</th>
-                <td><ul>
-                    ${each:packages.info.filterRoots;'<li>${item}</li>'}
-                </ul></td>
+                <td colspan="2">
+                    <ul>
+                        ${each:packages.info.filterRoots;'<li>${item}</li>'}
+                    </ul>
+                </td>
             </tr>
         </table>
     </div>
