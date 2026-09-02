@@ -25,12 +25,12 @@ public interface ToolsPlugin extends Plugin {
      *
      * @param request   the current request
      * @param response  the current response
-     * @param widgetKey the key of the widget to build a link for
+     * @param selectors the key of the widget to build a link for
      * @return the link to the given widget, or 'null' if the plugin does not provide one
      */
     @Nullable String widgetLink(@NotNull SlingHttpServletRequest request,
                                 @NotNull SlingHttpServletResponse response,
-                                @NotNull String widgetKey);
+                                @NotNull String selectors);
 
     /**
      * The link to a detail view of the given widget, if it offers one in addition to its tile

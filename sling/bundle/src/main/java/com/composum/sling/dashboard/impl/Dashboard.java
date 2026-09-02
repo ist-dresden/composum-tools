@@ -206,7 +206,7 @@ public class Dashboard extends AbstractToolsPlugin {
                             .with("duration", (Supplier<?>) () -> System.currentTimeMillis() - start.get())
                             .with("content", (Supplier<?>) () -> {
                                 start.set(System.currentTimeMillis());
-                                return include(request, response, plugin, tile.getKey());
+                                return include(request, response, plugin, "tile");
                             })
                     );
                 }
@@ -219,9 +219,9 @@ public class Dashboard extends AbstractToolsPlugin {
     protected Object include(@NotNull final SlingHttpServletRequest request,
                              @NotNull final SlingHttpServletResponse response,
                              @NotNull final ToolsPlugin plugin,
-                             @NotNull final String widgetKey) {
+                             @NotNull final String selectors) {
         final String baseUri = manager.serverPath() + "." + plugin.key() + ".";
-        final String link = plugin.widgetLink(request, response, widgetKey);
+        final String link = plugin.widgetLink(request, response, selectors);
         if (StringUtils.isNotBlank(link) && link.startsWith(baseUri)) {
             List<String> widgetSelectors = Common.listOf(StringUtils.split(StringUtils.substringBefore(link
                     .substring(baseUri.length()), ".html"), "."));

@@ -562,7 +562,7 @@ public class PackageManager extends AbstractToolsPlugin {
         return id != null ? registryOperations().open(id) : null;
     }
 
-    protected static final int TILE_LAST_INSTALLED_LIMIT = 7;
+    protected static final int TILE_LAST_INSTALLED_LIMIT = 8;
 
     protected @NotNull Result<?> renderTile(@NotNull final SlingHttpServletRequest request) {
         try {
