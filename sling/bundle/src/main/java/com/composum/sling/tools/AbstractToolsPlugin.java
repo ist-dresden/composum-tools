@@ -64,8 +64,8 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     @Override
     public @Nullable String widgetLink(@NotNull final SlingHttpServletRequest request,
                                        @NotNull final SlingHttpServletResponse response,
-                                       @NotNull final String widgetKey) {
-        return manager().serverPath() + "." + key() + "." + widgetKey + ".html";
+                                       @NotNull final String selectors) {
+        return manager().serverPath() + "." + key() + "." + selectors + ".html";
     }
 
     @Override
