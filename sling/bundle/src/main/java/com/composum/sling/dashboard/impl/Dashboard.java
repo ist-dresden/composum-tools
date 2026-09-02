@@ -196,6 +196,7 @@ public class Dashboard extends AbstractToolsPlugin {
             for (final Widget widget : plugin.widgets()) {
                 if (widget instanceof Tile) {
                     final Tile tile = (Tile) widget;
+                    final String tileKey = widget.getKey().equals(plugin.key()) ? "tile" : widget.getKey() + ".tile";
                     AtomicLong start = new AtomicLong();
                     tiles.add(new Values()
                             .with("key", tile.getKey())
@@ -206,7 +207,7 @@ public class Dashboard extends AbstractToolsPlugin {
                             .with("duration", (Supplier<?>) () -> System.currentTimeMillis() - start.get())
                             .with("content", (Supplier<?>) () -> {
                                 start.set(System.currentTimeMillis());
-                                return include(request, response, plugin, "tile");
+                                return include(request, response, plugin, tileKey);
                             })
                     );
                 }
