@@ -47,7 +47,7 @@ public class DefaultPlatformConfig implements PlatformConfig {
     }
 
     @Reference
-    private SlingSettingsService settingsService;
+    protected SlingSettingsService settingsService;
 
     protected String guardNode;
     /** the configured file/binary resource types (see {@link Config#fileTypes()}) */
@@ -58,10 +58,6 @@ public class DefaultPlatformConfig implements PlatformConfig {
     protected void activate(final Config config) {
         guardNode = config.guardNode();
         fileTypes = Arrays.asList(config.fileTypes());
-    }
-
-    protected SlingSettingsService settingsService() {
-        return settingsService;
     }
 
     @Override
@@ -102,6 +98,6 @@ public class DefaultPlatformConfig implements PlatformConfig {
 
     @Override
     public @NotNull Set<String> runmodes() {
-        return settingsService().getRunModes();
+        return settingsService.getRunModes();
     }
 }

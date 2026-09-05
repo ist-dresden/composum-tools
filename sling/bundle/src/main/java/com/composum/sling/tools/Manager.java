@@ -21,6 +21,8 @@ public interface Manager {
 
     @NotNull PluginSet<ToolsPlugin> plugins();
 
+    @Nullable <T> T getService(Class<T> service);
+
     @NotNull XSSAPI xssapi();
 
     @NotNull String serverPath();

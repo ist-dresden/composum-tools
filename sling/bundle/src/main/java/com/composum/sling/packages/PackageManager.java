@@ -126,8 +126,11 @@ public class PackageManager extends AbstractToolsPlugin {
         boolean writeEnabled() default true;
     }
 
+    /** the manager this plugin is registered with */
     @Reference
-    protected Manager manager;
+    private void bindManager(Manager service) {
+        manager = service;
+    }
 
     @Reference
     protected Packaging packaging;
@@ -157,10 +160,6 @@ public class PackageManager extends AbstractToolsPlugin {
     @Deactivate
     protected void deactivate() {
         manager.plugins().detach(this);
-    }
-
-    protected @NotNull Manager manager() {
-        return manager;
     }
 
     @Override

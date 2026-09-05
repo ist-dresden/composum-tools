@@ -1,6 +1,7 @@
 package com.composum.sling.browser;
 
-import com.composum.sling.browser.dto.TreeNode;
+import com.composum.sling.browser.impl.RelatedPaths;
+import com.composum.sling.browser.impl.TreeNode;
 import com.composum.sling.browser.tool.Favorites;
 import com.composum.sling.browser.tool.Query;
 import com.composum.sling.tools.AbstractToolsPlugin;
@@ -175,7 +176,9 @@ public class Browser extends AbstractToolsPlugin {
 
     /** the manager this plugin is registered with */
     @Reference
-    protected Manager manager;
+    private void bindManager(Manager service) {
+        manager = service;
+    }
 
     /** the enabled, registered {@link Tool} implementations */
     protected PluginSet<Tool> tools = new PluginSet<>() {
@@ -298,16 +301,6 @@ public class Browser extends AbstractToolsPlugin {
     }
 
     /**
-     * The manager this plugin is registered with.
-     *
-     * @return the manager this plugin is registered with
-     */
-    @NotNull
-    public Manager manager() {
-        return manager;
-    }
-
-    /**
      * The enabled, registered {@link Tool} implementations.
      *
      * @return the enabled, registered {@link Tool} implementations
@@ -416,6 +409,21 @@ public class Browser extends AbstractToolsPlugin {
             case "resource":
                 result = resource(request);
                 break;
+            case "related": {
+                // related links for the current path
+                if (targetResource != null) {
+                    final RelatedPaths relatedPaths = new RelatedPaths(manager, targetResource);
+                    final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
+                            .with("browser.related", new Values()
+                                    .with("paths", (Supplier<?>) relatedPaths::getRelatedPathSet)
+                                    .with("types", (Supplier<?>) relatedPaths::getSupertypeChain))
+                    ), "related"));
+                    if (content != null) {
+                        result = new Result<>(content, HTML_TYPE);
+                    }
+                }
+            }
+            break;
             case "actions": {
                 // actions rendering for the current resource
                 if (actions != null) {
@@ -476,7 +484,8 @@ public class Browser extends AbstractToolsPlugin {
                 final Values values = new Values()
                         .with("target.path", targetPath)
                         .with("target.properties", properties != null ? new Values()
-                                .with(properties) : null);
+                                .with(properties) : null)
+                        .with("browser.related", manager.serverPath() + ".browser.related.html");
                 Optional.ofNullable(actions).ifPresent(actions -> {
                     values.with("browser.actions", manager.serverPath() + ".browser.actions.html");
                 });
@@ -516,6 +525,8 @@ public class Browser extends AbstractToolsPlugin {
                             .with("tools.navbar.center", "/sling/browser/navbar/center.html")
                             .with("tools.navbar.right", "/sling/browser/navbar/right.html")
                     ), this),
+            "related", current -> new Template("/sling/browser/navbar/related.html",
+                    new TemplateContext(current, new Values()), this),
             "actions", current -> new Template("/sling/browser/navbar/actions.html",
                     new TemplateContext(current, new Values()), this)
     );

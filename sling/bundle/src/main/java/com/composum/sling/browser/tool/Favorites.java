@@ -64,8 +64,11 @@ public class Favorites extends AbstractTool {
 
     public static final Pattern GROUP_PATTERN = Pattern.compile("^(?<label>[^=]+)=(?<pattern>.+)$");
 
+    /** the browser this plugin is registered with */
     @Reference
-    protected Browser browser;
+    private void bindBrowser(Browser service) {
+        browser = service;
+    }
 
     protected BundleContext bundleContext;
     protected Config config;
@@ -100,11 +103,6 @@ public class Favorites extends AbstractTool {
     @Deactivate
     protected void deactivate() {
         browser.tools().detach(this);
-    }
-
-    @Override
-    public Browser browser() {
-        return browser;
     }
 
     @Override

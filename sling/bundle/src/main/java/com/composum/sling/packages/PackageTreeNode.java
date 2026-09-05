@@ -12,7 +12,7 @@ import java.util.Collection;
  * One node of the Package Manager's lazily-loaded group/name/version tree - shared between the
  * JCR-backed tree ({@code jcr.JcrPackageTree}) and the registry-backed tree
  * ({@code registry.RegistryTree}), shaped for the same jstree lazy-load JSON contract as
- * {@code com.composum.sling.browser.dto.TreeNode}.
+ * {@code com.composum.sling.browser.impl.TreeNode}.
  */
 @Getter
 @JsonInclude(JsonInclude.Include.NON_NULL)

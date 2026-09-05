@@ -2,20 +2,60 @@
 .tools-navbar_status-bar {
     flex-grow: 1;
     margin: 0;
-    overflow: auto;
+    overflow: visible;
 }
 
 .tools-navbar_status-bar li {
     width: 100%;
 }
 
+.browser_path-group {
+    display: flex;
+}
+
+.browser_path-field,
+.browser_path-field:focus,
+.browser_path-group .browser_path_related-btn {
+    border: 1px solid #777;
+    background: #777;
+    color: rgba(255, 255, 255, .6);
+}
+
 .browser_path-field,
 .browser_path-field:focus {
+    flex-grow: 1;
     width: 100%;
-    border: none;
-    background: #1e1e1e;
-    color: rgba(255, 255, 255, .6);
+    padding: 1px 6px;
+    border-radius: 0.375rem 0 0 0.375rem;
     white-space: nowrap;
+}
+
+.browser_path-group .browser_path_related {
+    margin: 0;
+    padding: 0;
+    line-height: 27px;
+}
+
+.browser_path-group .browser_path_related-btn {
+    margin-left: 1px;
+    padding: 6px 8px;
+    border-radius: 0 var(--bs-btn-border-radius) var(--bs-btn-border-radius) 0;
+}
+
+.tools-navbar > .navbar-nav .browser_path-group .browser_path_related-menu {
+    position: absolute;
+    top: 31px;
+}
+
+.browser_path-group .browser_path_related-menu a,
+.browser_path-group .browser_path_related-menu a:hover,
+.browser_path-group .browser_path_related-menu a:focus,
+.browser_path-group .browser_path_related-menu a:active,
+.browser_path-group .browser_path_related-menu a:visited {
+    padding: 0 8px;
+    text-decoration: none;
+    white-space: nowrap;
+    color: rgba(255, 255, 255, .6);
 }
 
 .browser_actions {
