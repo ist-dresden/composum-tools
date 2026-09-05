@@ -11,7 +11,7 @@ import java.util.Collection;
 /**
  * One node of the User Manager's lazily-loaded '/home/users'/'/home/groups' tree, shaped for the
  * same jstree lazy-load JSON contract as {@code com.composum.sling.packages.PackageTreeNode} and
- * {@code com.composum.sling.browser.dto.TreeNode}.
+ * {@code com.composum.sling.browser.impl.TreeNode}.
  */
 @Getter
 @JsonInclude(JsonInclude.Include.NON_NULL)

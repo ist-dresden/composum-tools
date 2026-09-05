@@ -97,8 +97,11 @@ public class UserManager extends AbstractToolsPlugin {
         boolean writeEnabled() default true;
     }
 
+    /** the manager this plugin is registered with */
     @Reference
-    protected Manager manager;
+    private void bindManager(Manager service) {
+        manager = service;
+    }
 
     protected Config config;
     protected JcrAuthorizableOperations jcrOperations;
@@ -114,10 +117,6 @@ public class UserManager extends AbstractToolsPlugin {
     @Deactivate
     protected void deactivate() {
         manager.plugins().detach(this);
-    }
-
-    protected @NotNull Manager manager() {
-        return manager;
     }
 
     @Override

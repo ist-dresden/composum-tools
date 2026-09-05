@@ -20,7 +20,7 @@ import java.util.List;
  * eagerly per request, '/home' can hold thousands of authorizables nested arbitrarily deep
  * (Jackrabbit's own id-hash buckets, plus any custom 'intermediatePath'), so only ever the
  * requested node's immediate children are resolved - modeled on
- * {@code com.composum.sling.browser.dto.TreeNode}'s per-resource walk, not on
+ * {@code com.composum.sling.browser.impl.TreeNode}'s per-resource walk, not on
  * {@code JcrPackageTree}'s full-scan-then-search model. This also makes {@link #ancestorsOf} a
  * plain parent-chain walk rather than a tree search, since every path here is a real, hierarchical
  * JCR path (unlike a package's synthetic group/name tree path).
