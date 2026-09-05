@@ -16,15 +16,8 @@ import java.util.function.Supplier;
 
 public class TestToolsPlugin extends AbstractToolsPlugin {
 
-    protected final Manager manager;
-
     public TestToolsPlugin(@NotNull final Manager manager) {
         this.manager = manager;
-    }
-
-    @Override
-    protected @NotNull Manager manager() {
-        return manager;
     }
 
     @Override

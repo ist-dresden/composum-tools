@@ -1,0 +1,5 @@
+<a class="browser_path_related-btn btn btn-link bi bi-list" type="button" data-bs-toggle="dropdown" aria-expanded="false"></a>
+<ul class="browser_path_related-menu dropdown-menu dropdown-menu-end">
+    ${each.ref:browser.related.paths;'<li><a href="#" data-path="${ref.path}" title="${ref.description}"><i class="bi bi-${ref.icon}"></i><span>${ref.label}</span></a></li>'}
+    ${if:browser.related.types;'<li><hr class="dropdown-divider" /></li>${each.ref:browser.related.types;'<li><a href="#" data-path="${ref.path}"><i class="bi bi-${ref.icon}"></i><span>${ref.label}</span></a></li>'}'}
+</ul>

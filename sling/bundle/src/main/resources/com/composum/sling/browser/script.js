@@ -1,3 +1,34 @@
+class BrowserPathRelated extends ViewWidget {
+
+  static selector = '.tools-navbar .browser_path_related';
+
+  constructor(element) {
+    super(element);
+    this.profile = new Profile('browser');
+    $(document).on('path:selected', this.onPathSelected.bind(this));
+  }
+
+  onPathSelected(event, path) {
+    this.path = path;
+    const url = this.$el.data('uri');
+    if (url) {
+      this.loadContent(this.$el, `${url}${path}`, ($element) => {
+        this.dropdown = new bootstrap.Dropdown(this.$el.find('.dropdown-menu')[0]);
+        this.$el.find('.browser_path_related-menu a').on('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          this.dropdown.hide();
+          const $action = $(event.currentTarget);
+          $(document).trigger('path:select', [$action.data('path')]);
+          return false;
+        });
+      });
+    }
+  }
+}
+
+CPM.widgets.register(BrowserPathRelated);
+
 class BrowserActions extends ViewWidget {
 
   static selector = '.tools-navbar .browser_actions';

@@ -48,7 +48,7 @@ public abstract class AbstractView implements View, TemplateBuilder {
 
     @Override
     public @NotNull String adjustLink(@NotNull final String link) {
-        return link.replaceFirst("^.+(" + Pattern.quote(browser().manager().serverPath()) + ")", "$1");
+        return link.replaceFirst("^.+(" + Pattern.quote(browser().manager.serverPath()) + ")", "$1");
     }
 
     @Override

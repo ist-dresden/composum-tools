@@ -28,6 +28,7 @@ public interface Common {
     String JCR_CREATED = "jcr:created";
     String JCR_MIME_TYPE = "jcr:mimeType";
     String SLING_RESOURCE_TYPE = "sling:resourceType";
+    String SLING_RES_SUPER_TYPE = "sling:resourceSuperType";
     String NT_UNSTRUCTURED = "nt:unstructured";
     String NT_RESOURCE = "nt:resource";
     String NT_FILE = "nt:file";

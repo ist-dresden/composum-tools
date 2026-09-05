@@ -1,4 +1,4 @@
-package com.composum.sling.browser.dto;
+package com.composum.sling.browser.impl;
 
 import com.composum.sling.tools.Manager;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;

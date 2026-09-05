@@ -48,18 +48,19 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
 
     private static final String DEFAULT_RESOURCE_ROOT = "/com/composum";
 
+    /** The manager this plugin is registered with. */
+    public Manager manager;
+
+    /** TODO: for compatibility (probably overridden by projects tools); periodically check for removal */
+    protected @NotNull Manager manager() {
+        return manager;
+    }
+
     /**
      * Default constructor.
      */
     protected AbstractToolsPlugin() {
     }
-
-    /**
-     * The manager this plugin is registered with.
-     *
-     * @return the manager this plugin is registered with
-     */
-    protected abstract @NotNull Manager manager();
 
     @Override
     public @Nullable String widgetLink(@NotNull final SlingHttpServletRequest request,

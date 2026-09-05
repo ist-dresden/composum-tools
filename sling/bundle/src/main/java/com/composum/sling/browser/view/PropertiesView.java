@@ -121,9 +121,9 @@ public class PropertiesView extends AbstractView {
                 result = openContent(request);
                 break;
             default: {
-                final org.apache.sling.api.resource.Resource resource = browser.manager().requestResource(request);
+                final org.apache.sling.api.resource.Resource resource = browser.manager.requestResource(request);
                 if (resource != null) {
-                    final Resource values = new Resource(resource, browser.manager());
+                    final Resource values = new Resource(resource, browser.manager);
                     final RequestPathInfo pathInfo = request.getRequestPathInfo();
                     final Reader content = browser.templateReader(getTemplate(new TemplateContext(
                             new TemplateContext.Values()
@@ -155,7 +155,7 @@ public class PropertiesView extends AbstractView {
 
     protected Result<InputStream> openContent(@NotNull final SlingHttpServletRequest request) {
         Result<InputStream> result = new Result<>(SC_NOT_FOUND);
-        org.apache.sling.api.resource.Resource resource = browser.manager().requestResource(request);
+        org.apache.sling.api.resource.Resource resource = browser.manager.requestResource(request);
         if (resource != null) {
             ValueMap values = resource.getValueMap();
             InputStream stream = values.get(JCR_DATA, InputStream.class);
@@ -214,7 +214,7 @@ public class PropertiesView extends AbstractView {
         }
 
         protected @NotNull String binaryDownloadLink() {
-            return browser.manager().serverPath()
+            return browser.manager.serverPath()
                     + ".browser.view.properties.load.html" + resource.getPath();
         }
 
@@ -222,7 +222,7 @@ public class PropertiesView extends AbstractView {
             if (StringUtils.isNotBlank(value) && value.startsWith("/")) {
                 final ResourceResolver resolver = resolver();
                 final org.apache.sling.api.resource.Resource resource = resolver.getResource(value);
-                if (resource != null && browser.manager().isAllowedResource(resource)) {
+                if (resource != null && browser.manager.isAllowedResource(resource)) {
                     return resource;
                 }
             }

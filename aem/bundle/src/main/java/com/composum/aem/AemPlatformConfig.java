@@ -4,7 +4,6 @@ import com.composum.sling.tools.DefaultPlatformConfig;
 import com.composum.sling.tools.PlatformConfig;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.settings.SlingSettingsService;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -15,7 +14,6 @@ import org.osgi.service.metatype.annotations.Designate;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 import java.util.Arrays;
-import java.util.Collection;
 
 import static com.composum.sling.tools.Common.JCR_CONTENT;
 import static com.composum.sling.tools.Common.JCR_PRIMARY_TYPE;
@@ -64,7 +62,9 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
     }
 
     @Reference
-    private SlingSettingsService settingsService;
+    private void bindSettingsService(SlingSettingsService service) {
+        settingsService = service;
+    }
 
     /**
      * @param config the current OSGi configuration
@@ -74,15 +74,6 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
     protected void activate(final Config config) {
         guardNode = config.guardNode();
         fileTypes = Arrays.asList(config.fileTypes());
-    }
-
-    protected SlingSettingsService settingsService() {
-        return settingsService;
-    }
-
-    @Override
-    public @NotNull Collection<String> fileTypes() {
-        return fileTypes;
     }
 
     @Override

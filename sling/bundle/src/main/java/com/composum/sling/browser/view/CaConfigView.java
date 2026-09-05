@@ -161,7 +161,7 @@ public class CaConfigView extends AbstractView {
                 result = new Result<>(SC_OK);
                 break;
             default: {
-                final Resource resource = browser.manager().requestResource(request);
+                final Resource resource = browser.manager.requestResource(request);
                 if (resource != null) {
                     final Reader content = browser.templateReader(getTemplate(new TemplateContext(
                             new Values()
@@ -338,7 +338,7 @@ public class CaConfigView extends AbstractView {
 
     protected @NotNull List<SettingsProvider> getSettingsProviders(@NotNull final SlingHttpServletRequest request) {
         final List<SettingsProvider> providers = new ArrayList<>();
-        final Resource targetResource = browser.manager().requestResource(request);
+        final Resource targetResource = browser.manager.requestResource(request);
         if (targetResource != null) {
             final ConfigurationBuilder builder = targetResource.adaptTo(ConfigurationBuilder.class);
             if (builder != null) {

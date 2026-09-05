@@ -109,7 +109,9 @@ public class Console extends AbstractToolsPlugin {
 
     /** the manager this plugin is registered with */
     @Reference
-    protected Manager manager;
+    private void bindManager(Manager service) {
+        manager = service;
+    }
 
     /** the bundle context this plugin was activated with */
     protected BundleContext bundleContext;
@@ -161,15 +163,6 @@ public class Console extends AbstractToolsPlugin {
     }
 
     /**
-     * The manager this plugin is registered with.
-     *
-     * @return the manager this plugin is registered with
-     */
-    public @NotNull Manager manager() {
-        return manager;
-    }
-
-    /**
      * The enabled, registered {@link ConsoleProxy} implementations.
      *
      * @return the enabled, registered {@link ConsoleProxy} implementations
@@ -195,7 +188,7 @@ public class Console extends AbstractToolsPlugin {
      * @return the link to the given proxy's own page
      */
     protected @NotNull String proxyLink(@NotNull final ConsoleProxy proxy) {
-        return manager().serverPath() + ".console." + proxy.key() + ".html";
+        return manager.serverPath() + ".console." + proxy.key() + ".html";
     }
 
     @Override

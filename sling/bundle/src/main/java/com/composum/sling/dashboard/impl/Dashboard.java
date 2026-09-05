@@ -68,15 +68,14 @@ public class Dashboard extends AbstractToolsPlugin {
         boolean enabled() default true;
     }
 
+    /** the manager this plugin is registered with */
     @Reference
-    protected Manager manager;
+    private void bindManager(Manager service) {
+        manager = service;
+    }
 
     protected BundleContext bundleContext;
     protected Config config;
-
-    protected @NotNull Manager manager() {
-        return manager;
-    }
 
     @Activate
     @Modified
@@ -196,7 +195,6 @@ public class Dashboard extends AbstractToolsPlugin {
             for (final Widget widget : plugin.widgets()) {
                 if (widget instanceof Tile) {
                     final Tile tile = (Tile) widget;
-                    final String tileKey = widget.getKey().equals(plugin.key()) ? "tile" : widget.getKey() + ".tile";
                     AtomicLong start = new AtomicLong();
                     tiles.add(new Values()
                             .with("key", tile.getKey())
@@ -207,6 +205,7 @@ public class Dashboard extends AbstractToolsPlugin {
                             .with("duration", (Supplier<?>) () -> System.currentTimeMillis() - start.get())
                             .with("content", (Supplier<?>) () -> {
                                 start.set(System.currentTimeMillis());
+                                final String tileKey = tile.getKey().equals(plugin.key()) ? "tile" : tile.getKey() + ".tile";
                                 return include(request, response, plugin, tileKey);
                             })
                     );
