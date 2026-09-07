@@ -1,0 +1,20 @@
+<div class="modal modal-lg fade tools-dialog changes-pending" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Pending Changes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                ${if:pending.changes;'<table class="changes-pending_list table table-sm table-striped">${each.change:pending.changes;'/sling/changes/dialogs/pendingEntry.html'}</table>'|'<p class="text-muted">No pending changes.</p>'}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-danger changes-pending_discard"
+                        data-url="${attr:pending.discard}" data-bs-dismiss="modal"${if:pending.changes;''|' disabled'}>Revert All</button>
+                <button type="button" class="btn btn-primary changes-pending_commit"
+                        data-url="${attr:pending.commit}" data-bs-dismiss="modal"${if:pending.changes;''|' disabled'}>Commit All</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>

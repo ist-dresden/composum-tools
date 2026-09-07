@@ -335,7 +335,9 @@ class BrowserTree extends ViewWidget {
       .on('select_node.jstree', this.onNodeSelected.bind(this));
     $(document)
       .on('page:changed', this.onPageChanged.bind(this))
-      .on('path:select', this.doSelectPath.bind(this));
+      .on('path:select', this.doSelectPath.bind(this))
+      .on('dialog:success', (event, el, result) => this.onChangesApplied(result))
+      .on('changes:applied', (event, result) => this.onChangesApplied(result));
     const path = this.$el.data('path');
     if (path) {
       setTimeout(function () {
@@ -355,6 +357,26 @@ class BrowserTree extends ViewWidget {
     if (!selected || path !== selected.original.path) {
       this.openNode(path);
     }
+  }
+
+  // after a node-modification action (create/delete/move/copy/property change, or a pending
+  // Save All/Revert All) - a plain 'path:select' would not be enough, since jsTree caches a
+  // node's children once loaded and does not know its structure just changed; 'jstree.refresh()'
+  // forces every currently-open node to re-fetch, then the changed path (or, if none is given -
+  // e.g. after a property change or a Revert All - the still-selected one) is re-opened/selected.
+  // Reacts to both halves of the Changes service's event contract: 'dialog:success' (Create/
+  // Delete/Move/Change Property, via the shared 'DialogForm') and 'changes:applied' (Paste, Save
+  // All, Revert All) - both carry a '{path, pending}'-shaped JSON result.
+  onChangesApplied(result) {
+    const target = (result && result.path) || this.getSelectedPath();
+    if (target) {
+      this.$jstree.one('refresh.jstree', function () {
+        this.openNode(target, function (path) {
+          $(document).trigger('path:selected', [path]);
+        }.bind(this), true);
+      }.bind(this));
+    }
+    this.jstree.refresh();
   }
 
   triggerPathSelected(path) {
@@ -407,36 +429,34 @@ class BrowserTree extends ViewWidget {
     return undefined;
   }
 
+  // re-fetches just the currently selected node's own children from the server (jsTree's
+  // 'refresh_node' re-runs the 'data' callback for that one node) - narrower than 'onChangesApplied'
+  // below, which refreshes the whole tree; a manual "Reload" action has no mutation result telling
+  // it what changed, so it only ever makes sense to reload the one node the user is looking at
+  reloadSelected() {
+    const node = this.getSelectedNode();
+    if (node) {
+      this.jstree.refresh_node(node);
+    }
+  }
+
   dataUrl(node) {
     const path = node.original && node.original.path ? node.original.path : '/';
     return this.$el.data('tree-url') + path;
   }
 
+  static ID_PREFIX = 'CBT_';
+
+  // fetch-and-assign-ids itself is shared with TreePicker (sling/tools/script.js's 'CPM.tree') -
+  // everything specific to *this* tree (its own URL scheme, drilldown/history/select behavior)
+  // stays here
   nodeData(node, callback) {
-    const tree = this;
-    $.ajax({
-      type: 'GET',
-      url: tree.dataUrl(node),
-      success: function (result, msg, xhr) {
-        result.id = tree.nodeId(result.path);
-        if (result.children) {
-          for (let i = 0; i < result.children.length; i++) {
-            result.children[i].id = tree.nodeId(result.children[i].path);
-          }
-        }
-        callback.call(tree.$jstree, result);
-      },
-      async: true,
-      cache: false
-    });
+    CPM.tree.fetchNode(BrowserTree.ID_PREFIX, this.dataUrl(node),
+      (result) => callback.call(this.$jstree, result));
   }
 
   nodeId(id) {
-    if (id && (typeof id !== 'string' || id.indexOf('CBT_') !== 0)) {
-      if (Array.isArray(id)) id = id.join('/');
-      id = ('CBT_' + btoa(encodeURIComponent(id))).replace(/=/g, '-').replace(/\//g, '_');
-    }
-    return id;
+    return CPM.tree.nodeId(BrowserTree.ID_PREFIX, id);
   }
 
   openNode(path, callback, suppressEvent) {
@@ -618,6 +638,10 @@ class BrowserViewParameters extends ViewWidget {
       url: this.contentUrl(tabId),
       success: function (content) {
         this.$el.html(content);
+        // this form area's own content can carry widget-bearing markup (e.g. the Properties
+        // view's toolbar, see PropertiesToolbar) - without this, nothing scoped to it would ever
+        // actually attach, since inserting HTML via .html() alone never auto-initializes widgets
+        CPM.widgets.initialize(this.$el);
         const profileData = this.profile.get(tabId);
         if (profileData) {
           Object.keys(profileData).forEach(key => {
@@ -651,7 +675,14 @@ class BrowserView extends BrowserPanel {
       this.parameters.$el.on('submit', this.reload.bind(this));
     }
     this.showTab(this.profile.get('currentTab'), true);
-    $(document).on('path:selected', this.onPathSelected.bind(this));
+    $(document)
+      .on('path:selected', this.onPathSelected.bind(this))
+      // the currently shown tab (e.g. Properties) reflects the target resource's own state, which
+      // any mutation may have changed - reload it exactly like a manual reload click, whether the
+      // mutation was dialog-based ('dialog:success') or not ('changes:applied', see BrowserTree's
+      // own listener for the same two events, which covers the tree side of this)
+      .on('dialog:success', () => this.reload())
+      .on('changes:applied', () => this.reload());
   }
 
   reload(event) {
@@ -695,10 +726,9 @@ class BrowserView extends BrowserPanel {
 
   showTab(tabId, force) {
     const $tab = this.$el.find('.browser-page_browser_tabs .nav-link[aria-controls="' + tabId + '"]');
-    if ($tab.length > 0) {
-      $tab.tab('show');
-    } else if (force) {
-      this.$el.find('.browser-page_browser_tabs .nav-link').first().tab('show');
+    const $target = $tab.length > 0 ? $tab : (force ? this.$el.find('.browser-page_browser_tabs .nav-link').first() : undefined);
+    if ($target && $target.length > 0) {
+      bootstrap.Tab.getOrCreateInstance($target[0]).show();
     }
   }
 
@@ -755,3 +785,241 @@ class BrowserPage extends ViewWidget {
 }
 
 CPM.widgets.register(BrowserPage);
+
+// The "Change" dropdown (Create/Delete/Move/Copy/Paste) plus a "Reload" button - the node-level
+// toolbar above the tree (see browser/node-toolbar.html). The toolbar container itself is always
+// present; only the "Edit" dropdown's markup is conditional on browser.writeEnabled (true only
+// while a ChangesService is bound) - Reload is a read-only convenience unrelated to whether
+// mutations are possible at all, so it always renders regardless. Previously the "Edit" navbar
+// dropdown, moved here for the same reason the Properties toolbar moved out of its own view
+// content: a dedicated action area next to what it operates on (the tree's current selection)
+// rather than tucked into the global navbar - kept as an actual dropdown (not spread into flat
+// always-visible buttons) since these are comparatively rare, deliberate actions, unlike the
+// always-relevant Reload alongside it. Create/Delete/Move/Paste all open dialog fragments served by
+// ChangesService through the shared 'CPM.Dialog'/'DialogForm' framework - Paste opens one too
+// (rather than a plain POST) so its target name can be adjusted, which is what makes duplicating a
+// node into its own parent via Copy/Paste possible at all; Copy itself is entirely client-side
+// (remembers the current path in the same 'Profile' local-storage-backed store the rest of Browser
+// already uses for its own per-session state - no server-side clipboard state exists). Reload
+// re-fetches the currently selected tree node's own children from the server (see
+// BrowserTree#reloadSelected) - independent of any particular mutation, useful whenever the
+// repository changed by some other means the Browser has no way to know about on its own.
+class BrowserNodeToolbar extends ViewWidget {
+
+  static selector = '.browser-node-toolbar';
+
+  constructor(element) {
+    super(element);
+    this.profile = new Profile('browser');
+    this.dialogUri = this.$el.data('dialog-uri');
+    $(document).on('path:selected', this.onPathSelected.bind(this));
+    this.$el.find('.browser-node_action-create').on('click', (event) => {
+      event.preventDefault();
+      new CPM.Dialog(this.dialogUri + 'create.html' + this.path).open();
+    });
+    this.$el.find('.browser-node_action-delete').on('click', (event) => {
+      event.preventDefault();
+      new CPM.Dialog(this.dialogUri + 'delete.html' + this.path).open();
+    });
+    this.$el.find('.browser-node_action-move').on('click', (event) => {
+      event.preventDefault();
+      new CPM.Dialog(this.dialogUri + 'move.html' + this.path).open();
+    });
+    this.$el.find('.browser-node_action-copy').on('click', (event) => {
+      event.preventDefault();
+      this.profile.set('clipboard', this.path);
+    });
+    this.$el.find('.browser-node_action-paste').on('click', (event) => {
+      event.preventDefault();
+      this.paste();
+    });
+    this.$el.find('.browser-node_action-reload').on('click', (event) => {
+      event.preventDefault();
+      const tree = Widgets.getView(BrowserTree.selector, BrowserTree);
+      if (tree) {
+        tree.reloadSelected();
+      }
+    });
+  }
+
+  onPathSelected(event, path) {
+    this.path = path;
+  }
+
+  paste() {
+    const source = this.profile.get('clipboard');
+    if (!source || !this.path) {
+      return;
+    }
+    new CPM.Dialog(this.dialogUri + 'paste.html' + this.path + '?source=' + encodeURIComponent(source)).open();
+  }
+}
+
+CPM.widgets.register(BrowserNodeToolbar);
+
+// The Properties table's own checkbox selection (see view/properties/properties.html) - reports
+// it to PropertiesToolbar below via a document-level event rather than direct DOM access, since
+// the two no longer share a scope: this table is reloaded on every path navigation (a fresh
+// '.browser-properties' element each time, always starting unselected - hence the initial report,
+// which correctly resets the toolbar whenever a different resource's properties are shown), while
+// the toolbar (in the separate, tab-level "form" area) is not.
+class PropertiesSelection extends ViewWidget {
+
+  static selector = '.browser-properties';
+
+  constructor(element) {
+    super(element);
+    this.$el.on('change', '.browser-properties_select', () => this.report());
+    // a convenience click target - the checkbox column itself is narrow, so toggling via the
+    // (much wider) name cell instead is much easier to hit; only present at all while
+    // 'browser.writeEnabled' rendered the checkbox column in the first place, so no extra guard
+    // is needed here beyond the checkbox actually existing in that row
+    this.$el.on('click', '.property-name', (event) => {
+      $(event.currentTarget).closest('tr').find('.browser-properties_select')
+        .prop('checked', (i, checked) => !checked).trigger('change');
+    });
+    this.report();
+  }
+
+  report() {
+    const names = this.$el.find('.browser-properties_select:checked').map((i, el) => el.value).get();
+    $(document).trigger('properties:selected', [names]);
+  }
+}
+
+CPM.widgets.register(PropertiesSelection);
+
+// The Properties view's toolbar - now rendered once per tab-show, via the generic per-tab "form"
+// area (see view/properties/form.html) rather than as part of the properties table itself, so it
+// survives a path navigation instead of being torn down and recreated with every table reload.
+// One consequence: the "form" request that renders this fragment carries no target path of its
+// own at all (it is the same generic mechanism every view's parameter form uses), so unlike the
+// old combined widget this can't just read a 'data-path' attribute - it tracks the current path
+// itself via the global 'path:selected' event, exactly like BrowserNodeToolbar does,
+// seeded with the tree's *current* selection at construction time (via 'BrowserTree#getSelectedPath')
+// so a tab-switch-away-and-back (which recreates this widget, unlike a plain path navigation)
+// doesn't leave it without a path until the next explicit selection. Selection state itself comes
+// from PropertiesSelection above, since the checkboxes it watches live in a different, more
+// often-reloaded part of the DOM. Add/Edit open the same 'property' dialog (empty resp. pre-filled
+// via a '?name=' query param); Copy/Paste are a plain client-side clipboard (remembers the source
+// path + selected names in the same 'Profile' store the rest of Browser already uses - the same
+// pattern as node-level Copy/Paste, see BrowserNodeToolbar - "Copy" itself never reaches the server);
+// Delete is a plain confirm()-then-POST, deliberately not the shared 'CPM.Dialog' confirm fragment
+// (the message needs to name the *variable* number of selected properties, which the shared,
+// statically-rendered dialog can't parameterize without a server round-trip just to build a sentence).
+class PropertiesToolbar extends ViewWidget {
+
+  static selector = '.browser-properties-form';
+
+  constructor(element) {
+    super(element);
+    this.profile = new Profile('browser');
+    this.dialogUri = this.$el.data('dialog-uri');
+    this.copyUri = this.$el.data('copy-uri');
+    this.deleteUri = this.$el.data('delete-uri');
+    this.selectedNames = [];
+    const tree = Widgets.getView(BrowserTree.selector, BrowserTree);
+    this.path = tree ? tree.getSelectedPath() : undefined;
+    this.$el.find('.browser-properties_action-add').on('click', (event) => {
+      event.preventDefault();
+      this.openDialog();
+    });
+    this.$el.find('.browser-properties_action-edit').on('click', (event) => {
+      event.preventDefault();
+      if (this.selectedNames.length === 1) {
+        this.openDialog(this.selectedNames[0]);
+      }
+    });
+    this.$el.find('.browser-properties_action-copy').on('click', (event) => {
+      event.preventDefault();
+      this.copySelection();
+    });
+    this.$el.find('.browser-properties_action-paste').on('click', (event) => {
+      event.preventDefault();
+      this.paste();
+    });
+    this.$el.find('.browser-properties_action-delete').on('click', (event) => {
+      event.preventDefault();
+      this.deleteSelection();
+    });
+    $(document)
+      .on('path:selected', (event, path) => {
+        this.path = path;
+      })
+      .on('properties:selected', (event, names) => {
+        this.selectedNames = names;
+        this.updateToolbar();
+      });
+    this.updateToolbar();
+  }
+
+  updateToolbar() {
+    const names = this.selectedNames;
+    const clipboard = this.profile.get('propertyClipboard');
+    this.$el.find('.browser-properties_action-edit').prop('disabled', names.length !== 1);
+    this.$el.find('.browser-properties_action-copy').prop('disabled', names.length === 0);
+    this.$el.find('.browser-properties_action-delete').prop('disabled', names.length === 0);
+    this.$el.find('.browser-properties_action-paste')
+      .prop('disabled', !clipboard || !clipboard.names || clipboard.names.length === 0);
+  }
+
+  openDialog(name) {
+    const url = this.dialogUri + 'property.html' + this.path + (name ? '?name=' + encodeURIComponent(name) : '');
+    // the dialog's own "Remove" button (see changes/script.js's 'PropertyRemove' widget) self-wires
+    // the moment the fragment is inserted into the DOM - nothing to do here
+    new CPM.Dialog(url).open();
+  }
+
+  copySelection() {
+    const names = this.selectedNames;
+    if (names.length > 0) {
+      this.profile.set('propertyClipboard', {path: this.path, names: names});
+      this.updateToolbar();
+    }
+  }
+
+  paste() {
+    const clipboard = this.profile.get('propertyClipboard');
+    if (!clipboard || !clipboard.names || clipboard.names.length === 0) {
+      return;
+    }
+    // 'traditional' (the 2nd arg) is required: jQuery's default array serialization uses
+    // 'names[]=a&names[]=b', but the server reads a plain multi-value 'names' parameter
+    // ('request.getParameterValues("names")'), which needs 'names=a&names=b' instead
+    const data = $.param({source: clipboard.path, names: clipboard.names}, true);
+    $.ajax({
+      type: 'POST',
+      url: this.copyUri + this.path,
+      data: data,
+      contentType: 'application/x-www-form-urlencoded',
+      success: (result) => $(document).trigger('changes:applied', [result]),
+      error: (jqXHR) => alert((jqXHR.responseJSON && jqXHR.responseJSON.message) || 'Paste failed.'),
+      async: true,
+      cache: false
+    });
+  }
+
+  deleteSelection() {
+    const names = this.selectedNames;
+    if (names.length === 0) {
+      return;
+    }
+    const label = names.length === 1 ? `'${names[0]}'` : `${names.length} properties`;
+    if (!confirm(`Delete ${label}?`)) {
+      return;
+    }
+    $.ajax({
+      type: 'POST',
+      url: this.deleteUri + this.path,
+      // see the 'paste' method above for why 'traditional' (2nd arg) is required here too
+      data: $.param({names: names}, true),
+      contentType: 'application/x-www-form-urlencoded',
+      success: (result) => $(document).trigger('changes:applied', [result]),
+      error: (jqXHR) => alert((jqXHR.responseJSON && jqXHR.responseJSON.message) || 'Delete failed.'),
+      async: true,
+      cache: false
+    });
+  }
+}
+
+CPM.widgets.register(PropertiesToolbar);

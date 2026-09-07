@@ -1,13 +1,13 @@
 package com.composum.sling.browser;
 
-import com.composum.sling.browser.impl.RelatedPaths;
-import com.composum.sling.browser.impl.TreeNode;
 import com.composum.sling.browser.tool.Favorites;
 import com.composum.sling.browser.tool.Query;
+import com.composum.sling.changes.ChangesService;
 import com.composum.sling.tools.AbstractToolsPlugin;
 import com.composum.sling.tools.Common;
 import com.composum.sling.tools.Manager;
 import com.composum.sling.tools.PluginSet;
+import com.composum.sling.tools.ReferencesService;
 import com.composum.sling.tools.Result;
 import com.composum.sling.tools.ToolsPlugin;
 import com.composum.sling.tools.dto.Page;
@@ -18,9 +18,7 @@ import com.composum.sling.tools.template.TemplateContext;
 import com.composum.sling.tools.template.TemplateContext.Values;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
-import org.apache.sling.api.request.RequestPathInfo;
 import org.apache.sling.api.resource.Resource;
-import org.apache.sling.api.resource.ResourceResolver;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.osgi.framework.BundleContext;
@@ -180,6 +178,10 @@ public class Browser extends AbstractToolsPlugin {
         manager = service;
     }
 
+    /** the resource-relations service backing the "related" navbar dropdown, see {@link #processGet}'s 'related' case */
+    @Reference
+    protected ReferencesService referencesService;
+
     /** the enabled, registered {@link Tool} implementations */
     protected PluginSet<Tool> tools = new PluginSet<>() {
         @Override
@@ -199,6 +201,14 @@ public class Browser extends AbstractToolsPlugin {
     /** the currently registered {@link Actions} implementation, if any */
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
     protected volatile @Nullable Actions actions;
+
+    /**
+     * The currently registered {@link ChangesService}, if any - node-modification actions
+     * (create/delete/move/copy, property changes, the pending-changes session) are only available
+     * while this is bound; otherwise the Browser falls back to its original read-only behaviour.
+     */
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
+    protected volatile @Nullable ChangesService changesService;
 
     /** the bundle context this plugin was activated with */
     protected BundleContext bundleContext;
@@ -327,6 +337,44 @@ public class Browser extends AbstractToolsPlugin {
         return manager.serverPath() + ".browser.html";
     }
 
+    /**
+     * Whether node-modification actions are available - delegates to the optionally bound
+     * {@link ChangesService}, exposed publicly so other packages (e.g. {@code view.PropertiesView},
+     * which needs it to decide whether to render its own property-edit affordances) don't need
+     * direct field access.
+     */
+    public boolean writeEnabled() {
+        return changesService != null && changesService.writeEnabled();
+    }
+
+    /**
+     * The base URL for the {@link ChangesService}'s on-demand dialog fragments (append
+     * {@code <name>.html<path>}), or an empty string if none is bound - exposed publicly for the
+     * same reason as {@link #writeEnabled()}.
+     */
+    public @NotNull String dialogUri() {
+        return changesService != null ? changesService.dialogUri() : "";
+    }
+
+    /**
+     * The full POST action URL for the given {@link ChangesService} action name (append the target
+     * path yourself), or an empty string if no service is bound - exposed publicly for the same
+     * reason as {@link #dialogUri()}, e.g. for {@code view.PropertiesView}'s toolbar actions that
+     * have no dialog of their own (bulk Copy/Delete of selected properties).
+     */
+    public @NotNull String changeActionLink(@NotNull final String action) {
+        return changesService != null ? changesService.actionLink(action) : "";
+    }
+
+    /**
+     * Whether the given property name is protected against editing - delegates to the optionally
+     * bound {@link ChangesService} (a property is never protected while none is bound, since there
+     * is nothing to protect it from), exposed publicly for the same reason as {@link #writeEnabled()}.
+     */
+    public boolean isProtectedProperty(@NotNull final String name) {
+        return changesService != null && changesService.isProtectedProperty(name);
+    }
+
     @Override
     public @NotNull List<Widget> widgets() {
         return PLUGIN_WIDGETS;
@@ -377,15 +425,33 @@ public class Browser extends AbstractToolsPlugin {
     public @NotNull Result<?> process(@NotNull final SlingHttpServletRequest request,
                                       @NotNull final SlingHttpServletResponse response,
                                       @NotNull List<String> selectors) {
-        Result<?> result = new Result<>(HttpServletResponse.SC_BAD_REQUEST);
-        switch (request.getMethod()) {
-            case "GET":
-                result = processGet(request, response, selectors);
-                break;
-            default:
-                break;
+        return "GET".equals(request.getMethod())
+                ? processGet(request, response, selectors)
+                : new Result<>(HttpServletResponse.SC_BAD_REQUEST);
+    }
+
+    /**
+     * The request suffix path (the resource an action targets), '/' if there is none.
+     */
+    protected @NotNull String targetPath(@NotNull final SlingHttpServletRequest request) {
+        return Optional.ofNullable(request.getRequestPathInfo().getSuffix()).orElse("/");
+    }
+
+    /**
+     * The resource at the request's suffix path - resolved through the {@link ChangesService}'s
+     * resolver (so the tree/properties view reflect pending, not yet committed changes) if one is
+     * bound, otherwise through {@link Manager#requestResource} exactly as before this feature
+     * existed. Used by every read path that should show pending edits (this class' own
+     * 'tree'/'view'/page rendering, and {@code view.PropertiesView}, which calls this via its
+     * {@code browser} reference) - other views (JSON/XML/Display/CA-Config) intentionally keep
+     * using the plain per-request resolver.
+     */
+    public @Nullable Resource targetResource(@NotNull final SlingHttpServletRequest request) {
+        if (changesService != null) {
+            final Resource resource = changesService.resolver(request).getResource(targetPath(request));
+            return resource != null && manager.isAllowedResource(resource) ? resource : null;
         }
-        return result;
+        return manager.requestResource(request);
     }
 
     /**
@@ -401,10 +467,8 @@ public class Browser extends AbstractToolsPlugin {
                                          @NotNull final SlingHttpServletResponse response,
                                          @NotNull List<String> selectors) {
         Result<?> result = new Result<>(HttpServletResponse.SC_BAD_REQUEST);
-        final ResourceResolver resolver = request.getResourceResolver();
-        final RequestPathInfo pathInfo = request.getRequestPathInfo();
-        final String targetPath = Optional.ofNullable(pathInfo.getSuffix()).orElse("/");
-        final Resource targetResource = manager.requestResource(request);
+        final String targetPath = targetPath(request);
+        final Resource targetResource = targetResource(request);
         switch (Manager.consume(selectors, "")) {
             case "resource":
                 result = resource(request);
@@ -412,11 +476,10 @@ public class Browser extends AbstractToolsPlugin {
             case "related": {
                 // related links for the current path
                 if (targetResource != null) {
-                    final RelatedPaths relatedPaths = new RelatedPaths(manager, targetResource);
                     final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
                             .with("browser.related", new Values()
-                                    .with("paths", (Supplier<?>) relatedPaths::getRelatedPathSet)
-                                    .with("types", (Supplier<?>) relatedPaths::getSupertypeChain))
+                                    .with("paths", (Supplier<?>) () -> referencesService.getRelatedPathSet(targetResource))
+                                    .with("types", (Supplier<?>) () -> referencesService.getSupertypeChain(targetResource)))
                     ), "related"));
                     if (content != null) {
                         result = new Result<>(content, HTML_TYPE);
@@ -450,11 +513,7 @@ public class Browser extends AbstractToolsPlugin {
             break;
             case "tree": {
                 // tree node data
-                if (targetResource != null) {
-                    result = new Result<>(new TreeNode(manager, targetResource, null));
-                } else {
-                    result = new Result<>(SC_NOT_FOUND, new TreeNode(targetPath));
-                }
+                result = treeResult(targetResource, targetPath);
             }
             break;
             case "tool": {
@@ -481,11 +540,23 @@ public class Browser extends AbstractToolsPlugin {
                         .filter(r -> manager.isAllowedResource(r))
                         .map(this::resourceProperties).orElse(null);
                 // the content of the browser page (tree + view set)
+                final int pendingCount = changesService != null ? changesService.pendingCount(request) : 0;
                 final Values values = new Values()
                         .with("target.path", targetPath)
                         .with("target.properties", properties != null ? new Values()
                                 .with(properties) : null)
-                        .with("browser.related", manager.serverPath() + ".browser.related.html");
+                        .with("browser.related", manager.serverPath() + ".browser.related.html")
+                        // request-scoped (unlike everything else the "page" template needs, which
+                        // is request-invariant and lives in the static 'templates' map below) -
+                        // the pending count reflects *this* HTTP session's ChangeSession, so it has
+                        // to be read fresh per request, e.g. so a page reload still shows the
+                        // correct badge state for a ChangeSession that outlives the reload
+                        .with("changes.available", changesService != null)
+                        .with("changes.pendingUri", changesService != null ? changesService.pendingUri() : null)
+                        .with("changes.style", changesService != null ? changesService.styleResource() : null)
+                        .with("changes.script", changesService != null ? changesService.scriptResource() : null)
+                        .with("changes.pending", pendingCount)
+                        .with("changes.pendingVisible", pendingCount > 0);
                 Optional.ofNullable(actions).ifPresent(actions -> {
                     values.with("browser.actions", manager.serverPath() + ".browser.actions.html");
                 });
@@ -513,6 +584,8 @@ public class Browser extends AbstractToolsPlugin {
                                     .with("tree", manager.serverPath() + ".browser.tree.json")
                                     .with("tabView", manager.serverPath() + ".browser.view.#id#.html")
                                     .with("tabForm", manager.serverPath() + ".browser.view.#id#.form.html")
+                                    .with("dialog", changesService != null ? changesService.dialogUri() : null)
+                                    .with("writeEnabled", writeEnabled())
                                     .with("tools", (Supplier<?>) () -> valuesOf(tools().list()))
                                     .with("views", (Supplier<?>) () -> valuesOf(views().list()))
                                     .with("styles", (Supplier<?>) this::styles)

@@ -1,0 +1,6 @@
+<li class="changes-pending-group nav-item" data-pending-uri="${attr:changes.pendingUri}">
+    <a class="nav-link changes-pending_toggle" href="#" title="Pending Changes">
+        <i class="bi bi-database-check text-${if:changes.pendingVisible;'danger'|'secondary'}"></i>
+        <span class="badge bg-${if:changes.pendingVisible;'danger'|'secondary'} changes-pending_count" style="vertical-align:text-bottom;">${changes.pending}</span>
+    </a>
+</li>

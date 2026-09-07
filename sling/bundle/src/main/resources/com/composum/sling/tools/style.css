@@ -125,6 +125,13 @@ body {
     margin-bottom: 10px;
 }
 
+/* a long, unbroken repository path (no spaces, only slashes/colons) can otherwise overflow the
+   dialog instead of wrapping - e.g. the shared Confirm dialog's message (tools/dialogs/confirm.html,
+   used for Delete Node among others) or any other dialog text that ends up quoting a full path */
+.tools-dialog .modal-body {
+    overflow-wrap: break-word;
+}
+
 .tools-action_curtain {
     display: none;
     position: fixed;
@@ -178,4 +185,62 @@ body {
     white-space: nowrap;
     font-family: monospace;
     font-size: 12px;
+}
+
+.tools-path_suggestions {
+    /* 'top'/'left'/'width' are set from script.js (the field's own live bounding rect) - 'fixed'
+       (viewport-relative, not anchored to any scrolling ancestor) is what avoids the dropdown
+       being clipped by an 'overflow: auto' ancestor such as the Properties dialog's own scrolling
+       value list */
+    position: fixed;
+    z-index: 1060;
+    margin: 2px 0 0;
+    padding: 4px 0;
+    max-height: 220px;
+    overflow: auto;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+}
+
+.tools-path_suggestions li {
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 90%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tools-path_suggestions li:hover,
+.tools-path_suggestions li.active {
+    background: #f0f0f0;
+}
+
+.tools-tree_picker-btn {
+    border-color: #ced4da;
+}
+
+.tools-tree_picker-tree {
+    min-height: 40vh;
+    max-height: 50vh;
+    overflow: auto;
+    padding: 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* the picker is always opened from *inside* an already-open dialog (Move/Change Property) -
+   Bootstrap's own default modal/backdrop z-indexes (1055/1050) are not enough to stack it above
+   that dialog, so both are raised here; '.tools-tree_picker-backdrop' is added by script.js to
+   whichever '.modal-backdrop' belongs to this modal, once Bootstrap has actually created it */
+.tools-tree_picker-modal {
+    z-index: 1070;
+}
+
+.tools-tree_picker-backdrop {
+    z-index: 1065;
 }

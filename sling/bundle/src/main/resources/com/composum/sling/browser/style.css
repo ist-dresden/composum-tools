@@ -47,28 +47,67 @@
     top: 31px;
 }
 
+.browser-node-toolbar .dropdown-menu a,
+.browser-node-toolbar .dropdown-menu a:hover,
+.browser-node-toolbar .dropdown-menu a:focus,
+.browser-node-toolbar .dropdown-menu a:active,
+.browser-node-toolbar .dropdown-menu a:visited,
 .browser_path-group .browser_path_related-menu a,
 .browser_path-group .browser_path_related-menu a:hover,
 .browser_path-group .browser_path_related-menu a:focus,
 .browser_path-group .browser_path_related-menu a:active,
 .browser_path-group .browser_path_related-menu a:visited {
-    padding: 0 8px;
+    display: inline-block;
+    padding: 4px 12px;
     text-decoration: none;
     white-space: nowrap;
-    color: rgba(255, 255, 255, .6);
 }
 
-.browser_actions {
+.browser-node-toolbar .dropdown-menu a,
+.browser-node-toolbar .dropdown-menu a:focus,
+.browser-node-toolbar .dropdown-menu a:visited,
+.browser_path-group .browser_path_related-menu a,
+.browser_path-group .browser_path_related-menu a:focus,
+.browser_path-group .browser_path_related-menu a:visited {
+    color: #ddd;
+}
+
+.browser-node-toolbar .dropdown-menu a:hover,
+.browser-node-toolbar .dropdown-menu a:active {
+    color: #000;
+}
+
+.browser-node-toolbar .dropdown-menu a i,
+.browser_path-group .browser_path_related-menu a i,
+.browser_actions,
+.browser_actions .icon {
     margin-right: 8px;
+}
+
+.browser_path-group .browser_path_related-menu li {
+    position: relative;
+    padding-right: 20px;
+}
+
+.browser_path-group .browser_path_related-menu .current:before {
+    content: "\F27A";
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    display: inline-block;
+    font-family: bootstrap-icons !important;
+    font-size: 125%;
+    color: #fff;
+    -webkit-font-smoothing: antialiased;
+}
+
+.changes-pending-group {
+    margin-right: 16px;
 }
 
 .browser_actions .current-action {
     min-width: 135px;
     text-align: right;
-}
-
-.browser_actions .icon {
-    margin-right: 8px;
 }
 
 .browser-page_browser {
@@ -98,11 +137,51 @@
     border: none;
 }
 
-.browser-page_browser_tree-panel {
+.browser-page_browser_left-panel {
+    position: relative;
     width: 35%;
     min-width: 22%;
     max-width: 500px;
-    border-right: 1px solid #777;
+    padding-top: 33px;
+    border-right: 1px solid #aaa;
+}
+
+.browser-node-toolbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 33px;
+    background: #777;
+}
+
+.browser-node-toolbar .btn-toolbar {
+    justify-content: flex-end;
+}
+
+.browser-node-toolbar .browser-node-toolbar_change-toggle.btn {
+    display: inline-flex;
+    height: 28px;
+    padding: 2px 12px;
+    line-height: 23px;
+    font-size: 125%;
+}
+
+.browser-node-toolbar .dropdown-menu {
+    background: #444;
+}
+
+.browser-node-toolbar .dropdown-menu .dropdown-divider {
+    border-color: #888;
+}
+
+.browser-node-toolbar .dropdown-menu i {
+    font-size: 110%;
+}
+
+.browser-page_browser_tree-panel {
+    width: 100%;
+    height: 100%;
     padding: 5px;
     overflow: auto;
 }
@@ -180,6 +259,13 @@
     height: 33px;
 }
 
+.browser-node-toolbar .btn,
+.browser-page_browser_view .browser-page_browser_parameters .btn {
+    height: 27px;
+    margin: 2px 0;
+    padding: 2px 8px;
+}
+
 .browser-page_browser_view .browser-page_browser_parameters .form-check-label,
 .browser-page_browser_view .browser-page_browser_parameters .form-control-label {
     color: #f8f8f8
@@ -213,16 +299,25 @@
     width: 30px;
 }
 
+.browser-node_action-reload i,
 .browser-page_browser_view .browser-tool_favorite-toggle,
 .browser-page_browser_view .browser-page_browser_action-reload {
-    cursor: pointer;
-    position: absolute;
     width: auto;
     padding: 0 10px;
     line-height: 25px;
     font-size: 125%;
     text-align: center;
     color: #ddd;
+}
+
+.browser-node_action-reload {
+    padding: 4px 0;
+}
+
+.browser-page_browser_view .browser-tool_favorite-toggle,
+.browser-page_browser_view .browser-page_browser_action-reload {
+    cursor: pointer;
+    position: absolute;
 }
 
 .browser-page_browser_view .browser-tool_favorite-toggle {
@@ -346,9 +441,21 @@
 .browser-page_browser_view .table ul {
     margin: 0;
     padding: 0 0 0 18px;
-    max-height: 106px;
+    max-height: 110px;
     overflow: auto;
     list-style: circle;
+}
+
+.browser-page_browser_view .protected-property > * {
+    color: #909090;
+}
+
+.browser-page_browser_view tr.protected-property:nth-of-type(odd) > * {
+    color: #888;
+}
+
+.browser-page_browser_view td.property-select {
+    padding: 0.35rem 0.4rem 0.25rem 0.8rem;
 }
 
 .browser-action_curtain {
@@ -402,4 +509,23 @@
     font-family: monospace;
     font-size: 12px;
     border-top: 1px solid rgba(0, 0, 0, .15);
+}
+
+.browser-properties_toolbar {
+    margin-bottom: 8px;
+}
+
+.browser-properties_select {
+    margin: 0;
+}
+
+/* only present at all while the checkbox column itself is (writeEnabled) - :has() degrades
+   harmlessly (no cursor change) in the rare browser that doesn't support it */
+.browser-properties:has(.browser-properties_select) .property-name {
+    cursor: pointer;
+}
+
+.browser-properties_protected-badge {
+    color: #c9302c;
+    margin-left: 4px;
 }
