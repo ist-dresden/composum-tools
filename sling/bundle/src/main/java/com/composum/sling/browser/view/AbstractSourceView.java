@@ -96,7 +96,7 @@ public abstract class AbstractSourceView extends AbstractView {
      * @return whether the given property may be shown
      */
     protected boolean isAllowedProperty(@NotNull final String name, final boolean sourceMode) {
-        if (!browser().manager().isAllowedProperty(name)) {
+        if (!browser().manager.isAllowedProperty(name)) {
             return false;
         }
         if (sourceMode) {

@@ -1,4 +1,5 @@
 <li class="browser_actions nav-item dropdown" data-uri="${link:browser.actions}"></li>
+${if:changes.available;'/sling/changes/navbar/badge.html'}
 ${each.tool:browser.tools;'/sling/browser/navbar/tool.html'}
 <li class="nav-item">
     <a class="tools-navbar_current-user nav-link" href="#" data-href="${user.login}">${user.name}</a>

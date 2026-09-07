@@ -28,6 +28,7 @@ public interface Common {
     String JCR_CREATED = "jcr:created";
     String JCR_MIME_TYPE = "jcr:mimeType";
     String SLING_RESOURCE_TYPE = "sling:resourceType";
+    String SLING_RES_SUPER_TYPE = "sling:resourceSuperType";
     String NT_UNSTRUCTURED = "nt:unstructured";
     String NT_RESOURCE = "nt:resource";
     String NT_FILE = "nt:file";
@@ -36,9 +37,19 @@ public interface Common {
     String ORDERED_FOLDER = "sling:OrderedFolder";
     String AC_POLICY = "rep:policy";
 
-    String HTML_DATE_FORMAT = "yyyy-MM-dd MM:mm:ss";
-    String JSON_DATE_FORMAT = "yyyy-MM-dd MM:mm:ss.SSSZ";
+    String HTML_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
+    String JSON_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSSZ";
     String XML_DATE_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
+    /**
+     * The single canonical 'Date' property format shared by every place that displays or edits one
+     * (the Browser's Properties view and the Changes property-edit dialog) - kept here, rather than
+     * in either package alone, precisely so both can reference the exact same literal without
+     * either depending on the other for it. The trailing 'X' is a single-letter ISO-8601 offset:
+     * a two-digit hour with no minutes, e.g. '+02' or '-05' - or, since a Date property's time zone
+     * matters but is expected to be GMT far more often than not, the more immediately noticeable
+     * 'Z' whenever it actually is (rather than the equivalent but easy-to-miss '+00').
+     */
+    String PROPERTY_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss X";
 
     String HTML_DECIMAL_FORMAT = "#,##0.00";
 

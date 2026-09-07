@@ -84,11 +84,10 @@ public class SettingsWidgets extends AbstractToolsPlugin {
 
     public static final Pattern PROPERTY_NAME = Pattern.compile("^[a-zA-Z0-9$@_:.-]+$");
 
+    /** the manager this plugin is registered with */
     @Reference
-    protected Manager manager;
-
-    protected @NotNull Manager manager() {
-        return manager;
+    private void bindManager(Manager service) {
+        manager = service;
     }
 
     protected BundleContext bundleContext;
@@ -225,7 +224,7 @@ public class SettingsWidgets extends AbstractToolsPlugin {
             Result<?> result = new Result<>(SC_NOT_FOUND);
             final String template = Manager.consume(selectors, "tile");
             final ResourceResolver resolver = request.getResourceResolver();
-            final Resource context = manager().requestResource(request);
+            final Resource context = manager.requestResource(request);
             final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
                     .with("services", (Supplier<?>) () -> getServices(resolver, context))
             ), "/sling/dashboard/widgets/settings/" + template + ".html"));
@@ -266,7 +265,7 @@ public class SettingsWidgets extends AbstractToolsPlugin {
             final List<Values> result = new ArrayList<>();
             for (final String name : getPropertyNames(config, reference)) {
                 final StringBuilder buffer = new StringBuilder();
-                String type = Properties.toHtml(manager(), resolver, context, buffer, getProperty(reference, name));
+                String type = Properties.toHtml(manager, resolver, context, buffer, getProperty(reference, name));
                 result.add(new Values()
                         .with("name", name)
                         .with("value", buffer.toString())

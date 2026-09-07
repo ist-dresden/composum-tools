@@ -1,12 +1,15 @@
-<table class="table table-sm table-striped">
-    <thead>
-    <tr>
-        <th scope="col">Name</th>
-        <th scope="col" width="100%">Value</th>
-        <th scope="col">Type</th>
-    </tr>
-    </thead>
-    <tbody>
-    ${each.property:properties;'/sling/browser/view/properties/property.html'}
-    </tbody>
-</table>
+<div class="browser-properties" data-path="${attr:resource.path}">
+    <table class="table table-sm table-striped">
+        <thead>
+        <tr>
+            ${if:browser.writeEnabled;'<th scope="col" style="width:1%"></th>'}
+            <th scope="col">Name</th>
+            <th scope="col" width="100%">Value</th>
+            <th scope="col">Type</th>
+        </tr>
+        </thead>
+        <tbody>
+        ${each.property:properties;'/sling/browser/view/properties/property.html'}
+        </tbody>
+    </table>
+</div>

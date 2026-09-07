@@ -51,10 +51,23 @@ class URL {
 
 class History {
 
+    // splits a full URL path into the servlet/page prefix up to and including '.html' (group 1,
+    // optional) and the repository resource path after it (group 2) - the same split 'onpopstate'
+    // always needed (its stored state is the full URL path, but only the resource path is
+    // meaningful to the rest of the app), now also reused by 'pushUri' so the page title shows
+    // just the resource path there too, not the full URL (which includes the servlet base, e.g.
+    // '/apps/cpm/...')
+    static PATH_PATTERN = /^(\/.+?\.html)?(\/[^?]*)(\?(.*))?$/;
+
     constructor() {
-        window.onpopstate = function (event) {
-            const state = /^(\/.+?\.html)?(\/[^?]*)(\?(.*))?$/.exec(event.state);
+        // the page's own, server-rendered title (e.g. "Composum Browser") - kept as the constant
+        // prefix every path-specific title below is built from, rather than accumulating suffixes
+        // on repeated navigation
+        this.baseTitle = document.title;
+        window.onpopstate = (event) => {
+            const state = History.PATH_PATTERN.exec(event.state);
             if (state) {
+                this.updateTitle(state[2]);
                 $(document).trigger('path:select', [state[2]]);
                 if (state[4]) {
                     $(document).trigger('query:change', [URL.parameters(state[4])]);
@@ -63,13 +76,23 @@ class History {
         };
     }
 
+    // most browsers ignore 'pushState's own 'title' argument entirely for what they show in their
+    // history list/back-forward UI - what actually ends up there is 'document.title' as it stood
+    // at the moment the state was pushed, so that has to be set explicitly here (this also updates
+    // the browser tab's own title as a side effect, which is a welcome bonus, not just history)
+    updateTitle(path) {
+        document.title = path && path !== '/' ? `${this.baseTitle} - ${path}` : this.baseTitle;
+    }
+
     pushUri(uri) {
         if (history.pushState) {
             const current = new URL(window.location.href);
             const next = new URL(uri);
             if (next.path !== current.path) {
                 const state = next.path + (current.query ? ('?' + current.query) : '');
-                history.pushState(state, next.name, state);
+                const match = History.PATH_PATTERN.exec(state);
+                this.updateTitle(match ? match[2] : next.path);
+                history.pushState(state, document.title, state);
             }
         }
     }
@@ -472,3 +495,374 @@ class SelectValue extends ViewWidget {
 }
 
 CPM.widgets.register(SelectValue);
+
+/**
+ * Shared jsTree data-fetching for any tree bound to the generic {@code TreeNode} JSON endpoint
+ * (server-side: {@code com.composum.sling.tools.TreeNode}/{@code AbstractToolsPlugin#treeResult})
+ * - both the Browser page's own tree ('BrowserTree' in browser/script.js) and this file's
+ * 'TreePicker' use it, so "fetch a node from its JSON endpoint, then assign every returned node a
+ * jsTree-safe id (their repository paths as-is are not, e.g. they contain slashes)" lives in
+ * exactly one place instead of two near-identical copies. 'prefix' just keeps two independent tree
+ * instances' generated ids easier to tell apart when inspecting the DOM - since each is always its
+ * own separate DOM subtree, a collision was never actually possible either way.
+ */
+(window.CPM = window.CPM || {}).tree = {
+  nodeId(prefix, path) {
+    if (path && (typeof path !== 'string' || path.indexOf(prefix) !== 0)) {
+      if (Array.isArray(path)) {
+        path = path.join('/');
+      }
+      path = (prefix + btoa(encodeURIComponent(path))).replace(/=/g, '-').replace(/\//g, '_');
+    }
+    return path;
+  },
+  fetchNode(prefix, url, callback) {
+    $.ajax({
+      type: 'GET',
+      url: url,
+      success: (result) => {
+        result.id = CPM.tree.nodeId(prefix, result.path);
+        (result.children || []).forEach((child) => {
+          child.id = CPM.tree.nodeId(prefix, child.path);
+        });
+        callback(result);
+      },
+      async: true,
+      cache: false
+    });
+  }
+};
+
+/**
+ * A generic repository-path autocomplete for any '<input>'/'<textarea>' carrying the
+ * 'tools-path_input' class and a 'data-suggest-uri' (a GET endpoint accepting a 'path' query
+ * parameter and returning a JSON array of suggested paths - see
+ * {@code AbstractToolsPlugin#pathSuggestions} for the shared server-side lookup any plugin can
+ * route to). Debounces input, shows a dropdown of matching child paths below the field, and
+ * replaces the field's whole value on selection - deliberately whole-value replacement rather than
+ * cursor-position-aware partial completion, since every current use (a destination/search-root
+ * path field, or a property value that itself IS a path) treats the field as a single path, not
+ * text a path is embedded in. Works on any field carrying the marker class, regardless of which
+ * plugin's dialog rendered it, and does nothing at all if 'data-suggest-uri' is absent.
+ * <p>
+ * Appended to '<body>' and positioned 'fixed' from the field's own bounding rect (recomputed
+ * whenever the list is shown, and continuously while it stays open - see 'trackPosition'/
+ * 'untrackPosition') rather than 'position: absolute' anchored to the field's own parent: a field
+ * can sit inside an 'overflow: auto' ancestor (e.g. the Properties dialog's own scrolling value
+ * list, 'changes/dialogs/property.html'), which would otherwise clip the dropdown the moment it
+ * extends past that ancestor's own bounds - a fixed-position dropdown anchored to the viewport
+ * has no such ancestor to be clipped by.
+ * <p>
+ * Sets 'autocomplete="off"' on the field itself - without it, the browser's own remembered-value
+ * dropdown for that field competes for the same screen space (visually overlapping this widget's
+ * list) and, worse, captures Up/Down/Enter itself while it is showing, leaving no way to reach
+ * this widget's own suggestions with the keyboard at all.
+ */
+class PathPicker extends ViewWidget {
+
+  static selector = '.tools-path_input';
+
+  constructor(element) {
+    super(element);
+    this.suggestUri = this.$el.data('suggest-uri');
+    if (!this.suggestUri) {
+      return;
+    }
+    this.el.setAttribute('autocomplete', 'off');
+    this.$list = $('<ul class="tools-path_suggestions d-none"></ul>').appendTo('body');
+    this.active = -1;
+    this.onReposition = this.updatePosition.bind(this);
+    this.$el.on('input', this.onInput.bind(this));
+    this.$el.on('keydown', this.onKeyDown.bind(this));
+    this.$el.on('blur', () => window.setTimeout(this.hide.bind(this), 150));
+    this.$list.on('mousedown', 'li', (event) => this.select($(event.currentTarget).text()));
+  }
+
+  // 'scroll' does not bubble, but - unlike most other events - it IS still dispatched during the
+  // capture phase to ancestor listeners, which is what makes one 'document'-level, capture:true
+  // listener enough to catch scrolling from *any* scrollable ancestor (not just the window itself)
+  trackPosition() {
+    document.addEventListener('scroll', this.onReposition, true);
+    window.addEventListener('resize', this.onReposition);
+  }
+
+  untrackPosition() {
+    document.removeEventListener('scroll', this.onReposition, true);
+    window.removeEventListener('resize', this.onReposition);
+  }
+
+  updatePosition() {
+    const rect = this.el.getBoundingClientRect();
+    this.$list.css({
+      top: rect.bottom + 'px',
+      left: rect.left + 'px',
+      width: rect.width + 'px'
+    });
+  }
+
+  onInput() {
+    window.clearTimeout(this.timer);
+    this.timer = window.setTimeout(this.fetchSuggestions.bind(this), 200);
+  }
+
+  // Up/Down move the active suggestion, Enter accepts it (only while one is actually active, so a
+  // plain Enter with the list merely open still falls through to its normal behavior - submitting
+  // the form for a single-line input, a newline for a textarea), Escape closes the list
+  onKeyDown(event) {
+    if (this.$list.hasClass('d-none')) {
+      return;
+    }
+    const $items = this.$list.find('li');
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        this.setActive(Math.min(this.active + 1, $items.length - 1));
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        this.setActive(Math.max(this.active - 1, 0));
+        break;
+      case 'Enter':
+        if (this.active >= 0) {
+          event.preventDefault();
+          this.select($items.eq(this.active).text());
+        }
+        break;
+      case 'Escape':
+        this.hide();
+        break;
+    }
+  }
+
+  setActive(index) {
+    const $items = this.$list.find('li').removeClass('active');
+    this.active = index;
+    if (index >= 0) {
+      const item = $items.eq(index).addClass('active')[0];
+      if (item && item.scrollIntoView) {
+        item.scrollIntoView({block: 'nearest'});
+      }
+    }
+  }
+
+  fetchSuggestions() {
+    // read fresh rather than from the constructor-time 'this.suggestUri' - a consumer (e.g. the
+    // Change-Property dialog's jcr:primaryType/jcr:mixinTypes handling, see changes/script.js's
+    // 'PropertyValues#updateNameMode') can repoint 'data-suggest-uri' after construction to switch
+    // what a field autocompletes against without having to rebuild the widget itself
+    const suggestUri = this.$el.data('suggest-uri');
+    if (!suggestUri) {
+      return;
+    }
+    $.ajax({
+      type: 'GET',
+      url: suggestUri,
+      data: {path: this.el.value},
+      success: (result) => this.showSuggestions(Array.isArray(result) ? result : []),
+      async: true,
+      cache: false
+    });
+  }
+
+  showSuggestions(paths) {
+    this.$list.empty();
+    this.active = -1;
+    if (paths.length === 0) {
+      this.hide();
+      return;
+    }
+    paths.forEach((path) => this.$list.append($('<li></li>').text(path)));
+    this.updatePosition();
+    this.$list.removeClass('d-none');
+    this.trackPosition();
+  }
+
+  hide() {
+    this.$list.addClass('d-none').empty();
+    this.active = -1;
+    this.untrackPosition();
+  }
+
+  select(path) {
+    this.el.value = path;
+    this.hide();
+    this.el.focus();
+  }
+}
+
+CPM.widgets.register(PathPicker);
+
+/**
+ * A "Browse..." button - rendered server-side as a trailing button in the same '.input-group' as
+ * the field it belongs to (see changes/dialogs/move.html and .../propertyValue.html) - that opens
+ * a small jsTree popup for picking a repository path: a fuller-featured complement to
+ * {@link PathPicker}'s autocomplete-while-typing, for a path that's easier to browse to than to
+ * type from memory. Speaks the same generic "tree" JSON protocol the Browser page's own tree
+ * already uses (server-side: {@code com.composum.sling.tools.TreeNode}/
+ * {@code AbstractToolsPlugin#treeResult}), and therefore relies on jsTree already being loaded by
+ * the surrounding page rather than loading it itself - true for every current use, since Changes'
+ * dialogs only ever render inside the Browser page, which already loads jsTree for its own tree.
+ * One shared modal/jsTree instance is lazily created and reused across every picker button on the
+ * page; only the target field and the button's own 'data-tree-uri' change per invocation.
+ */
+class TreePicker extends ViewWidget {
+
+  static selector = '.tools-tree_picker-btn';
+
+  constructor(element) {
+    super(element);
+    this.treeUri = this.$el.data('tree-uri');
+    this.$field = this.$el.closest('.input-group').find('.tools-path_input');
+    this.$el.on('click', () => this.open());
+  }
+
+  open() {
+    if (!this.treeUri) {
+      return;
+    }
+    const modal = TreePicker.modal();
+    modal.data('picker', this);
+    modal.find('.tools-tree_picker-choose').prop('disabled', true);
+    TreePicker.jstree.settings.core.data = this.nodeData.bind(this);
+    // if the field already holds something path-shaped, drill down to and pre-select it once the
+    // tree has (re-)loaded its root, so "Choose" defaults to the current value instead of nothing
+    const currentPath = this.$field.val();
+    TreePicker.$tree.one('refresh.jstree', () => {
+      if (currentPath && currentPath.startsWith('/')) {
+        TreePicker.openPath(currentPath);
+      }
+    });
+    TreePicker.jstree.refresh(true);
+    bootstrap.Modal.getOrCreateInstance(modal[0]).show();
+  }
+
+  choose() {
+    const node = TreePicker.selectedNode();
+    if (node) {
+      this.$field.val(node.original.path);
+    }
+  }
+
+  nodeData(node, callback) {
+    const path = node.id === '#' ? '/' : node.original.path;
+    CPM.tree.fetchNode(TreePicker.ID_PREFIX, this.treeUri + path,
+      (result) => callback.call(TreePicker.$tree, result));
+  }
+
+  static ID_PREFIX = 'CTP_';
+
+  static nodeId(path) {
+    return CPM.tree.nodeId(TreePicker.ID_PREFIX, path);
+  }
+
+  static selectedNode() {
+    const ids = TreePicker.jstree.get_selected();
+    return ids.length > 0 ? TreePicker.jstree.get_node(ids[0]) : undefined;
+  }
+
+  // drills down to 'path' one segment at a time, lazily opening each ancestor node in turn (jsTree
+  // only invokes the 'open_node' callback once that node's own children have actually loaded), then
+  // selects and scrolls to the final node - the same pattern the Browser page's own tree uses for
+  // this (see 'BrowserTree#openNode' in browser/script.js). Stops silently (nothing selected beyond
+  // whatever was already reached) if a segment can't be found, e.g. because the path doesn't
+  // actually exist - a best-effort convenience, not a correctness requirement.
+  static openPath(path) {
+    TreePicker.jstree.deselect_all();
+    const names = path.split('/');
+    let index = 1;
+    const drilldown = (current) => {
+      const $node = TreePicker.$tree.find('#' + TreePicker.nodeId(current));
+      if ($node.length === 0) {
+        return;
+      }
+      TreePicker.jstree.open_node($node, () => {
+        if (index < names.length && names[index]) {
+          drilldown(current + (current === '/' ? '' : '/') + names[index++]);
+        } else {
+          TreePicker.jstree.select_node($node);
+          // same deliberate delay 'BrowserTree#openNode' uses for this exact final step - jsTree's
+          // own DOM update for the just-opened node, and the modal's own Bootstrap fade-in
+          // transition, both still have layout in flux right when 'open_node's callback fires;
+          // scrolling immediately computes a position against that not-yet-settled geometry
+          window.setTimeout(() => {
+            const liveNode = TreePicker.$tree.find('#' + TreePicker.nodeId(current))[0];
+            if (liveNode && liveNode.scrollIntoView) {
+              liveNode.scrollIntoView({block: 'center'});
+            }
+          }, 200);
+        }
+      });
+    };
+    drilldown('/');
+  }
+
+  // lazily builds the one shared modal + jsTree instance on first use - a picker button just
+  // repoints 'core.data' at its own field/tree-uri and forces a refresh before showing it
+  static modal() {
+    if (!TreePicker.$modal) {
+      TreePicker.$modal = $(
+        '<div class="modal fade tools-tree_picker-modal" tabindex="-1"><div class="modal-dialog">'
+        + '<div class="modal-content"><div class="modal-header">'
+        + '<h5 class="modal-title">Select Path</h5>'
+        + '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>'
+        + '</div><div class="modal-body"><div class="tools-tree_picker-tree"></div></div>'
+        + '<div class="modal-footer">'
+        + '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>'
+        + '<button type="button" class="btn btn-primary tools-tree_picker-choose" disabled>Choose</button>'
+        + '</div></div></div></div>').appendTo('body');
+      TreePicker.$tree = TreePicker.$modal.find('.tools-tree_picker-tree');
+      TreePicker.$tree.jstree({
+        'plugins': ['wholerow'],
+        'core': {
+          'animation': false,
+          'data': () => {
+          },
+          'cache': false,
+          'multiple': false,
+          'themes': {'name': 'proton'}
+        }
+      });
+      TreePicker.jstree = TreePicker.$tree.jstree(true);
+      TreePicker.$tree.on('select_node.jstree', (event, data) => {
+        TreePicker.$modal.find('.tools-tree_picker-choose').prop('disabled', !data.node);
+        // selecting a node also expands it one level, matching the Browser page's own tree
+        // ('BrowserTree#onNodeSelected') - lets the user drill down with plain clicks alone,
+        // without needing to separately hit the small expand arrow every time
+        TreePicker.jstree.open_node(data.node);
+      });
+      TreePicker.$tree.on('dblclick', '.jstree-anchor', () => {
+        TreePicker.$modal.find('.tools-tree_picker-choose').trigger('click');
+      });
+      TreePicker.$modal.find('.tools-tree_picker-choose').on('click', () => {
+        const picker = TreePicker.$modal.data('picker');
+        if (picker) {
+          picker.choose();
+        }
+        bootstrap.Modal.getOrCreateInstance(TreePicker.$modal[0]).hide();
+      });
+      // this modal is always opened from *inside* an already-open dialog (Move/Change Property) -
+      // Bootstrap does not itself raise a nested modal (or its own backdrop) above the one it is
+      // stacked on, so both would otherwise render at the same default z-index and fall back to
+      // DOM order, which is not reliably "on top". The modal's own elevated z-index is fixed in CSS
+      // (.tools-tree_picker-modal); only its backdrop - a generic, class-only '.modal-backdrop' div
+      // Bootstrap (re-)creates fresh on every show, indistinguishable from the dialog-below's own
+      // one except by being the most recently added - needs bumping here, once it actually exists.
+      TreePicker.$modal.on('shown.bs.modal', () => {
+        $('.modal-backdrop').last().addClass('tools-tree_picker-backdrop');
+      });
+      // same fix as 'Dialog#open' above: Bootstrap sets aria-hidden="true" on the modal root as
+      // the hide transition starts, which the browser flags if the element that triggered the
+      // close (Cancel/Choose, or a field that still had focus) is still focused at that point -
+      // this modal is built by hand rather than through 'Dialog', so it needs its own copy
+      TreePicker.$modal.on('hide.bs.modal', () => {
+        const active = document.activeElement;
+        if (active && TreePicker.$modal[0].contains(active)) {
+          active.blur();
+        }
+      });
+    }
+    return TreePicker.$modal;
+  }
+}
+
+CPM.widgets.register(TreePicker);

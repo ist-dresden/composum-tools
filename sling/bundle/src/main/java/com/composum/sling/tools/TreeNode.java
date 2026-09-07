@@ -1,6 +1,5 @@
-package com.composum.sling.browser.dto;
+package com.composum.sling.tools;
 
-import com.composum.sling.tools.Manager;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
@@ -22,6 +21,13 @@ import static com.composum.sling.tools.Common.JCR_CONTENT;
 import static com.composum.sling.tools.Common.JCR_PRIMARY_TYPE;
 import static com.composum.sling.tools.Common.NT_UNSTRUCTURED;
 
+/**
+ * A single jsTree-shaped node (lazily including its own children) for a resource-tree JSON
+ * endpoint - the shared model behind every plugin's "tree" GET route (see
+ * {@code com.composum.sling.browser.Browser}'s and {@code com.composum.sling.changes.Changes}'
+ * own 'tree' case for the reference wiring) and the client-side jsTree widgets in
+ * {@code browser/script.js} ('BrowserTree') and {@code sling/tools/script.js} ('TreePicker').
+ */
 @Getter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)

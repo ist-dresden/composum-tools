@@ -89,8 +89,11 @@ public class Query extends AbstractTool {
         int historyMax() default 20;
     }
 
+    /** the browser this plugin is registered with */
     @Reference
-    protected Browser browser;
+    private void bindBrowser(Browser service) {
+        browser = service;
+    }
 
     protected BundleContext bundleContext;
     protected Config config;
@@ -118,11 +121,6 @@ public class Query extends AbstractTool {
     @Deactivate
     protected void deactivate() {
         browser.tools().detach(this);
-    }
-
-    @Override
-    public Browser browser() {
-        return browser;
     }
 
     @Override
@@ -193,7 +191,7 @@ public class Query extends AbstractTool {
             }
             break;
             case "detail": {
-                final Resource target = browser.manager().requestResource(request);
+                final Resource target = browser.manager.requestResource(request);
                 if (target != null) {
                     final Map<String, Object> properties = hitProperties(target);
                     final Reader content = browser.templateReader(getTemplate(new TemplateContext(new Values()
@@ -424,7 +422,7 @@ public class Query extends AbstractTool {
             if (next == null && (maxResults == null || count < maxResults)) {
                 do {
                     next = iterator.hasNext() ? iterator.next() : null;
-                } while (next != null && !browser.manager().isAllowedResource(next));
+                } while (next != null && !browser.manager.isAllowedResource(next));
             }
             return next != null;
         }

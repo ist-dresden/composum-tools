@@ -100,6 +100,8 @@ public class PackageManager extends AbstractToolsPlugin {
     public static final int RANK = 4000;
 
     private static final String DIALOGS_ROOT = "/sling/packages/dialogs/";
+    // the generic "yes/no" confirm dialog is shared across every plugin, not duplicated locally
+    private static final String TOOLS_CONFIRM_DIALOG = "/sling/tools/dialogs/confirm.html";
     private static final String MODE_REGISTRY = "registry";
 
     @ObjectClassDefinition(name = "Composum Package Manager")
@@ -126,8 +128,11 @@ public class PackageManager extends AbstractToolsPlugin {
         boolean writeEnabled() default true;
     }
 
+    /** the manager this plugin is registered with */
     @Reference
-    protected Manager manager;
+    private void bindManager(Manager service) {
+        manager = service;
+    }
 
     @Reference
     protected Packaging packaging;
@@ -157,10 +162,6 @@ public class PackageManager extends AbstractToolsPlugin {
     @Deactivate
     protected void deactivate() {
         manager.plugins().detach(this);
-    }
-
-    protected @NotNull Manager manager() {
-        return manager;
     }
 
     @Override
@@ -562,7 +563,7 @@ public class PackageManager extends AbstractToolsPlugin {
         return id != null ? registryOperations().open(id) : null;
     }
 
-    protected static final int TILE_LAST_INSTALLED_LIMIT = 7;
+    protected static final int TILE_LAST_INSTALLED_LIMIT = 8;
 
     protected @NotNull Result<?> renderTile(@NotNull final SlingHttpServletRequest request) {
         try {
@@ -639,7 +640,7 @@ public class PackageManager extends AbstractToolsPlugin {
                 // a forced '?mode=registry' would just 404 on the confirm POST, same as any other
                 // registry package that doesn't support the requested action
                 final String title = StringUtils.capitalize(name);
-                return packageDialog(request, DIALOGS_ROOT + "confirm.html", info -> {
+                return packageDialog(request, TOOLS_CONFIRM_DIALOG, info -> {
                     final String packageLabel = info.getName() + (StringUtils.isNotBlank(info.getVersion())
                             ? " " + info.getVersion() : "");
                     return new Values()
@@ -723,7 +724,7 @@ public class PackageManager extends AbstractToolsPlugin {
         final String path = targetPath(request);
         try {
             final int count = purgeCandidates(request, path).size();
-            return renderDialog(DIALOGS_ROOT + "confirm.html", new Values()
+            return renderDialog(TOOLS_CONFIRM_DIALOG, new Values()
                     .with("dialog.action", actionLink("purge") + path + (isRegistryMode(request) ? "?mode=" + MODE_REGISTRY : ""))
                     .with("dialog.title", "Purge Old Versions")
                     .with("dialog.message", count > 0

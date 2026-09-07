@@ -29,18 +29,14 @@ import static com.composum.sling.tools.Common.EXT_HTML;
  */
 public abstract class AbstractTool implements Tool, TemplateBuilder {
 
+    /** The browser plugin this tool is registered with.*/
+    public Browser browser;
+
     /**
      * Default constructor.
      */
     protected AbstractTool() {
     }
-
-    /**
-     * The browser plugin this tool is registered with.
-     *
-     * @return the browser plugin this tool is registered with
-     */
-    public abstract Browser browser();
 
     @Override
     public boolean isEnabled() {
@@ -49,32 +45,32 @@ public abstract class AbstractTool implements Tool, TemplateBuilder {
 
     @Override
     public @Nullable Reader openTemplate(@Nullable Template template) {
-        return browser().openTemplate(template);
+        return browser.openTemplate(template);
     }
 
     @Override
     public @NotNull XSSAPI xssapi() {
-        return browser().xssapi();
+        return browser.xssapi();
     }
 
     @Override
     public @NotNull String adjustLink(@NotNull final String link) {
-        return link.replaceFirst("^.+(" + Pattern.quote(browser().manager().serverPath()) + ")", "$1");
+        return link.replaceFirst("^.+(" + Pattern.quote(browser.manager.serverPath()) + ")", "$1");
     }
 
     @Override
     public @NotNull String pluginLink(@NotNull String path) {
-        return browser().pluginLink(path);
+        return browser.pluginLink(path);
     }
 
     @Override
     public @NotNull String toString(@NotNull Object value) {
-        return browser().toString(value);
+        return browser.toString(value);
     }
 
     @Override
     public @NotNull Object valuesOf(@NotNull Object value) {
-        return browser().valuesOf(value);
+        return browser.valuesOf(value);
     }
 
     /**
@@ -104,7 +100,7 @@ public abstract class AbstractTool implements Tool, TemplateBuilder {
      * @return the resulting tool URI
      */
     protected @NotNull String uri(@NotNull final String keyAction, @NotNull final String ext) {
-        return browser().manager().serverPath() + ".browser.tool." + keyAction + "." + ext;
+        return browser.manager.serverPath() + ".browser.tool." + keyAction + "." + ext;
     }
 
     /**
@@ -153,7 +149,7 @@ public abstract class AbstractTool implements Tool, TemplateBuilder {
         for (Map.Entry<String, Object> entry : values.entrySet()) {
             final String name = entry.getKey();
             final Object value;
-            if (browser().manager().isAllowedProperty(name) && nameFilter.apply(name)
+            if (browser.manager.isAllowedProperty(name) && nameFilter.apply(name)
                     && valueFilter.apply(value = entry.getValue())) {
                 properties.put(name, value);
             }

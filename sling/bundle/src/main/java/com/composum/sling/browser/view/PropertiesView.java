@@ -10,7 +10,6 @@ import com.composum.sling.tools.template.TemplateContext;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
-import org.apache.sling.api.request.RequestPathInfo;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ValueMap;
 import org.jetbrains.annotations.NotNull;
@@ -44,8 +43,8 @@ import static com.composum.sling.tools.Common.HTTP_LAST_MODIFIED;
 import static com.composum.sling.tools.Common.JCR_CONTENT;
 import static com.composum.sling.tools.Common.JCR_DATA;
 import static com.composum.sling.tools.Common.JCR_MIME_TYPE;
+import static com.composum.sling.tools.Common.PROPERTY_DATE_FORMAT;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
 
 @Component(service = {View.class, PropertiesView.class}, immediate = true)
 @Designate(ocd = PropertiesView.Config.class)
@@ -114,21 +113,36 @@ public class PropertiesView extends AbstractView {
             case "resource":
                 result = browser.resource(request);
                 break;
-            case "form":
-                result = new Result<>(SC_OK);
-                break;
+            case "form":{
+                final org.apache.sling.api.resource.Resource resource = browser.targetResource(request);
+                if (resource != null) {
+                    final Resource values = new Resource(resource, browser.manager);
+                    final Reader content = browser.templateReader(getTemplate(new TemplateContext(
+                            new TemplateContext.Values()
+                                    .with("resource", values)
+                                    .with("browser.writeEnabled", browser.writeEnabled())
+                                    .with("browser.dialog", browser.dialogUri())
+                                    .with("browser.propertyCopyAction", browser.changeActionLink("propertyCopy"))
+                                    .with("browser.propertyDeleteAction", browser.changeActionLink("propertyDelete"))
+                    ), "form"));
+                    if (content != null) {
+                        result = new Result<>(content, HTML_TYPE);
+                    }
+                }
+            }
+            break;
             case "load":
                 result = openContent(request);
                 break;
             default: {
-                final org.apache.sling.api.resource.Resource resource = browser.manager().requestResource(request);
+                final org.apache.sling.api.resource.Resource resource = browser.targetResource(request);
                 if (resource != null) {
-                    final Resource values = new Resource(resource, browser.manager());
-                    final RequestPathInfo pathInfo = request.getRequestPathInfo();
+                    final Resource values = new Resource(resource, browser.manager);
                     final Reader content = browser.templateReader(getTemplate(new TemplateContext(
                             new TemplateContext.Values()
                                     .with("resource", values)
                                     .with("properties", values.get("properties"))
+                                    .with("browser.writeEnabled", browser.writeEnabled())
                     ), "view"));
                     if (content != null) {
                         result = new Result<>(content, HTML_TYPE);
@@ -143,6 +157,9 @@ public class PropertiesView extends AbstractView {
     public final Map<String, Factory> templates = Map.of(
             "view", current ->
                     new Template("/sling/browser/view/properties/properties.html",
+                            new TemplateContext(current, new TemplateContext.Values()), this),
+            "form", current ->
+                    new Template("/sling/browser/view/properties/form.html",
                             new TemplateContext(current, new TemplateContext.Values()), this)
     );
 
@@ -155,7 +172,7 @@ public class PropertiesView extends AbstractView {
 
     protected Result<InputStream> openContent(@NotNull final SlingHttpServletRequest request) {
         Result<InputStream> result = new Result<>(SC_NOT_FOUND);
-        org.apache.sling.api.resource.Resource resource = browser.manager().requestResource(request);
+        org.apache.sling.api.resource.Resource resource = browser.targetResource(request);
         if (resource != null) {
             ValueMap values = resource.getValueMap();
             InputStream stream = values.get(JCR_DATA, InputStream.class);
@@ -195,7 +212,8 @@ public class PropertiesView extends AbstractView {
                 if (values != null) {
                     for (String key : values.keySet()) {
                         if (manager.isAllowedProperty(key)) {
-                            put(key, new Property(key, (Supplier<?>) () -> this.values.get(key), Resource.this));
+                            put(key, new Property(key, (Supplier<?>) () -> this.values.get(key), Resource.this,
+                                    browser.isProtectedProperty(key)));
                         }
                     }
                 }
@@ -214,7 +232,7 @@ public class PropertiesView extends AbstractView {
         }
 
         protected @NotNull String binaryDownloadLink() {
-            return browser.manager().serverPath()
+            return browser.manager.serverPath()
                     + ".browser.view.properties.load.html" + resource.getPath();
         }
 
@@ -222,7 +240,7 @@ public class PropertiesView extends AbstractView {
             if (StringUtils.isNotBlank(value) && value.startsWith("/")) {
                 final ResourceResolver resolver = resolver();
                 final org.apache.sling.api.resource.Resource resource = resolver.getResource(value);
-                if (resource != null && browser.manager().isAllowedResource(resource)) {
+                if (resource != null && browser.manager.isAllowedResource(resource)) {
                     return resource;
                 }
             }
@@ -257,17 +275,20 @@ public class PropertiesView extends AbstractView {
         protected transient PropertyType type;
 
         public Property(@NotNull final String name, @NotNull final Supplier<?> value) {
-            this(name, value, null);
+            this(name, value, null, false);
         }
 
         public Property(@NotNull final String name, @NotNull final Supplier<?> value,
-                        @Nullable final Resource resource) {
+                        @Nullable final Resource resource, final boolean isProtected) {
             this.resource = resource;
             this.supplier = value;
             put("name", name);
             put("value", (Supplier<?>) this::getValue);
             put("multiValue", (Supplier<Boolean>) this::isMultiValue);
             put("type", (Supplier<String>) this::getType);
+            // repository-managed properties (primary type, identity, versioning, ...) stay
+            // editable - this is a warning affordance, not a block - see ChangeOperations#PROTECTED_PROPERTIES
+            put("protected", isProtected);
             put("css", (Supplier<String>) () -> "type-" + this.getType().toLowerCase()
                     .replace("[]", " type-multi"));
         }
@@ -328,7 +349,10 @@ public class PropertiesView extends AbstractView {
                 }
             } else if (value instanceof Calendar) {
                 result.put("type", PropertyType.Date);
-                result.put("value", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS Z")
+                // the same format the Changes property-edit dialog uses to pre-fill a Date value
+                // (see ChangeOperations#DATE_FORMAT) - so a value reads identically whether you are
+                // just looking at it here or editing it there
+                result.put("value", new SimpleDateFormat(PROPERTY_DATE_FORMAT)
                         .format(((Calendar) value).getTime()));
             } else if (value instanceof InputStream) {
                 result.put("type", PropertyType.Binary);

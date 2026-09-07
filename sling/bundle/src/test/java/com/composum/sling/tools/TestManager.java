@@ -36,6 +36,11 @@ public class TestManager implements Manager {
     }
 
     @Override
+    public @Nullable <T> T getService(Class<T> service) {
+        return null;
+    }
+
+    @Override
     public @NotNull XSSAPI xssapi() {
         return XSSMOCK;
     }

@@ -341,7 +341,7 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
      * @return this proxy's own page URL, following the {@code <serverPath>.console.<key>.html} convention
      */
     protected @NotNull String pageLink() {
-        return console().manager().serverPath() + ".console." + key() + ".html";
+        return console().manager.serverPath() + ".console." + key() + ".html";
     }
 
     /**

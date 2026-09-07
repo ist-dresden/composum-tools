@@ -136,7 +136,7 @@ public class JsonView extends AbstractSourceView {
                 result = params(request, response);
                 break;
             case "load": {
-                final Resource resource = browser.manager().requestResource(request);
+                final Resource resource = browser.manager.requestResource(request);
                 if (resource != null) {
                     final Integer depth = getIntParameter(request, "depth", maxDepth);
                     final boolean raw = getBooleanParameter(request, "raw", false);
@@ -152,7 +152,7 @@ public class JsonView extends AbstractSourceView {
                 final String path = Optional.ofNullable(pathInfo.getSuffix()).filter(StringUtils::isNotBlank).orElse("/");
                 final Reader content = browser.templateReader(getTemplate(new TemplateContext(
                         new Values()
-                                .with("content.url", browser.manager().serverPath() + ".browser.view.json.load.json"
+                                .with("content.url", browser.manager.serverPath() + ".browser.view.json.load.json"
                                         + path
                                         + Optional.ofNullable(request.getQueryString()).map(q -> "?" + q).orElse(""))
                 ), "view"));
@@ -188,14 +188,14 @@ public class JsonView extends AbstractSourceView {
             childMaxDepth = null;
         }
         final Resource content = resource.getChild(JCR_CONTENT);
-        if (content != null && browser.manager().isAllowedResource(content)) {
+        if (content != null && browser.manager.isAllowedResource(content)) {
             if (sourceMode || childMaxDepth == null || depth < childMaxDepth) {
                 result.put(content.getName(), dumpResource(content, depth + 1, childMaxDepth, sourceMode));
             }
         }
         if (childMaxDepth == null || depth < childMaxDepth) {
             for (final Resource child : resource.getChildren()) {
-                if (browser.manager().isAllowedResource(child)) {
+                if (browser.manager.isAllowedResource(child)) {
                     final String childName = child.getName();
                     if (!JCR_CONTENT.equals(childName)) {
                         result.put(childName, dumpResource(child, depth + 1, childMaxDepth, sourceMode));

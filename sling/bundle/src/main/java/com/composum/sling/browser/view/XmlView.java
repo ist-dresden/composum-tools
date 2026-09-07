@@ -148,7 +148,7 @@ public class XmlView extends AbstractSourceView {
                 result = params(request, response);
                 break;
             case "load": {
-                final Resource resource = browser.manager().requestResource(request);
+                final Resource resource = browser.manager.requestResource(request);
                 if (resource != null) {
                     final Integer depth = getIntParameter(request, "depth", maxDepth);
                     final boolean raw = getBooleanParameter(request, "raw", false);
@@ -160,14 +160,14 @@ public class XmlView extends AbstractSourceView {
             }
             break;
             default: {
-                final Resource resource = browser.manager().requestResource(request);
+                final Resource resource = browser.manager.requestResource(request);
                 if (resource != null) {
                     final RequestPathInfo pathInfo = request.getRequestPathInfo();
                     final String path = Optional.ofNullable(pathInfo.getSuffix()).filter(StringUtils::isNotBlank).orElse("/");
                     final Reader content = browser.templateReader(getTemplate(new TemplateContext(
                             new Values()
                                     .with("targetType", DisplayView.Type.CODE)
-                                    .with("targetUrl", browser.manager().serverPath() + ".browser.view.xml.load.xml"
+                                    .with("targetUrl", browser.manager.serverPath() + ".browser.view.xml.load.xml"
                                             + path
                                             + Optional.ofNullable(request.getQueryString()).map(q -> "?" + q).orElse(""))
                     ), "view"));
@@ -217,14 +217,14 @@ public class XmlView extends AbstractSourceView {
             childMaxDepth = null;
         }
         final Resource content = resource.getChild(JCR_CONTENT);
-        if (content != null && browser.manager().isAllowedResource(content)) {
+        if (content != null && browser.manager.isAllowedResource(content)) {
             if (sourceMode || childMaxDepth == null || depth < childMaxDepth) {
                 dumpXml(writer, indent + INDENT, content, depth + 1, childMaxDepth, sourceMode);
             }
         }
         if (childMaxDepth == null || depth < childMaxDepth) {
             for (final Resource child : resource.getChildren()) {
-                if (browser.manager().isAllowedResource(child) && (!sourceMode ||
+                if (browser.manager.isAllowedResource(child) && (!sourceMode ||
                         !(depth > 0 && NT_FILE.equals(child.getValueMap().get(JCR_PRIMARY_TYPE, ""))))) {
                     final String childName = child.getName();
                     if (!JCR_CONTENT.equals(childName)) {
@@ -374,14 +374,14 @@ public class XmlView extends AbstractSourceView {
             childMaxDepth = null;
         }
         final Resource content = resource.getChild(JCR_CONTENT);
-        if (content != null && browser.manager().isAllowedResource(content)) {
+        if (content != null && browser.manager.isAllowedResource(content)) {
             if (sourceMode || childMaxDepth == null || depth < childMaxDepth) {
                 determineNamespaces(keys, content, depth + 1, childMaxDepth, sourceMode);
             }
         }
         if (childMaxDepth == null || depth < childMaxDepth) {
             for (final Resource child : resource.getChildren()) {
-                if (browser.manager().isAllowedResource(child) && (!sourceMode ||
+                if (browser.manager.isAllowedResource(child) && (!sourceMode ||
                         !(depth > 0 && NT_FILE.equals(child.getValueMap().get(JCR_PRIMARY_TYPE, ""))))) {
                     final String childName = child.getName();
                     if (!JCR_CONTENT.equals(childName)) {

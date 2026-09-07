@@ -87,7 +87,7 @@ public class DefaultActions implements Actions {
         }
 
         public @Nullable String link(@Nullable final Resource target) {
-            return browser().manager().serverPath() + ".browser.action." + key + ".html"
+            return browser().manager.serverPath() + ".browser.action." + key + ".html"
                     + (target != null ? target.getPath() : "");
         }
 
@@ -113,7 +113,7 @@ public class DefaultActions implements Actions {
     }
 
     protected @Nullable Resource targetResource(@Nullable SlingHttpServletRequest request) {
-        return request != null ? browser().manager().requestResource(request) : null;
+        return request != null ? browser().manager.requestResource(request) : null;
     }
 
     protected @Nullable String targetUrl(@Nullable final Resource target) {

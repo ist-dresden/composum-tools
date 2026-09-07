@@ -21,6 +21,7 @@ import org.apache.sling.xss.XSSAPI;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.ServiceReference;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Modified;
@@ -120,6 +121,9 @@ public class Server extends SlingAllMethodsServlet implements Manager {
     @Reference
     private PlatformConfig platformConfig;
 
+    protected BundleContext bundleContext;
+    protected Config config;
+
     protected List<Pattern> allowedPropertyPatterns;
     protected List<Pattern> disabledPropertyPatterns;
     protected List<Pattern> allowedPathPatterns;
@@ -145,6 +149,8 @@ public class Server extends SlingAllMethodsServlet implements Manager {
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {
+        this.bundleContext = bundleContext;
+        this.config = config;
         allowedPropertyPatterns = Common.patternList(config.allowedPropertyPatterns());
         disabledPropertyPatterns = Common.patternList(config.disabledPropertyPatterns());
         allowedPathPatterns = Common.patternList(config.allowedPathPatterns());
@@ -154,6 +160,15 @@ public class Server extends SlingAllMethodsServlet implements Manager {
         systemClientlibs = Common.listOf(config.systemClientlibs());
         loginUri = Optional.ofNullable(config.loginUri()).orElse(DEFAULT_LOGIN_URI);
         serverPath = Common.listOf(config.sling_servlet_paths()).get(0);
+    }
+
+    @Override
+    public @Nullable <T> T getService(Class<T> serviceType) {
+        final ServiceReference<T> reference = bundleContext.getServiceReference(serviceType);
+        if (reference != null) {
+            return bundleContext.getService(reference);
+        }
+        return null;
     }
 
     @Override

@@ -11,6 +11,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.resource.Resource;
+import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.xss.XSSAPI;
 import org.jetbrains.annotations.NotNull;
@@ -23,11 +24,14 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -48,6 +52,14 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
 
     private static final String DEFAULT_RESOURCE_ROOT = "/com/composum";
 
+    /** The manager this plugin is registered with. */
+    public Manager manager;
+
+    /** TODO: for compatibility (probably overridden by projects tools); periodically check for removal */
+    protected @NotNull Manager manager() {
+        return manager;
+    }
+
     /**
      * Default constructor.
      */
@@ -55,17 +67,89 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     }
 
     /**
-     * The manager this plugin is registered with.
+     * Child paths of 'partial's parent whose name starts with 'partial's own last segment - the
+     * shared lookup behind the client-side path-picker widget ({@code sling/tools/script.js}'
+     * 'PathPicker'), so any plugin can offer path autocomplete on its own dialog fields by simply
+     * routing a GET selector to this (see {@code com.composum.sling.changes.Changes}' 'pathSuggest'
+     * for the reference wiring: template, route, and client markup).
      *
-     * @return the manager this plugin is registered with
+     * @param resolver the resolver to search with
+     * @param partial  the path text typed so far (may be blank, relative, or without a trailing
+     *                 segment yet - e.g. "/content/si" suggests siblings of "/content" starting
+     *                 with "si", a trailing "/" or a blank string lists all children of that parent)
+     * @param limit    the maximum number of suggestions to return
      */
-    protected abstract @NotNull Manager manager();
+    protected @NotNull List<String> pathSuggestions(@NotNull final ResourceResolver resolver,
+                                                     @NotNull final String partial, final int limit) {
+        final List<String> suggestions = new ArrayList<>();
+        final int lastSlash = partial.lastIndexOf('/');
+        final String parentPath = lastSlash <= 0 ? "/" : partial.substring(0, lastSlash);
+        final String prefix = partial.substring(lastSlash + 1);
+        final Resource parent = resolver.getResource(parentPath);
+        if (parent != null && manager().isAllowedResource(parent)) {
+            for (final Resource child : parent.getChildren()) {
+                if (suggestions.size() >= limit) {
+                    break;
+                }
+                if (StringUtils.startsWithIgnoreCase(child.getName(), prefix) && manager().isAllowedResource(child)) {
+                    suggestions.add(child.getPath());
+                }
+            }
+        }
+        return suggestions;
+    }
+
+    /**
+     * The {@link TreeNode} JSON response for a "tree" GET route - the shared lookup behind every
+     * plugin's jsTree-backed tree widget (the Browser page's own tree, and the {@code TreePicker}
+     * path-picker popup in {@code sling/tools/script.js}); see
+     * {@code com.composum.sling.browser.Browser}'s and {@code com.composum.sling.changes.Changes}'
+     * own 'tree' case for the reference wiring (a one-line delegate to this method).
+     *
+     * @param resource the already-resolved, already-{@link Manager#isAllowedResource}-checked
+     *                 target resource, or 'null' if the request's path wasn't found/allowed
+     * @param path     the originally requested path, used to still name the node in the "not
+     *                 found" case so the client can show *something* rather than nothing
+     */
+    protected @NotNull Result<TreeNode> treeResult(@Nullable final Resource resource, @NotNull final String path) {
+        return resource != null
+                ? new Result<>(new TreeNode(manager(), resource, null))
+                : new Result<>(SC_NOT_FOUND, new TreeNode(path));
+    }
+
+    /**
+     * Entries of 'candidates' whose name starts with 'partial' - the shared lookup behind the
+     * jcr:primaryType/jcr:mixinTypes autocomplete (see {@link PlatformConfig#primaryTypes()}/
+     * {@link PlatformConfig#mixinTypes()} for where the two, deliberately disjoint candidate lists
+     * come from, and {@code com.composum.sling.changes.Changes}' 'primaryTypeSuggest'/
+     * 'mixinTypeSuggest' for the reference wiring); the same simple prefix-filter
+     * {@link #pathSuggestions} uses, just against a fixed, admin-curated list instead of the
+     * repository.
+     *
+     * @param candidates the type names to filter (see {@link PlatformConfig#primaryTypes()}/
+     *                   {@link PlatformConfig#mixinTypes()})
+     * @param partial    the text typed so far (may be blank)
+     * @param limit      the maximum number of suggestions to return
+     */
+    protected @NotNull List<String> nodeTypeSuggestions(@NotNull final Collection<String> candidates,
+                                                          @NotNull final String partial, final int limit) {
+        final List<String> suggestions = new ArrayList<>();
+        for (final String candidate : candidates) {
+            if (suggestions.size() >= limit) {
+                break;
+            }
+            if (StringUtils.startsWithIgnoreCase(candidate, partial)) {
+                suggestions.add(candidate);
+            }
+        }
+        return suggestions;
+    }
 
     @Override
     public @Nullable String widgetLink(@NotNull final SlingHttpServletRequest request,
                                        @NotNull final SlingHttpServletResponse response,
-                                       @NotNull final String widgetKey) {
-        return manager().serverPath() + "." + key() + "." + widgetKey + ".html";
+                                       @NotNull final String selectors) {
+        return manager().serverPath() + "." + key() + "." + selectors + ".html";
     }
 
     @Override

@@ -133,7 +133,7 @@ public class DisplayView extends AbstractView {
                 result = openContent(request, TEXT_TYPE);
                 break;
             default: {
-                final Resource resource = browser().manager().requestResource(request);
+                final Resource resource = browser().manager.requestResource(request);
                 if (resource != null) {
                     final Resource target = getTargetResource(resource);
                     final Type displayType = getDisplayType(resource);
@@ -154,7 +154,7 @@ public class DisplayView extends AbstractView {
                         case TEXT:
                         case CODE:
                             result = preview(request, response, displayType, new Values()
-                                    .with("targetUrl", browser().manager().serverPath()
+                                    .with("targetUrl", browser().manager.serverPath()
                                             + ".browser.view.display.text.html"
                                             + getTargetUri(resource, null))
                                     .with("targetType", getExtension(target))
@@ -163,7 +163,7 @@ public class DisplayView extends AbstractView {
                         case DOCUMENT:
                         default:
                             result = preview(request, response, displayType, new Values()
-                                    .with("targetUrl", browser().manager().serverPath()
+                                    .with("targetUrl", browser().manager.serverPath()
                                             + ".browser.view.display.load.html"
                                             + getTargetUri(resource, null)));
                             break;
@@ -391,7 +391,7 @@ public class DisplayView extends AbstractView {
     protected Result<InputStream> openContent(@NotNull final SlingHttpServletRequest request,
                                               @Nullable final String mimeType) {
         Result<InputStream> result = new Result<>(SC_NOT_FOUND);
-        Resource resource = browser().manager().requestResource(request);
+        Resource resource = browser().manager.requestResource(request);
         if (resource != null) {
             String filename = platformConfig().nameOf(resource);
             resource = platformConfig().originalOf(resource);

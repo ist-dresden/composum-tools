@@ -240,7 +240,7 @@ public class AemActions extends DefaultActions {
                                                       @NotNull final SlingHttpServletResponse response,
                                                       @NotNull final List<String> selectors) {
                         Result<ActionResult> result = new Result<>(HttpServletResponse.SC_NOT_FOUND);
-                        final Resource target = browser().manager().requestResource(request);
+                        final Resource target = browser().manager.requestResource(request);
                         if (target != null) {
                             result = activate(target, isReplicationFolder(target));
                         }
@@ -265,7 +265,7 @@ public class AemActions extends DefaultActions {
                                                       @NotNull final SlingHttpServletResponse response,
                                                       @NotNull final List<String> selectors) {
                         Result<ActionResult> result = new Result<>(HttpServletResponse.SC_NOT_FOUND);
-                        final Resource target = browser().manager().requestResource(request);
+                        final Resource target = browser().manager.requestResource(request);
                         if (target != null) {
                             result = deactivate(target);
                         }

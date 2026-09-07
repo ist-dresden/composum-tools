@@ -1,0 +1,6 @@
+<tr class="changes-pending_entry">
+    <td><div class="changes-pending_action">${change.action}</div>
+        <div class="changes-pending_time">${change.time}</div></td>
+    <td width="100%"><div class="changes-pending_path">${change.path}</div>
+        ${if:change.detail;'<div class="changes-pending_detail">${change.detail}</div></td>'}
+</tr>

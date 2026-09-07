@@ -102,7 +102,7 @@ public class RequestsConsoleProxy extends AbstractConsoleProxy {
     @Override
     protected @NotNull String rewriteContentLink(@NotNull String url) {
         return url.startsWith("requests?")
-                ? console.manager().serverPath() + ".console.requests.html?" + url.substring("requests?".length())
+                ? console.manager.serverPath() + ".console.requests.html?" + url.substring("requests?".length())
                 : url;
     }
 }

@@ -42,26 +42,58 @@ public class DefaultPlatformConfig implements PlatformConfig {
                 "oak:Resource"
         };
 
+        /**
+         * @return the primary node type names offered as jcr:primaryType autocomplete suggestions
+         * (see {@link PlatformConfig#primaryTypes()})
+         */
+        @AttributeDefinition()
+        String[] primaryTypes() default {
+                "nt:base",
+                "nt:unstructured",
+                "nt:folder",
+                "nt:file",
+                "nt:resource",
+                "sling:Folder",
+                "sling:OrderedFolder"
+        };
+
+        /**
+         * @return the mixin node type names offered as jcr:mixinTypes autocomplete suggestions
+         * (see {@link PlatformConfig#mixinTypes()})
+         */
+        @AttributeDefinition()
+        String[] mixinTypes() default {
+                "rep:AccessControllable",
+                "mix:versionable",
+                "mix:referenceable",
+                "mix:lockable",
+                "mix:title",
+                "mix:created",
+                "mix:lastModified"
+        };
+
         @AttributeDefinition()
         int rank() default 1000;
     }
 
     @Reference
-    private SlingSettingsService settingsService;
+    protected SlingSettingsService settingsService;
 
     protected String guardNode;
     /** the configured file/binary resource types (see {@link Config#fileTypes()}) */
     protected List<String> fileTypes;
+    /** the configured primary node type name suggestions (see {@link Config#primaryTypes()}) */
+    protected List<String> primaryTypes;
+    /** the configured mixin node type name suggestions (see {@link Config#mixinTypes()}) */
+    protected List<String> mixinTypes;
 
     @Activate
     @Modified
     protected void activate(final Config config) {
         guardNode = config.guardNode();
         fileTypes = Arrays.asList(config.fileTypes());
-    }
-
-    protected SlingSettingsService settingsService() {
-        return settingsService;
+        primaryTypes = Arrays.asList(config.primaryTypes());
+        mixinTypes = Arrays.asList(config.mixinTypes());
     }
 
     @Override
@@ -72,6 +104,16 @@ public class DefaultPlatformConfig implements PlatformConfig {
     @Override
     public @NotNull Collection<String> fileTypes() {
         return fileTypes;
+    }
+
+    @Override
+    public @NotNull Collection<String> primaryTypes() {
+        return primaryTypes;
+    }
+
+    @Override
+    public @NotNull Collection<String> mixinTypes() {
+        return mixinTypes;
     }
 
     @Override
@@ -102,6 +144,6 @@ public class DefaultPlatformConfig implements PlatformConfig {
 
     @Override
     public @NotNull Set<String> runmodes() {
-        return settingsService().getRunModes();
+        return settingsService.getRunModes();
     }
 }
