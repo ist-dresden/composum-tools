@@ -95,6 +95,10 @@ public class UserManager extends AbstractToolsPlugin {
         @AttributeDefinition(name = "Write Enabled",
                 description = "whether mutating operations (create/delete/enable/disable/password/group membership) are allowed")
         boolean writeEnabled() default true;
+
+        @AttributeDefinition(name = "Write Principals",
+                description = "restricts write access to these users/groups (member check), or empty for no restriction")
+        String[] writePrincipals() default {};
     }
 
     /** the manager this plugin is registered with */
@@ -137,6 +141,16 @@ public class UserManager extends AbstractToolsPlugin {
     @Override
     public boolean isEnabled() {
         return config.enabled();
+    }
+
+    /**
+     * Whether the current request's user may perform mutating operations - the same two-layer
+     * check {@code Changes}/{@code PackageManager} use (see {@link AbstractToolsPlugin#isPrincipal}):
+     * {@link Config#writeEnabled()} gates it globally, {@link Config#writePrincipals()} optionally
+     * narrows it further to a configured set of users/groups.
+     */
+    protected boolean writeEnabled(@NotNull final SlingHttpServletRequest request) {
+        return config.writeEnabled() && isPrincipal(request, config.writePrincipals());
     }
 
     public @NotNull String pageLink() {
@@ -195,6 +209,10 @@ public class UserManager extends AbstractToolsPlugin {
                 final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
                         // pre-selects this path in the tree on initial load, see UsersTree
                         .with("users.path", targetPath(request))
+                        // request-scoped (unlike everything else the "page" template needs, which
+                        // is request-invariant and lives in the static 'templates' map below) -
+                        // writeEnabled() now depends on the request's own user, see #writeEnabled
+                        .with("users.writeEnabled", writeEnabled(request))
                 ), "page"));
                 return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
             }
@@ -258,7 +276,7 @@ public class UserManager extends AbstractToolsPlugin {
     public @NotNull Result<?> processPost(@NotNull final SlingHttpServletRequest request,
                                           @NotNull final SlingHttpServletResponse response,
                                           @NotNull List<String> selectors) {
-        if (!config.writeEnabled()) {
+        if (!writeEnabled(request)) {
             return errorResult(SC_FORBIDDEN, "Write operations are disabled.");
         }
         switch (Manager.consume(selectors, "")) {
@@ -302,7 +320,7 @@ public class UserManager extends AbstractToolsPlugin {
             case "delete": {
                 // both reuse the generic confirm.html - only the message/title differ
                 final String title = "enable".equals(name) ? "Enable" : "Delete";
-                return authorizableDialog(request, DIALOGS_ROOT + "confirm.html", info -> new Values()
+                return authorizableDialog(request, "/sling/tools/dialogs/confirm.html", info -> new Values()
                         .with("dialog.action", actionLink(name) + info.getPath())
                         .with("dialog.title", title + " " + typeLabel(info.getType()))
                         .with("dialog.message", title + " " + typeLabel(info.getType()) + " '" + info.getId() + "'?"));
@@ -326,7 +344,7 @@ public class UserManager extends AbstractToolsPlugin {
                 // meaning as in #changeMembership
                 final String authorizableId = StringUtils.defaultString(request.getParameter("authorizableId"));
                 final boolean memberRole = "member".equals(request.getParameter("role"));
-                return authorizableDialog(request, DIALOGS_ROOT + "confirm.html", info -> {
+                return authorizableDialog(request, "/sling/tools/dialogs/confirm.html", info -> {
                     final String memberLabel = memberRole ? info.getId() : authorizableId;
                     final String groupLabel = memberRole ? authorizableId : info.getId();
                     return new Values()
@@ -625,9 +643,9 @@ public class UserManager extends AbstractToolsPlugin {
                 final String template = "group".equals(info.getType())
                         ? "/sling/usermgr/details/group.html" : "/sling/usermgr/details/user.html";
                 final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
-                        .with("users.actions", (Supplier<?>) () -> actions(info))
+                        .with("users.actions", (Supplier<?>) () -> actions(request, info))
                         .with("users.info", (Supplier<?>) () -> valuesOf(info))
-                        .with("users.writeEnabled", config.writeEnabled())
+                        .with("users.writeEnabled", writeEnabled(request))
                 ), template));
                 return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
             }
@@ -660,9 +678,11 @@ public class UserManager extends AbstractToolsPlugin {
         return new Values().with("group", true).with("actions", List.of(groupedActions));
     }
 
-    protected @NotNull List<Values> actions(@NotNull final AuthorizableInfo info) {
+    protected @NotNull List<Values> actions(@NotNull final SlingHttpServletRequest request,
+                                            @NotNull final AuthorizableInfo info) {
         final List<Values> result = new ArrayList<>();
-        if (config.writeEnabled()) {
+        final boolean writeEnabled = writeEnabled(request);
+        if (writeEnabled) {
             // enable/disable/password only make sense for a regular user - a system user has no
             // interactive login, and a group has neither state
             if ("user".equals(info.getType())) {
@@ -675,7 +695,7 @@ public class UserManager extends AbstractToolsPlugin {
         // read-only, always available regardless of writeEnabled - the equivalent of Package
         // Manager's Coverage dialog
         result.add(action("affectedPaths", "shield-lock", "Affected Paths"));
-        if (config.writeEnabled()) {
+        if (writeEnabled) {
             // 'admin'/'anonymous' never get a Delete button at all, not just a disabled one - the
             // same hard block JcrAuthorizableOperations#delete enforces server-side too
             if (!JcrAuthorizableOperations.PROTECTED_IDS.contains(info.getId())) {
@@ -699,8 +719,7 @@ public class UserManager extends AbstractToolsPlugin {
                                     .with("ancestors", manager.serverPath() + "." + key() + ".ancestors.json")
                                     .with("view", manager.serverPath() + "." + key() + ".view.json")
                                     .with("query", manager.serverPath() + "." + key() + ".query.json")
-                                    .with("dialog", manager.serverPath() + "." + key() + ".dialog.")
-                                    .with("writeEnabled", config.writeEnabled()))
+                                    .with("dialog", manager.serverPath() + "." + key() + ".dialog."))
                             .with("html.cssClasses", (Supplier<?>) () -> getHtmlCssClasses("usermgr-page"))
                             .with(toolsValues())
                     ), this)
