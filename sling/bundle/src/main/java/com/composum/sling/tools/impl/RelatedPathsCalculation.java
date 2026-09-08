@@ -1,10 +1,8 @@
-package com.composum.sling.browser.impl;
+package com.composum.sling.tools.impl;
 
 import com.composum.sling.tools.Manager;
 import com.composum.sling.tools.MergeMountpointService;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.Getter;
+import com.composum.sling.tools.RelatedPath;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
@@ -22,40 +20,16 @@ import static com.composum.sling.tools.Common.JCR_CONTENT;
 import static com.composum.sling.tools.Common.SLING_RES_SUPER_TYPE;
 import static org.apache.jackrabbit.vault.util.JcrConstants.JCR_PRIMARYTYPE;
 
-public class RelatedPaths {
-
-    @Getter
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class Reference {
-
-        @NotNull
-        protected final String path;
-        @NotNull
-        protected final String label;
-        @Nullable
-        protected final String icon;
-        @Nullable
-        protected final String description;
-
-        public Reference(@NotNull final String path, @NotNull final String label, @Nullable final String icon) {
-            this(path, label, icon, null);
-        }
-
-        public Reference(@NotNull final String path, @NotNull final String label, @Nullable final String icon, @Nullable final String description) {
-            this.path = path;
-            this.label = label;
-            this.icon = icon;
-            this.description = description;
-        }
-
-        @Override
-        public String toString() {
-            return "Reference{" + "label='" + label + '\'' +
-                    ", path='" + path + '\'' +
-                    '}';
-        }
-    }
+/**
+ * The resource-type/override/overlay related-paths computation behind
+ * {@link com.composum.sling.tools.ReferencesService#getSupertypeChain}/{@link
+ * com.composum.sling.tools.ReferencesService#getRelatedPathSet} - a fresh, lightweight, per-call
+ * object (mirrors the resource it was built for; not meant to be reused across resources or cached
+ * beyond a single call) originally migrated from Composum Nodes as {@code browser.impl.RelatedPaths},
+ * now a package-private implementation detail of {@link ReferencesServiceImpl} rather than a
+ * standalone public type.
+ */
+class RelatedPathsCalculation {
 
     protected final Manager manager;
     protected final ResourceResolver resolver;
@@ -65,17 +39,17 @@ public class RelatedPaths {
     private transient String resourceType;
 
     private transient Boolean isDeclaringType;
-    private transient List<Reference> supertypeChain;
-    private transient List<Reference> resourceTypes;
-    private transient List<Reference> relatedPathSet;
+    private transient List<RelatedPath> supertypeChain;
+    private transient List<RelatedPath> resourceTypes;
+    private transient List<RelatedPath> relatedPathSet;
 
     private transient Boolean overlayAvailable;
     private transient Boolean overrideAvailable;
-    private transient Map<String, Reference> typeRootLabels;
+    private transient Map<String, RelatedPath> typeRootLabels;
 
     private transient MergeMountpointService mergeMountpointService;
 
-    public RelatedPaths(@NotNull final Manager manager, @NotNull final Resource resource) {
+    RelatedPathsCalculation(@NotNull final Manager manager, @NotNull final Resource resource) {
         this.manager = manager;
         this.resolver = resource.getResourceResolver();
         this.resource = resource;
@@ -85,14 +59,14 @@ public class RelatedPaths {
     /**
      * returns 'true' if the current resource has a well known resource type
      */
-    public boolean isTyped() {
+    boolean isTyped() {
         return StringUtils.isNotBlank(getResourceType());
     }
 
     /**
      * @return 'true' if the current resource itself declares a resource type
      */
-    public boolean isDeclaringType() {
+    boolean isDeclaringType() {
         if (isDeclaringType == null) {
             isDeclaringType = false;
             String path = this.path;
@@ -112,14 +86,14 @@ public class RelatedPaths {
     /**
      * @return 'true' if the current resource itself 'implements' a resource type
      */
-    public boolean isSourcePath() {
+    boolean isSourcePath() {
         return isDeclaringType() && !isOverlayResource() && !isOverrideResource();
     }
 
     /**
      * the content resource type (sling:resourceType) declared for the current resource
      */
-    public @NotNull String getResourceType() {
+    @NotNull String getResourceType() {
         if (resourceType == null) {
             resourceType = "";
             String type = getResourceType(resource);
@@ -134,7 +108,7 @@ public class RelatedPaths {
         return resourceType;
     }
 
-    public static @Nullable String getResourceType(@NotNull final Resource resource) {
+    static @Nullable String getResourceType(@NotNull final Resource resource) {
         String result = resource.getResourceType();
         if (StringUtils.isBlank(result) || resource.getValueMap()
                 .get(JCR_PRIMARYTYPE, "{no node}").equals(result)) {
@@ -205,8 +179,9 @@ public class RelatedPaths {
      * @see "https://experienceleague.adobe.com/docs/experience-manager-65/developing/introduction/the-basics.html?lang=en#sling-request-processing"
      */
     @NotNull
-    public List<Reference> getSupertypeChain() {
+    List<RelatedPath> getSupertypeChain() {
         if (supertypeChain == null) {
+            int level = 0;
             supertypeChain = new ArrayList<>();
             Resource typeResource = resource;
             if (isDeclaringType()) { // start from "highest" resource wrt. search path
@@ -216,7 +191,8 @@ public class RelatedPaths {
                 ValueMap values = typeResource.getValueMap();
                 typeResource = getTypeResource(values.get(SLING_RES_SUPER_TYPE, ""), false);
                 if (typeResource != null) {
-                    supertypeChain.add(new Reference(typeResource.getPath(), typeResource.getPath(), ""));
+                    level++;
+                    supertypeChain.add(new RelatedPath(typeResource.getPath(), typeResource.getPath(), level + "-square"));
                 }
             }
         }
@@ -227,35 +203,33 @@ public class RelatedPaths {
      * Paths for the locations relevant to the resource typein search paths, /mnt/override / /mnt/overlay, mapped to the label information.
      */
     @NotNull
-    protected List<Reference> getResourceTypeSet() {
+    protected List<RelatedPath> getResourceTypeSet() {
         if (resourceTypes == null) {
             resourceTypes = new ArrayList<>();
             String resourceType = getResourceType(isDeclaringType() ? path : getResourceType());
             if (StringUtils.isNotBlank(resourceType)) {
-                Map<String, Reference> labels = getTypeRootLabels();
+                Map<String, RelatedPath> labels = getTypeRootLabels();
                 if (isOverrideAvailable()) {
-                    Reference label = labels.get(getOverrideRoot() + "/");
+                    RelatedPath label = labels.get(getOverrideRoot() + "/");
                     String path = getOverridePath();
-                    resourceTypes.add(new Reference(path, label.getLabel(), "",
-                            label.getDescription() + "\n" + path));
+                    resourceTypes.add(new RelatedPath(path, label.getLabel(), label.getIcon(),
+                            label.getDescription() + "\n" + path, this.path.equals(path)));
                 }
                 if (isOverlayAvailable()) {
-                    Reference label = labels.get(getOverlayRoot() + "/");
+                    RelatedPath label = labels.get(getOverlayRoot() + "/");
                     String path = getOverlayPath();
                     if (StringUtils.isNotBlank(path)) {
-                        resourceTypes.add(new Reference(path, label.getLabel(), "",
-                                label.getDescription() + "\n" + path));
+                        resourceTypes.add(new RelatedPath(path, label.getLabel(), label.getIcon(),
+                                label.getDescription() + "\n" + path, this.path.equals(path)));
                     }
                 }
                 String basePath = getBasePath();
                 for (String root : getTypeSearchPath(false)) {
                     String resourceTypePath = root + resourceType;
                     Resource type = resolver.getResource(resourceTypePath);
-                    Reference label = labels.get(root); // XXX
-                    resourceTypes.add(new Reference(resourceTypePath, label.getLabel(), "",
-                            label.getDescription() + "\n" + resourceTypePath)); /*, type != null ?
-                            (basePath != null && resolver.getResource(basePath) != null ? "is-overlay" : null)
-                            : "overlay-option")); TODO check this */
+                    RelatedPath label = labels.get(root); // XXX
+                    resourceTypes.add(new RelatedPath(resourceTypePath, label.getLabel(), label.getIcon(),
+                            label.getDescription() + "\n" + resourceTypePath, this.path.equals(resourceTypePath)));
                 }
             }
         }
@@ -266,28 +240,30 @@ public class RelatedPaths {
      * Set of related paths: for resource types the resource type found in the search path and /mnt/(override|overlay), base paths, resource types.
      */
     @NotNull
-    public List<Reference> getRelatedPathSet() {
+    List<RelatedPath> getRelatedPathSet() {
         if (relatedPathSet == null) {
             if (isDeclaringType()) {
                 relatedPathSet = getResourceTypeSet();
             } else {
                 relatedPathSet = new ArrayList<>();
-                Map<String, Reference> labels = getTypeRootLabels();
+                Map<String, RelatedPath> labels = getTypeRootLabels();
                 String overrideRoot = getOverrideRoot() + "/";
                 if (isOverrideAvailable()) {
-                    Reference label = labels.get(overrideRoot);
+                    RelatedPath label = labels.get(overrideRoot);
                     String overridePath = getOverridePath();
                     String basePath = getBasePath();
-                    relatedPathSet.add(new Reference(overridePath, label.getLabel(), "",
-                            label.getDescription() + "\n" + overridePath));
-                    relatedPathSet.add(new Reference(basePath, "Base Resource", "", basePath));
+                    relatedPathSet.add(new RelatedPath(overridePath, label.getLabel(), label.getIcon(),
+                            label.getDescription() + "\n" + overridePath, this.path.equals(overridePath)));
+                    relatedPathSet.add(new RelatedPath(basePath, "Base Resource", "box",
+                            basePath, this.path.equals(basePath)));
                 }
                 String resourceType = getResourceType();
                 if (StringUtils.isNotBlank(resourceType)) {
                     Resource type = getTypeResource(resourceType, false);
                     if (type != null) {
                         String typePath = type.getPath();
-                        relatedPathSet.add(new Reference(typePath, "Resource Type", "", typePath));
+                        relatedPathSet.add(new RelatedPath(typePath, "Resource Type", "code-slash",
+                                typePath, this.path.equals(type.getPath())));
                     }
                 }
             }
@@ -365,17 +341,19 @@ public class RelatedPaths {
         return isOverrideResource() ? path : getOverrideRoot() + getBasePath();
     }
 
-    protected Map<String, Reference> getTypeRootLabels() {
+    protected Map<String, RelatedPath> getTypeRootLabels() {
         if (typeRootLabels == null) {
             typeRootLabels = new HashMap<>();
             typeRootLabels.put(getOverrideRoot() + "/",
-                    new Reference("o/r", "Resource Merger - Override", getOverrideRoot()));
+                    new RelatedPath(getOverrideRoot(), "Resource Merger - Override", "layers-fill"));
             typeRootLabels.put(getOverlayRoot() + "/",
-                    new Reference("o/l", "Resource Merger - Overlay", getOverlayRoot()));
+                    new RelatedPath(getOverlayRoot(), "Resource Merger - Overlay", "layers-half"));
+            int rank = 0;
             for (String root : resolver.getSearchPath()) {
+                rank++;
                 String label = ("" + root.charAt(1)).toUpperCase();
                 String path = StringUtils.removeEnd(root, "/");
-                typeRootLabels.put(root, new Reference(label, "Resource Resolver - " + path, path));
+                typeRootLabels.put(root, new RelatedPath(path, "Resource Resolver - " + path, rank + "-circle"));
             }
         }
         return typeRootLabels;

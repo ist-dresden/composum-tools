@@ -1,5 +1,6 @@
-<tr class="${property.css}">
-    <td>${property.name}</td>
-    <td>${if:property.multiValue;'<ul>${each.value:property.value;'<li>${include.value:value;'/sling/browser/view/properties/value.html'}</li>'}</ul>'|'${include.value:property.value;'/sling/browser/view/properties/value.html'}'}</td>
-    <td>${property.type}</td>
+<tr class="${property.css}${if:property.protected;' protected-property'}">
+    ${if:browser.writeEnabled;'<td class="property-select"><input type="checkbox" class="browser-properties_select" value="${attr:property.name}"></td>'}
+    <td class="property-name">${property.name}</td>
+    <td class="property-value">${if:property.multiValue;'<ul>${each.value:property.value;'<li>${include.value:value;'/sling/browser/view/properties/value.html'}</li>'}</ul>'|'${include.value:property.value;'/sling/browser/view/properties/value.html'}'}</td>
+    <td class="property-type">${property.type}</td>
 </tr>

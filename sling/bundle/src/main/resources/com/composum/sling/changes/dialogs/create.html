@@ -3,22 +3,23 @@
         <div class="modal-content">
             <form class="tools-dialog_form" method="post" action="${attr:dialog.action}" enctype="multipart/form-data">
                 <div class="modal-header">
-                    <h5 class="modal-title">Create Package</h5>
+                    <h5 class="modal-title">Create Node</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <p class="tools-dialog_error d-none"></p>
                     <div class="mb-3">
-                        <label class="form-label">Group</label>
-                        <input type="text" class="form-control" name="group">
-                    </div>
-                    <div class="mb-3">
                         <label class="form-label">Name</label>
                         <input type="text" class="form-control" name="name" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Version</label>
-                        <input type="text" class="form-control" name="version">
+                        <label class="form-label">Primary Type</label>
+                        <input type="text" class="form-control changes-create_type tools-path_input" name="type"
+                               value="nt:unstructured" data-suggest-uri="${attr:dialog.primaryTypeSuggest}">
+                    </div>
+                    <div class="mb-3 changes-create_file d-none">
+                        <label class="form-label">File</label>
+                        <input type="file" class="form-control" name="file">
                     </div>
                 </div>
                 <div class="modal-footer">

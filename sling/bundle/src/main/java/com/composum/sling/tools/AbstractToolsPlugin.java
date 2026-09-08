@@ -8,14 +8,19 @@ import com.composum.sling.tools.template.TemplateContext.Values;
 import com.composum.sling.tools.template.TemplateReader;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.jackrabbit.api.security.user.Authorizable;
+import org.apache.jackrabbit.api.security.user.Group;
+import org.apache.jackrabbit.api.security.user.UserManager;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.resource.Resource;
+import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.xss.XSSAPI;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.jcr.RepositoryException;
 import javax.lang.model.type.PrimitiveType;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -23,11 +28,14 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -60,6 +68,149 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
      * Default constructor.
      */
     protected AbstractToolsPlugin() {
+    }
+
+    /**
+     * Child paths of 'partial's parent whose name starts with 'partial's own last segment - the
+     * shared lookup behind the client-side path-picker widget ({@code sling/tools/script.js}'
+     * 'PathPicker'), so any plugin can offer path autocomplete on its own dialog fields by simply
+     * routing a GET selector to this (see {@code com.composum.sling.changes.Changes}' 'pathSuggest'
+     * for the reference wiring: template, route, and client markup).
+     *
+     * @param resolver the resolver to search with
+     * @param partial  the path text typed so far (may be blank, relative, or without a trailing
+     *                 segment yet - e.g. "/content/si" suggests siblings of "/content" starting
+     *                 with "si", a trailing "/" or a blank string lists all children of that parent)
+     * @param limit    the maximum number of suggestions to return
+     */
+    protected @NotNull List<String> pathSuggestions(@NotNull final ResourceResolver resolver,
+                                                     @NotNull final String partial, final int limit) {
+        final List<String> suggestions = new ArrayList<>();
+        final int lastSlash = partial.lastIndexOf('/');
+        final String parentPath = lastSlash <= 0 ? "/" : partial.substring(0, lastSlash);
+        final String prefix = partial.substring(lastSlash + 1);
+        final Resource parent = resolver.getResource(parentPath);
+        if (parent != null && manager().isAllowedResource(parent)) {
+            for (final Resource child : parent.getChildren()) {
+                if (suggestions.size() >= limit) {
+                    break;
+                }
+                if (StringUtils.startsWithIgnoreCase(child.getName(), prefix) && manager().isAllowedResource(child)) {
+                    suggestions.add(child.getPath());
+                }
+            }
+        }
+        return suggestions;
+    }
+
+    /**
+     * The {@link TreeNode} JSON response for a "tree" GET route - the shared lookup behind every
+     * plugin's jsTree-backed tree widget (the Browser page's own tree, and the {@code TreePicker}
+     * path-picker popup in {@code sling/tools/script.js}); see
+     * {@code com.composum.sling.browser.Browser}'s and {@code com.composum.sling.changes.Changes}'
+     * own 'tree' case for the reference wiring (a one-line delegate to this method).
+     *
+     * @param resource the already-resolved, already-{@link Manager#isAllowedResource}-checked
+     *                 target resource, or 'null' if the request's path wasn't found/allowed
+     * @param path     the originally requested path, used to still name the node in the "not
+     *                 found" case so the client can show *something* rather than nothing
+     */
+    protected @NotNull Result<TreeNode> treeResult(@Nullable final Resource resource, @NotNull final String path) {
+        return resource != null
+                ? new Result<>(new TreeNode(manager(), resource, null))
+                : new Result<>(SC_NOT_FOUND, new TreeNode(path));
+    }
+
+    /**
+     * Entries of 'candidates' whose name starts with 'partial' - the shared lookup behind the
+     * jcr:primaryType/jcr:mixinTypes autocomplete (see {@link PlatformConfig#primaryTypes()}/
+     * {@link PlatformConfig#mixinTypes()} for where the two, deliberately disjoint candidate lists
+     * come from, and {@code com.composum.sling.changes.Changes}' 'primaryTypeSuggest'/
+     * 'mixinTypeSuggest' for the reference wiring); the same simple prefix-filter
+     * {@link #pathSuggestions} uses, just against a fixed, admin-curated list instead of the
+     * repository.
+     *
+     * @param candidates the type names to filter (see {@link PlatformConfig#primaryTypes()}/
+     *                   {@link PlatformConfig#mixinTypes()})
+     * @param partial    the text typed so far (may be blank)
+     * @param limit      the maximum number of suggestions to return
+     */
+    protected @NotNull List<String> nodeTypeSuggestions(@NotNull final Collection<String> candidates,
+                                                          @NotNull final String partial, final int limit) {
+        final List<String> suggestions = new ArrayList<>();
+        for (final String candidate : candidates) {
+            if (suggestions.size() >= limit) {
+                break;
+            }
+            if (StringUtils.startsWithIgnoreCase(candidate, partial)) {
+                suggestions.add(candidate);
+            }
+        }
+        return suggestions;
+    }
+
+    /**
+     * Whether the given request's own user is 'name' or a member of the group 'name', for at
+     * least one name in 'principals' - the shared "restrict something to a configurable set of
+     * users/groups" building block behind every plugin's own, independently configured
+     * 'writePrincipals'/'enabledPrincipals' config (e.g.
+     * {@code com.composum.sling.changes.Changes}, {@code com.composum.sling.packages.PackageManager},
+     * {@code com.composum.sling.browser.Browser} - see each plugin's own Javadoc for its exact
+     * master flag this only ever narrows, never widens). An empty 'principals' means no
+     * restriction at all - every user, exactly as if this check didn't exist.
+     * <p>
+     * JCR itself has no user/group API at all - {@code UserManager}/{@code Authorizable} are a
+     * Jackrabbit extension, but one present on every real Sling/AEM instance (Jackrabbit/Oak is the
+     * JCR implementation there) the same way {@code javax.jcr} itself is.
+     *
+     * @param request    the request whose own user to check
+     * @param principals the allowed user/group names, or empty for no restriction
+     */
+    protected boolean isPrincipal(@NotNull final SlingHttpServletRequest request,
+                                  @NotNull final String[] principals) {
+        if (principals.length == 0) {
+            return true;
+        }
+        final Set<String> allowed = Set.of(principals);
+        final UserManager userManager = request.getResourceResolver().adaptTo(UserManager.class);
+        if (userManager == null) {
+            return false;
+        }
+        try {
+            final Authorizable current = userManager.getAuthorizable(request.getResourceResolver().getUserID());
+            if (current == null) {
+                return false;
+            }
+            if (allowed.contains(current.getID())) {
+                return true;
+            }
+            final Iterator<Group> groups = current.memberOf();
+            while (groups.hasNext()) {
+                if (allowed.contains(groups.next().getID())) {
+                    return true;
+                }
+            }
+        } catch (RepositoryException ex) {
+            return false;
+        }
+        return false;
+    }
+
+    /**
+     * The {@link #isPrincipal(SlingHttpServletRequest, String[])} overload for a caller with no
+     * request parameter of its own to pass - notably {@code isEnabled()} implementations, whose
+     * shared {@link Processor} interface predates this need and stays request-parameter-free.
+     * Falls back to {@link Manager#CURRENT_REQUEST}, which this framework's own dispatch
+     * ({@code com.composum.sling.tools.impl.Server#doIt}) already sets for the duration of every
+     * request it handles - 'false' (not "no restriction") if none is set, since that only happens
+     * outside of any actual request (there is no user to check against at all in that case).
+     */
+    protected boolean isPrincipal(@NotNull final String[] principals) {
+        if (principals.length == 0) {
+            return true;
+        }
+        final SlingHttpServletRequest request = Manager.CURRENT_REQUEST.get();
+        return request != null && isPrincipal(request, principals);
     }
 
     @Override

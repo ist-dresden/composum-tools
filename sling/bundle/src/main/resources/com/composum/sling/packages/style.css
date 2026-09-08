@@ -62,8 +62,18 @@
     white-space: nowrap;
 }
 
-.packages-page_content .btn i.bi {
-    margin-right: 4px;
+
+@media (min-width: 1024px) {
+    .packages-page_content .btn i.bi {
+        margin-right: 4px;
+    }
+}
+
+@media (max-width: 1023px) {
+    .packages-page_toolbar .btn span,
+    .packages-page_content .btn span {
+        display: none;
+    }
 }
 
 .packages-page_tree-panel {

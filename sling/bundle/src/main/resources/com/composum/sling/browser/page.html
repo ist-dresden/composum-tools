@@ -14,17 +14,26 @@
     <link rel="stylesheet" href="${src:'/lib/jstree/3.3.17/themes/proton/style.min.css'}"/>
     <link rel="stylesheet" href="${src:'/sling/tools/style.css'}"/>
     <link rel="stylesheet" href="${src:'/sling/browser/style.css'}"/>
+    ${if:changes.available;'<link rel="stylesheet" href="${src:changes.style}"/>'}
     ${each.uri:browser.styles;'<link rel="stylesheet" href="${src:uri}"/>'}
 </head>
 <body class="browser-page_body" data-tools-uri="${tools.uri}">
 ${include:'/sling/tools/navbar/navbar.html'}
 <div class="browser-page_body-content">
     <div class="browser-page_browser">
-        <div class="browser-page_browser_tree-panel">
-            <div class="browser-page_browser_tree"
-                 data-path="${attr:target.path}"
-                 data-page-url="${attr:browser.uri}"
-                 data-tree-url="${attr:browser.tree}">
+        <div class="browser-page_browser_left-panel">
+            <div class="browser-node-toolbar" data-dialog-uri="${attr:browser.dialog}">
+                <div class="btn-toolbar">
+                    ${if:browser.writeEnabled;'<div class=""><button type="button" class="browser-node-toolbar_change-toggle btn btn-dark" data-bs-toggle="dropdown" aria-expanded="false" title="Changes"><i class="bi bi-list"></i></button><ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item browser-node_action-create" href="#"><i class="bi bi-plus-lg"></i> New Node...</a></li><li><a class="dropdown-item browser-node_action-move" href="#"><i class="bi bi-arrows-move"></i> Move...</a></li><li><a class="dropdown-item browser-node_action-delete" href="#"><i class="bi bi-trash"></i> Delete</a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item browser-node_action-copy" href="#"><i class="bi bi-clipboard"></i> Copy</a></li><li><a class="dropdown-item browser-node_action-paste" href="#"><i class="bi bi-clipboard-check"></i> Paste</a></li></ul></div>'}
+                    <a class="browser-node_action-reload" title="Reload"><i class="bi bi-arrow-clockwise"></i></a>
+                </div>
+            </div>
+            <div class="browser-page_browser_tree-panel">
+                <div class="browser-page_browser_tree"
+                     data-path="${attr:target.path}"
+                     data-page-url="${attr:browser.uri}"
+                     data-tree-url="${attr:browser.tree}">
+                </div>
             </div>
         </div>
         <div class="browser-page_browser_right-panel">
@@ -55,6 +64,7 @@ ${each.uri:system.clientlibs;'<script src="${link:uri}"></script>'}
 <script src="${src:'/lib/jstree/3.3.17/jstree.min.js'}"></script>
 <script src="${src:'/sling/tools/script.js'}"></script>
 <script src="${src:'/sling/browser/script.js'}"></script>
+${if:changes.available;'<script src="${src:changes.script}"></script>'}
 ${each.uri:browser.scripts;'<script src="${src:uri}"></script>'}
 <script>
   $(document).ready(function () {
