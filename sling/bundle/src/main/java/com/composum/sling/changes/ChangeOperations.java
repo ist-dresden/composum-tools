@@ -2,6 +2,7 @@ package com.composum.sling.changes;
 
 import com.composum.sling.tools.Common;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.sling.api.request.RequestParameter;
 import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.PersistenceException;
 import org.apache.sling.api.resource.Resource;
@@ -9,6 +10,8 @@ import org.apache.sling.api.resource.ResourceResolver;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Array;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
@@ -95,6 +98,29 @@ final class ChangeOperations {
                                     @NotNull final String name, @NotNull final String primaryType)
             throws PersistenceException {
         return resolver.create(parent, name, Map.of("jcr:primaryType", primaryType));
+    }
+
+    /**
+     * Creates an 'nt:file' node named 'name' under 'parent', with the uploaded 'file' as its
+     * standard 'jcr:content' (an 'nt:resource' holding 'jcr:data'/'jcr:mimeType'/
+     * 'jcr:lastModified') - resolver-API only throughout: handing an {@link java.io.InputStream}
+     * as a property value (here for 'jcr:data') is Sling's own, well-established way to write a
+     * JCR Binary without ever touching {@code javax.jcr.ValueFactory} directly.
+     */
+    static @NotNull Resource createFile(@NotNull final ResourceResolver resolver, @NotNull final Resource parent,
+                                        @NotNull final String name, @NotNull final RequestParameter file)
+            throws PersistenceException {
+        final Resource created = resolver.create(parent, name, Map.of("jcr:primaryType", "nt:file"));
+        try {
+            resolver.create(created, "jcr:content", Map.of(
+                    "jcr:primaryType", "nt:resource",
+                    "jcr:mimeType", StringUtils.defaultIfBlank(file.getContentType(), "application/octet-stream"),
+                    "jcr:lastModified", Calendar.getInstance(),
+                    "jcr:data", file.getInputStream()));
+        } catch (IOException ex) {
+            throw new PersistenceException("Could not read the uploaded file.", ex);
+        }
+        return created;
     }
 
     static void delete(@NotNull final ResourceResolver resolver, @NotNull final Resource resource)
@@ -229,6 +255,37 @@ final class ChangeOperations {
     }
 
     /**
+     * Sets 'name' to the uploaded 'file's content, as a plain single-value Binary property -
+     * always unconditionally removes any existing value first (unlike {@link #setProperty}, which
+     * only does so on an actual shape mismatch): there is no cheap way to compare a freshly
+     * uploaded file against whatever the property already holds, and a picked file always means
+     * "replace this", so there is no no-op case worth detecting here in the first place. Multi-value
+     * Binary properties are deliberately not supported - a minimal, single-file upload is all this
+     * feature offers; anyone needing more belongs in the Package Manager instead.
+     */
+    static void setBinaryProperty(@NotNull final Resource resource, @NotNull final String name,
+                                  @NotNull final RequestParameter file) throws PersistenceException {
+        final ModifiableValueMap values = modifiableValueMap(resource);
+        values.remove(name);
+        try {
+            values.put(name, file.getInputStream());
+        } catch (IOException ex) {
+            throw new PersistenceException("Could not read the uploaded file.", ex);
+        } catch (RuntimeException ex) {
+            throw new PersistenceException("'" + name + "' could not be changed: " + ex.getMessage(), ex);
+        }
+        if ("jcr:data".equals(name)) {
+            // 'jcr:data's own mime type/last-modified (its sibling properties on the same
+            // nt:resource/jcr:content node, exactly as created by #createFile) describe THIS
+            // content - replacing the data without also syncing them would leave a node whose
+            // declared type disagrees with its actual bytes (e.g. still "application/pdf" after
+            // the data was replaced with a CSV)
+            values.put("jcr:mimeType", StringUtils.defaultIfBlank(file.getContentType(), "application/octet-stream"));
+            values.put("jcr:lastModified", Calendar.getInstance());
+        }
+    }
+
+    /**
      * Removes 'name' - a no-op if it doesn't exist. Returns whether a property was actually
      * removed, so a caller can skip logging a pending-change entry for an already-absent property.
      */
@@ -313,6 +370,11 @@ final class ChangeOperations {
             return "Boolean";
         } else if (value instanceof Calendar) {
             return "Date";
+        } else if (value instanceof InputStream) {
+            // a JCR Binary property's raw ValueMap value - Sling represents it as a plain
+            // InputStream (e.g. its own 'LazyInputStream'), never a dedicated wrapper type, so this
+            // is the only way to recognize one
+            return "Binary";
         }
         return "String";
     }

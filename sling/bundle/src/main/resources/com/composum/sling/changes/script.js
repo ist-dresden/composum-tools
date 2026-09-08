@@ -59,7 +59,10 @@ class PropertyValues extends ViewWidget {
     this.$down = this.$el.find('.changes-property_value-down');
     this.$remove = this.$el.find('.changes-property_value-remove');
     this.$multi = this.$el.closest('form').find('input[name="multi"]');
+    this.$multiGroup = this.$el.closest('form').find('.changes-property_multi-group');
     this.$name = this.$el.closest('form').find('input[name="name"]');
+    this.$type = this.$el.closest('form').find('.changes-property_type');
+    this.$binary = this.$el.closest('form').find('.changes-property_binary');
     this.suggestUri = this.$el.data('suggest-uri');
     this.primaryTypeSuggestUri = this.$el.data('primary-type-suggest-uri');
     this.mixinTypeSuggestUri = this.$el.data('mixin-type-suggest-uri');
@@ -72,8 +75,25 @@ class PropertyValues extends ViewWidget {
     this.$remove.on('click', () => this.removeSelected());
     this.$multi.on('change', () => this.updateMulti());
     this.$name.on('input', () => this.updateNameMode());
+    this.$type.on('change', () => this.updateTypeMode());
     this.updateNameMode();
     this.updateMulti();
+    this.updateTypeMode();
+  }
+
+  // a Binary value comes from a file upload, not one of the text rows below - a file input can't
+  // be pre-filled with an existing binary's own content anyway, so there is nothing meaningful for
+  // the row-based value editor to show while "Binary" is selected; swaps the whole value area for
+  // a single file input instead, and forces "Multi" off (multi-value Binary is not supported - see
+  // ChangeOperations#setBinaryProperty)
+  updateTypeMode() {
+    const binary = this.$type.val() === 'Binary';
+    this.$el.toggleClass('d-none', binary);
+    this.$binary.toggleClass('d-none', !binary);
+    this.$multiGroup.toggleClass('d-none', binary);
+    if (binary && this.$multi.prop('checked')) {
+      this.$multi.prop('checked', false).trigger('change');
+    }
   }
 
   // jcr:primaryType/jcr:mixinTypes are well-known JCR properties whose values are node type
@@ -225,6 +245,29 @@ class PropertyValues extends ViewWidget {
 }
 
 CPM.widgets.register(PropertyValues);
+
+// the Create Node dialog's Primary Type field (see changes/dialogs/create.html) - 'nt:file' needs
+// actual binary content to be a valid node at all, so choosing it reveals a file input (required,
+// since a contentless nt:file makes no sense) instead of just creating an empty node
+class CreateTypeToggle extends ViewWidget {
+
+  static selector = '.changes-create_type';
+
+  constructor(element) {
+    super(element);
+    this.$file = this.$el.closest('form').find('.changes-create_file');
+    this.$el.on('input change', () => this.update());
+    this.update();
+  }
+
+  update() {
+    const isFile = this.$el.val() === 'nt:file';
+    this.$file.toggleClass('d-none', !isFile);
+    this.$file.find('input[name="file"]').prop('required', isFile);
+  }
+}
+
+CPM.widgets.register(CreateTypeToggle);
 
 // the Move dialog's "Also adjust path references..." checkbox (see changes/dialogs/move.html) -
 // only shown while a ReferencesService is bound (server-side gated via 'references.available');
