@@ -338,19 +338,19 @@ public class Browser extends AbstractToolsPlugin {
     }
 
     /**
-     * Whether node-modification actions are available - delegates to the optionally bound
-     * {@link ChangesService}, exposed publicly so other packages (e.g. {@code view.PropertiesView},
-     * which needs it to decide whether to render its own property-edit affordances) don't need
-     * direct field access.
+     * Whether node-modification actions are available to the given request's own user - delegates
+     * to the optionally bound {@link ChangesService}, exposed publicly so other packages (e.g.
+     * {@code view.PropertiesView}, which needs it to decide whether to render its own
+     * property-edit affordances) don't need direct field access.
      */
-    public boolean writeEnabled() {
-        return changesService != null && changesService.writeEnabled();
+    public boolean writeEnabled(@NotNull final SlingHttpServletRequest request) {
+        return changesService != null && changesService.writeEnabled(request);
     }
 
     /**
      * The base URL for the {@link ChangesService}'s on-demand dialog fragments (append
      * {@code <name>.html<path>}), or an empty string if none is bound - exposed publicly for the
-     * same reason as {@link #writeEnabled()}.
+     * same reason as {@link #writeEnabled}.
      */
     public @NotNull String dialogUri() {
         return changesService != null ? changesService.dialogUri() : "";
@@ -369,7 +369,7 @@ public class Browser extends AbstractToolsPlugin {
     /**
      * Whether the given property name is protected against editing - delegates to the optionally
      * bound {@link ChangesService} (a property is never protected while none is bound, since there
-     * is nothing to protect it from), exposed publicly for the same reason as {@link #writeEnabled()}.
+     * is nothing to protect it from), exposed publicly for the same reason as {@link #writeEnabled}.
      */
     public boolean isProtectedProperty(@NotNull final String name) {
         return changesService != null && changesService.isProtectedProperty(name);
@@ -548,9 +548,13 @@ public class Browser extends AbstractToolsPlugin {
                         .with("browser.related", manager.serverPath() + ".browser.related.html")
                         // request-scoped (unlike everything else the "page" template needs, which
                         // is request-invariant and lives in the static 'templates' map below) -
-                        // the pending count reflects *this* HTTP session's ChangeSession, so it has
-                        // to be read fresh per request, e.g. so a page reload still shows the
-                        // correct badge state for a ChangeSession that outlives the reload
+                        // writeEnabled() now depends on the request's own user (see
+                        // ChangesService#writeEnabled), so it can no longer be computed once in that
+                        // static factory at all, and the pending count reflects *this* HTTP
+                        // session's ChangeSession, so it has to be read fresh per request too, e.g.
+                        // so a page reload still shows the correct badge state for a ChangeSession
+                        // that outlives the reload
+                        .with("browser.writeEnabled", writeEnabled(request))
                         .with("changes.available", changesService != null)
                         .with("changes.pendingUri", changesService != null ? changesService.pendingUri() : null)
                         .with("changes.style", changesService != null ? changesService.styleResource() : null)
@@ -585,7 +589,6 @@ public class Browser extends AbstractToolsPlugin {
                                     .with("tabView", manager.serverPath() + ".browser.view.#id#.html")
                                     .with("tabForm", manager.serverPath() + ".browser.view.#id#.form.html")
                                     .with("dialog", changesService != null ? changesService.dialogUri() : null)
-                                    .with("writeEnabled", writeEnabled())
                                     .with("tools", (Supplier<?>) () -> valuesOf(tools().list()))
                                     .with("views", (Supplier<?>) () -> valuesOf(views().list()))
                                     .with("styles", (Supplier<?>) this::styles)

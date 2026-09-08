@@ -10,6 +10,8 @@ import org.apache.sling.api.resource.ResourceResolver;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.jcr.RepositoryException;
+import javax.jcr.Session;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Array;
@@ -28,10 +30,12 @@ import java.util.Set;
 /**
  * The actual node/property mutations behind {@link Changes}' Create/Delete/Move/Copy/
  * Change-Property actions - a stateless utility, package-private (only {@link Changes} calls
- * this directly). Deliberately resolver-API-only, never touching {@code javax.jcr.*} - see
- * {@link ChangeSession}'s class Javadoc for why every call here is expected to run against a
- * {@code ChangeSession}'s long-lived resolver rather than a per-request one, and to stay
- * uncommitted until an explicit Save All.
+ * this directly). Resolver-API only wherever the resolver API can actually do the job (every
+ * operation except {@link #move}'s renaming/reordering, which have no resolver-API equivalent at
+ * all - see {@link #move}'s own Javadoc for why that specific case reaches for {@code javax.jcr}
+ * instead, and why that is not a new dependency) - see {@link ChangeSession}'s class Javadoc for
+ * why every call here is expected to run against a {@code ChangeSession}'s long-lived resolver
+ * rather than a per-request one, and to stay uncommitted until an explicit Save All.
  */
 final class ChangeOperations {
 
@@ -132,34 +136,136 @@ final class ChangeOperations {
     }
 
     /**
-     * Moves the given resource to become a child of 'destParentPath' - if 'newName' is blank or
-     * unchanged, this is a plain {@link ResourceResolver#move} (its 'destAbsPath' names the
-     * destination *parent*, not the new full path, and it always keeps the source's name); a
-     * genuinely different 'newName' instead rebuilds the resource under that name at the
-     * destination (see {@link #copyRenamed} for why - there is no resolver-API rename primitive)
-     * and deletes the original, covering the common "move to the same parent" rename-in-place case.
-     * A destination that is neither a different parent nor a different name is rejected up front
-     * with a message naming the actual problem, rather than letting it reach {@link
-     * ResourceResolver#move} - which would still correctly refuse it (the resource's own current
-     * self already occupies that exact destination), but only with a generic, resolver-internal
-     * "unable to move to &lt;parent&gt;" message that doesn't explain why or even show the name
-     * that's colliding.
+     * Moves the given resource to become a child of 'destParentPath', optionally renaming it to
+     * 'newName' and/or reordering it among its new siblings to sit right before 'orderBefore'
+     * (a sibling name, or blank to leave the position wherever the move/rename itself puts it).
+     * <p>
+     * A plain {@link ResourceResolver#move} is used whenever nothing but the parent actually
+     * changes (no rename, no explicit reorder) - the overwhelmingly common case, kept byte-for-byte
+     * as before. A genuinely different 'newName' instead goes through the raw JCR
+     * {@link Session#move}: unlike {@link ResourceResolver#move}/{@link ResourceResolver#copy}
+     * (whose 'destAbsPath' always names the destination *parent* and always keeps the source's own
+     * name - no resolver-API rename primitive exists), {@code Session#move}'s 'destAbsPath' is the
+     * arbitrary full destination path, rename included, in one atomic step that preserves the
+     * node's own identity (uuid, version history, ...), unlike the deep-copy-then-delete this used
+     * to do. A rename-in-place (same parent, no explicit 'orderBefore') additionally, explicitly
+     * restores the node's exact prior position among its siblings afterward - captured before the
+     * rename via {@link #nextSiblingName} - rather than just hoping the repository's own
+     * {@code Session#move} happens to preserve it (which Jackrabbit/Oak generally does, but the JCR
+     * API itself does not actually guarantee); "if possible", per {@link #orderBefore}'s own caveat
+     * about node types that don't support orderable children at all. An explicit 'orderBefore' from
+     * the caller always goes through {@link #orderBefore} afterward regardless of how the
+     * move/rename itself happened, overriding whatever position it would otherwise have defaulted
+     * to (typically "appended at the end" for a genuine parent change).
+     * <p>
+     * Reaching for JCR API here at all is deliberate, not an oversight of this feature's usual
+     * resolver-API-only stance: {@code javax.jcr} is already a real dependency of this very module
+     * (see {@code JcrPackageOperations}/{@code PackageManager} for prior art of the exact same
+     * {@code resolver.adaptTo(Session.class)} pattern used here) - reordering among siblings and a
+     * true, identity-preserving rename simply have no resolver-API equivalent at all, so there was
+     * nothing to avoid a dependency *for* in the first place.
      */
     static @NotNull Resource move(@NotNull final ResourceResolver resolver, @NotNull final Resource resource,
-                                  @NotNull final String destParentPath, @Nullable final String newName)
-            throws PersistenceException {
-        final boolean renaming = StringUtils.isNotBlank(newName) && !newName.equals(resource.getName());
-        if (!renaming) {
-            final Resource currentParent = resource.getParent();
-            if (currentParent != null && currentParent.getPath().equals(destParentPath)) {
-                throw new PersistenceException("'" + resource.getName() + "' is already in '"
-                        + destParentPath + "' - nothing to move.");
-            }
-            return resolver.move(resource.getPath(), destParentPath);
+                                  @NotNull final String destParentPath, @Nullable final String newName,
+                                  @Nullable final String orderBefore) throws PersistenceException {
+        final String currentName = resource.getName();
+        final boolean renaming = StringUtils.isNotBlank(newName) && !newName.equals(currentName);
+        final String targetName = renaming ? newName : currentName;
+        final Resource currentParent = resource.getParent();
+        final boolean movingParent = currentParent == null || !currentParent.getPath().equals(destParentPath);
+        final boolean reordering = StringUtils.isNotBlank(orderBefore);
+        if (!renaming && !movingParent && !reordering) {
+            throw new PersistenceException("'" + currentName + "' is already in '"
+                    + destParentPath + "' - nothing to move.");
         }
-        final Resource created = copyRenamed(resolver, resource, requireResource(resolver, destParentPath), newName);
-        resolver.delete(resource);
-        return created;
+        // a plain rename-in-place (same parent, no explicit reorder requested) defaults to keeping
+        // the node exactly where it was - captured *before* the rename, since afterward there's no
+        // way to tell where among the (now differently-named) siblings it used to sit. Repositories
+        // (Jackrabbit/Oak included) already tend to keep a same-parent Session#move's position on
+        // their own, but that's implementation behavior, not something the JCR API actually
+        // guarantees - restoring it explicitly here makes the outcome deterministic either way.
+        final String preservePosition = renaming && !movingParent && !reordering ? nextSiblingName(resource) : null;
+        if (renaming) {
+            moveViaJcr(resolver, resource.getPath(), destParentPath + "/" + targetName);
+        } else if (movingParent) {
+            resolver.move(resource.getPath(), destParentPath);
+        }
+        if (preservePosition != null) {
+            try {
+                orderBefore(resolver, destParentPath, targetName, preservePosition);
+            } catch (PersistenceException ex) {
+                // "wenn möglich" (if possible) - some node types (e.g. a plain nt:folder) don't
+                // support orderable child nodes at all; the rename itself already succeeded above,
+                // so failing to also pin down its exact position afterward is not worth aborting for
+            }
+        }
+        if (reordering) {
+            orderBefore(resolver, destParentPath, targetName, orderBefore);
+        }
+        return requireResource(resolver, destParentPath + "/" + targetName);
+    }
+
+    /**
+     * The name of the child resource's own next sibling under its current parent, or 'null' if it
+     * is the last child (or has no parent) - used by {@link #move} to capture a rename-in-place's
+     * position before the rename, so it can be explicitly restored afterward.
+     */
+    @Nullable
+    private static String nextSiblingName(@NotNull final Resource resource) {
+        final Resource parent = resource.getParent();
+        if (parent == null) {
+            return null;
+        }
+        boolean found = false;
+        for (final Resource sibling : parent.getChildren()) {
+            if (found) {
+                return sibling.getName();
+            }
+            if (sibling.getName().equals(resource.getName())) {
+                found = true;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The raw JCR rename/move primitive behind {@link #move}'s renaming path - see there for why
+     * this reaches for {@code javax.jcr} at all.
+     */
+    private static void moveViaJcr(@NotNull final ResourceResolver resolver, @NotNull final String srcPath,
+                                   @NotNull final String destPath) throws PersistenceException {
+        final Session session = resolver.adaptTo(Session.class);
+        if (session == null) {
+            throw new PersistenceException("Renaming requires a JCR-backed resource resolver.");
+        }
+        try {
+            session.move(srcPath, destPath);
+        } catch (RepositoryException ex) {
+            throw new PersistenceException("Could not rename to '" + destPath + "': " + ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Positions the child named 'name' of 'parentPath' right before its sibling 'orderBeforeName'
+     * (a resolver-API-only 'ModifiableValueMap' has no equivalent of this at all - see {@link #move}
+     * for why {@code javax.jcr} is used here). Fails with a clear message if 'parentPath's node
+     * type does not support orderable child nodes (e.g. a plain {@code nt:folder}) rather than
+     * letting the repository's own, more cryptic {@code UnsupportedRepositoryOperationException}
+     * propagate as-is.
+     */
+    private static void orderBefore(@NotNull final ResourceResolver resolver, @NotNull final String parentPath,
+                                    @NotNull final String name, @NotNull final String orderBeforeName)
+            throws PersistenceException {
+        final Session session = resolver.adaptTo(Session.class);
+        if (session == null) {
+            throw new PersistenceException("Reordering requires a JCR-backed resource resolver.");
+        }
+        try {
+            session.getNode(parentPath).orderBefore(name, orderBeforeName);
+        } catch (RepositoryException ex) {
+            throw new PersistenceException("Could not order '" + name + "' before '" + orderBeforeName
+                    + "': " + ex.getMessage(), ex);
+        }
     }
 
     /**
@@ -189,11 +295,16 @@ final class ChangeOperations {
 
     /**
      * Deep-copies 'source' - its own properties, then recursively every descendant under its
-     * original name - to become a new child named 'newName' of 'destParent'. The only way to
-     * rename via the resolver API alone: unlike raw JCR's own {@code Session#move} (which takes an
-     * arbitrary full destination path, rename included), {@link ResourceResolver#move}/{@link
-     * ResourceResolver#copy} always keep the source's name, deliberately not worked around by
-     * dropping to JCR API here (see the class Javadoc).
+     * original name - to become a new child named 'newName' of 'destParent'. {@link #copy}'s only
+     * way to rename: {@code javax.jcr.Workspace#copy}'s 'destAbsPath' does support an arbitrary
+     * new name too, just like {@code Session#move} - but, unlike {@code Session#move},
+     * {@code Workspace#copy} is specified to persist *immediately*, bypassing the {@code Session}'s
+     * transient/pending-changes mechanism entirely (no {@code Session#save} needed or even
+     * possible to defer). Using it here would silently break this whole feature's core guarantee -
+     * nothing is real until "Save All", and "Revert All" can undo anything still pending - for
+     * every renamed Copy/Paste specifically, since such a copy could never be reverted once made.
+     * So this stays a resolver-API deep copy (via {@code resolver.create}, which correctly *is*
+     * transient) rather than reaching for JCR API the way {@link #move} now does.
      */
     private static @NotNull Resource copyRenamed(@NotNull final ResourceResolver resolver, @NotNull final Resource source,
                                                   @NotNull final Resource destParent, @NotNull final String newName)

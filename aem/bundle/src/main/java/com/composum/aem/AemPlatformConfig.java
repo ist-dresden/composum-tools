@@ -71,6 +71,7 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
                 "cq:PageContent",
                 "cq:Component",
                 "cq:Template",
+                "cq:LiveCopy",
                 "cq:ClientLibraryFolder",
                 "dam:Asset",
                 "dam:AssetContent"

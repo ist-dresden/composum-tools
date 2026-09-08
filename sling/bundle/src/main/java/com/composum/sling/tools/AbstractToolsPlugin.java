@@ -8,6 +8,9 @@ import com.composum.sling.tools.template.TemplateContext.Values;
 import com.composum.sling.tools.template.TemplateReader;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.jackrabbit.api.security.user.Authorizable;
+import org.apache.jackrabbit.api.security.user.Group;
+import org.apache.jackrabbit.api.security.user.UserManager;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.resource.Resource;
@@ -17,6 +20,7 @@ import org.apache.sling.xss.XSSAPI;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.jcr.RepositoryException;
 import javax.lang.model.type.PrimitiveType;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -143,6 +147,70 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
             }
         }
         return suggestions;
+    }
+
+    /**
+     * Whether the given request's own user is 'name' or a member of the group 'name', for at
+     * least one name in 'principals' - the shared "restrict something to a configurable set of
+     * users/groups" building block behind every plugin's own, independently configured
+     * 'writePrincipals'/'enabledPrincipals' config (e.g.
+     * {@code com.composum.sling.changes.Changes}, {@code com.composum.sling.packages.PackageManager},
+     * {@code com.composum.sling.browser.Browser} - see each plugin's own Javadoc for its exact
+     * master flag this only ever narrows, never widens). An empty 'principals' means no
+     * restriction at all - every user, exactly as if this check didn't exist.
+     * <p>
+     * JCR itself has no user/group API at all - {@code UserManager}/{@code Authorizable} are a
+     * Jackrabbit extension, but one present on every real Sling/AEM instance (Jackrabbit/Oak is the
+     * JCR implementation there) the same way {@code javax.jcr} itself is.
+     *
+     * @param request    the request whose own user to check
+     * @param principals the allowed user/group names, or empty for no restriction
+     */
+    protected boolean isPrincipal(@NotNull final SlingHttpServletRequest request,
+                                  @NotNull final String[] principals) {
+        if (principals.length == 0) {
+            return true;
+        }
+        final Set<String> allowed = Set.of(principals);
+        final UserManager userManager = request.getResourceResolver().adaptTo(UserManager.class);
+        if (userManager == null) {
+            return false;
+        }
+        try {
+            final Authorizable current = userManager.getAuthorizable(request.getResourceResolver().getUserID());
+            if (current == null) {
+                return false;
+            }
+            if (allowed.contains(current.getID())) {
+                return true;
+            }
+            final Iterator<Group> groups = current.memberOf();
+            while (groups.hasNext()) {
+                if (allowed.contains(groups.next().getID())) {
+                    return true;
+                }
+            }
+        } catch (RepositoryException ex) {
+            return false;
+        }
+        return false;
+    }
+
+    /**
+     * The {@link #isPrincipal(SlingHttpServletRequest, String[])} overload for a caller with no
+     * request parameter of its own to pass - notably {@code isEnabled()} implementations, whose
+     * shared {@link Processor} interface predates this need and stays request-parameter-free.
+     * Falls back to {@link Manager#CURRENT_REQUEST}, which this framework's own dispatch
+     * ({@code com.composum.sling.tools.impl.Server#doIt}) already sets for the duration of every
+     * request it handles - 'false' (not "no restriction") if none is set, since that only happens
+     * outside of any actual request (there is no user to check against at all in that case).
+     */
+    protected boolean isPrincipal(@NotNull final String[] principals) {
+        if (principals.length == 0) {
+            return true;
+        }
+        final SlingHttpServletRequest request = Manager.CURRENT_REQUEST.get();
+        return request != null && isPrincipal(request, principals);
     }
 
     @Override

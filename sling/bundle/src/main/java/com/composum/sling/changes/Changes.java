@@ -93,6 +93,12 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
         @AttributeDefinition(name = "Write Enabled",
                 description = "whether node-modification actions (create/delete/move/copy, property changes) are allowed")
         boolean writeEnabled() default true;
+
+        @AttributeDefinition(name = "Write Principals",
+                description = "if not empty, restricts node-modification actions to these user or group " +
+                        "names (the current user must be one of them, or a member of one of them if it " +
+                        "names a group) - empty means every user (subject to 'Write Enabled' above)")
+        String[] writePrincipals() default {};
     }
 
     /** the manager this plugin is registered with */
@@ -161,8 +167,11 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
     }
 
     @Override
-    public boolean writeEnabled() {
-        return config.writeEnabled();
+    public boolean writeEnabled(@NotNull final SlingHttpServletRequest request) {
+        // the actual principal-membership check is shared with com.composum.sling.packages.PackageManager
+        // (see AbstractToolsPlugin#isPrincipal) - each plugin keeps its own independent
+        // 'writeEnabled'/'writePrincipals' config, only the mechanics of checking are common
+        return config.writeEnabled() && isPrincipal(request, config.writePrincipals());
     }
 
     @Override
@@ -280,7 +289,7 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
     public @NotNull Result<?> processPost(@NotNull final SlingHttpServletRequest request,
                                           @NotNull final SlingHttpServletResponse response,
                                           @NotNull List<String> selectors) {
-        if (!config.writeEnabled()) {
+        if (!writeEnabled(request)) {
             return errorResult(SC_FORBIDDEN, "Node-modification actions are disabled.");
         }
         switch (Manager.consume(selectors, "")) {
@@ -516,12 +525,14 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
      * parameter (the destination parent) - 'name', if given and different from the node's current
      * name, renames it too (see {@link ChangeOperations#move} for how, since a plain resolver
      * move/copy can never do this in one step); a move to the node's own current parent, with only
-     * 'name' changed, is a rename-in-place. If 'adjustReferences' is 'true' (only honored while a
-     * {@link ReferencesService} is bound), every resource under 'referencesRoot' (blank meaning the
-     * whole repository) referencing the node's *old* path is found *before* the move and then
-     * updated to the new one right after - each such adjustment gets its own pending-changes log
-     * entry, so it shows (and can be individually reviewed/reverted via Revert All) exactly like
-     * any other staged change.
+     * 'name' changed, is a rename-in-place. 'orderBefore', if given, names a sibling in the
+     * destination to position the moved/renamed node right before (see
+     * {@link ChangeOperations#move} again - this, too, has no resolver-API equivalent). If
+     * 'adjustReferences' is 'true' (only honored while a {@link ReferencesService} is bound), every
+     * resource under 'referencesRoot' (blank meaning the whole repository) referencing the node's
+     * *old* path is found *before* the move and then updated to the new one right after - each such
+     * adjustment gets its own pending-changes log entry, so it shows (and can be individually
+     * reviewed/reverted via Revert All) exactly like any other staged change.
      */
     protected @NotNull Result<?> moveNode(@NotNull final SlingHttpServletRequest request) {
         final String destParentPath = request.getParameter("path");
@@ -529,6 +540,7 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
             return errorResult(SC_BAD_REQUEST, "Destination path is required.");
         }
         final String newName = request.getParameter("name");
+        final String orderBefore = request.getParameter("orderBefore");
         final ChangeSession session = ChangeSession.get(request, true);
         final Resource resource = session.resolver().getResource(targetPath(request));
         final Resource destParent = session.resolver().getResource(destParentPath);
@@ -545,7 +557,7 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
                 StringUtils.defaultString(request.getParameter("referencesRoot")), sourcePath)
                 : List.of();
         try {
-            final Resource moved = ChangeOperations.move(session.resolver(), resource, destParentPath, newName);
+            final Resource moved = ChangeOperations.move(session.resolver(), resource, destParentPath, newName, orderBefore);
             session.log("Moved", sourcePath, "→ " + moved.getPath());
             for (final ReferencesService.Hit hit : references) {
                 referencesService.updateReferences(hit, sourcePath, moved.getPath());
