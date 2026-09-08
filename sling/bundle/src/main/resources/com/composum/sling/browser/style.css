@@ -162,7 +162,8 @@
 .browser-node-toolbar .browser-node-toolbar_change-toggle.btn {
     display: inline-flex;
     height: 28px;
-    padding: 2px 12px;
+    padding: 1px 10px;
+    border-color: #777;
     line-height: 23px;
     font-size: 125%;
 }
@@ -255,7 +256,7 @@
 .browser-page_browser_view .browser-page_browser_parameters {
     position: absolute;
     top: 0;
-    right: 50px;
+    right: 48px;
     height: 33px;
 }
 
@@ -311,7 +312,7 @@
 }
 
 .browser-node_action-reload {
-    padding: 4px 0;
+    padding: 4px;
 }
 
 .browser-page_browser_view .browser-tool_favorite-toggle,
@@ -511,8 +512,18 @@
     border-top: 1px solid rgba(0, 0, 0, .15);
 }
 
-.browser-properties_toolbar {
-    margin-bottom: 8px;
+.browser-properties_toolbar .btn {
+    border-color: #777;
+}
+
+.browser-properties_toolbar .btn i.bi {
+    margin-right: 4px;
+}
+
+@media (max-width: 1110px) {
+    .browser-properties_toolbar .btn span {
+        display: none;
+    }
 }
 
 .browser-properties_select {
