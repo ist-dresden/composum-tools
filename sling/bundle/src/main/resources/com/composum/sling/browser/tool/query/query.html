@@ -1,6 +1,43 @@
 <div class="browser-tool_query" data-history-max="${attr:query.historyMax}" data-popover-uri="${link:query.popover}">
     ${include:'/sling/browser/tool/query/form.html'}
-    <div class="browser-tool_query-result"></div>
+    <div class="browser-tool_query-result">
+        <div class="p-3">
+            <p>
+                text search patterns...
+            <ul>
+                <li>all terms are combined with AND, '+' starts a new AND group which is combined with OR</li>
+                <li>if the first term starts with a '/' it's used as search path, otherwise '/content' is used</li>
+                <li>the path can be prepended by the [primary:type] of the searched resources</li>
+                <li>each term can be prepended by a [property/path]; '-' negates a term (NOT)</li>
+                <li>each term can contain or start/end with '*' wildcards</li>
+                <li>a quoted text term can contain spaces, e.g. &quot;this phrase is searched&quot;</li>
+                <li>if a '=' operator is prepended the property must be equal instead of 'like' or 'contains()'</li>
+            </ul>
+            </p>
+            <p>
+                placehoders
+            <ul>
+                <li>\${path} - represents the current path of the browser</li>
+                <li>\${1}, \${2}, \${3} - 1..3 optional arguments filled with the values of the automatically shown
+                    argument input fields
+                </li>
+            </ul>
+            </p>
+            <p>
+                text search examples...
+            <ul>
+                <li>[cq:PageContent]/content/my/site *likepattern*</li>
+                <li>/content/my/site -[jcr:title]*likepattern*</li>
+                <li>/content/my/site [jcr:title]=&quot;property value&quot; +&quot;alternative like pattern&quot;</li>
+            </ul>
+            XPATH search examples...
+            <ul>
+                <li>/conf//en[jcr:mixinTypes='mix:language']</li>
+            </ul>
+            Try it!
+            </p>
+        </div>
+    </div>
     <div class="browser-tool_query-spinner">
         <div class="spinner-border" role="status">
             <span class="visually-hidden">Loading...</span>

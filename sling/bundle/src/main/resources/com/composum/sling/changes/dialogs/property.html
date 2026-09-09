@@ -16,20 +16,26 @@
                     <div class="row g-2 mb-3">
                         <div class="col">
                             <label class="form-label">Type</label>
-                            <select class="form-select" name="type" data-value="${attr:property.type}">
+                            <select class="form-select changes-property_type" name="type" data-value="${attr:property.type}">
                                 <option value="String">String</option>
                                 <option value="Long">Long</option>
                                 <option value="Double">Double</option>
                                 <option value="Boolean">Boolean</option>
                                 <option value="Date">Date</option>
+                                <option value="Binary">Binary</option>
                             </select>
                         </div>
-                        <div class="col-auto ms-1 me-1">
+                        <div class="col-auto ms-1 me-1 changes-property_multi-group">
                             <label class="form-label">Multi</label>
                             <div style="font-size:160%;text-align:right;">
                                 <input type="checkbox" class="form-check-input" name="multi" value="true"${if:property.multi;' checked'}>
                             </div>
                         </div>
+                    </div>
+                    <div class="mb-3 changes-property_binary d-none">
+                        <label class="form-label">File</label>
+                        <input type="file" class="form-control" name="binary">
+                        ${if:property.name;'<small class="text-muted">Leave empty to keep the current binary value unchanged.</small>'}
                     </div>
                     <div class="mb-3 changes-property_values" data-suggest-uri="${attr:dialog.pathSuggest}"
                          data-primary-type-suggest-uri="${attr:dialog.primaryTypeSuggest}"

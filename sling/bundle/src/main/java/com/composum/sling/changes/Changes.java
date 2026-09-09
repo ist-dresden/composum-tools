@@ -13,6 +13,7 @@ import com.composum.sling.tools.template.TemplateContext.Values;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
+import org.apache.sling.api.request.RequestParameter;
 import org.apache.sling.api.resource.PersistenceException;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
@@ -92,6 +93,12 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
         @AttributeDefinition(name = "Write Enabled",
                 description = "whether node-modification actions (create/delete/move/copy, property changes) are allowed")
         boolean writeEnabled() default true;
+
+        @AttributeDefinition(name = "Write Principals",
+                description = "if not empty, restricts node-modification actions to these user or group " +
+                        "names (the current user must be one of them, or a member of one of them if it " +
+                        "names a group) - empty means every user (subject to 'Write Enabled' above)")
+        String[] writePrincipals() default {};
     }
 
     /** the manager this plugin is registered with */
@@ -160,8 +167,11 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
     }
 
     @Override
-    public boolean writeEnabled() {
-        return config.writeEnabled();
+    public boolean writeEnabled(@NotNull final SlingHttpServletRequest request) {
+        // the actual principal-membership check is shared with com.composum.sling.packages.PackageManager
+        // (see AbstractToolsPlugin#isPrincipal) - each plugin keeps its own independent
+        // 'writeEnabled'/'writePrincipals' config, only the mechanics of checking are common
+        return config.writeEnabled() && isPrincipal(request, config.writePrincipals());
     }
 
     @Override
@@ -279,7 +289,7 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
     public @NotNull Result<?> processPost(@NotNull final SlingHttpServletRequest request,
                                           @NotNull final SlingHttpServletResponse response,
                                           @NotNull List<String> selectors) {
-        if (!config.writeEnabled()) {
+        if (!writeEnabled(request)) {
             return errorResult(SC_FORBIDDEN, "Node-modification actions are disabled.");
         }
         switch (Manager.consume(selectors, "")) {
@@ -314,7 +324,8 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
         switch (name) {
             case "create":
                 return renderDialog(DIALOGS_ROOT + "create.html", new Values()
-                        .with("dialog.action", actionLink("create") + targetPath(request)));
+                        .with("dialog.action", actionLink("create") + targetPath(request))
+                        .with("dialog.primaryTypeSuggest", actionLink("primaryTypeSuggest")));
             case "delete": {
                 final Resource resource = targetResource(request);
                 if (resource == null) {
@@ -394,23 +405,29 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
         boolean multi = false;
         List<String> values = new ArrayList<>(List.of(""));
         if (rawValue != null) {
-            final Object sample;
-            if (rawValue instanceof Object[]) {
-                multi = true;
-                final Object[] array = (Object[]) rawValue;
-                values = new ArrayList<>(array.length);
-                for (final Object item : array) {
-                    values.add(editableString(item));
-                }
-                if (values.isEmpty()) {
-                    values.add("");
-                }
-                sample = array.length > 0 ? array[0] : null;
-            } else {
-                values = new ArrayList<>(List.of(editableString(rawValue)));
-                sample = rawValue;
-            }
+            final Object[] array = rawValue instanceof Object[] ? (Object[]) rawValue : null;
+            multi = array != null;
+            final Object sample = array != null ? (array.length > 0 ? array[0] : null) : rawValue;
             type = ChangeOperations.typeNameOf(sample);
+            // a Binary value has no meaningful text representation (its raw ValueMap value is a
+            // plain InputStream - rendering it via editableString's toString() fallback would show
+            // useless, misleading text like "...LazyInputStream@7c5a6a49") and a file input can't
+            // be pre-filled with the existing content anyway (see changes/dialogs/property.html),
+            // so the row-based value editor is simply left at its default single blank row - it's
+            // never shown for this type client-side regardless
+            if (!"Binary".equals(type)) {
+                if (array != null) {
+                    values = new ArrayList<>(array.length);
+                    for (final Object item : array) {
+                        values.add(editableString(item));
+                    }
+                    if (values.isEmpty()) {
+                        values.add("");
+                    }
+                } else {
+                    values = new ArrayList<>(List.of(editableString(rawValue)));
+                }
+            }
         }
         return new Values()
                 .with("property.name", name)
@@ -461,7 +478,19 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
             return new Result<>(SC_NOT_FOUND);
         }
         try {
-            final Resource created = ChangeOperations.create(session.resolver(), parent, name, type);
+            final Resource created;
+            // 'nt:file' needs actual binary content (its 'jcr:content/jcr:data') to be meaningful -
+            // a plain resolver.create() with just the primary type would leave a structurally
+            // invalid, contentless file node behind, so this one type gets its own upload-backed path
+            if ("nt:file".equals(type)) {
+                final RequestParameter file = request.getRequestParameter("file");
+                if (file == null || file.getSize() <= 0) {
+                    return errorResult(SC_BAD_REQUEST, "Please select a file.");
+                }
+                created = ChangeOperations.createFile(session.resolver(), parent, name, file);
+            } else {
+                created = ChangeOperations.create(session.resolver(), parent, name, type);
+            }
             session.log("Created", created.getPath(), null);
             return new Result<>(Map.of("path", created.getPath(), "pending", session.pendingChanges().size()));
         } catch (PersistenceException ex) {
@@ -496,12 +525,14 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
      * parameter (the destination parent) - 'name', if given and different from the node's current
      * name, renames it too (see {@link ChangeOperations#move} for how, since a plain resolver
      * move/copy can never do this in one step); a move to the node's own current parent, with only
-     * 'name' changed, is a rename-in-place. If 'adjustReferences' is 'true' (only honored while a
-     * {@link ReferencesService} is bound), every resource under 'referencesRoot' (blank meaning the
-     * whole repository) referencing the node's *old* path is found *before* the move and then
-     * updated to the new one right after - each such adjustment gets its own pending-changes log
-     * entry, so it shows (and can be individually reviewed/reverted via Revert All) exactly like
-     * any other staged change.
+     * 'name' changed, is a rename-in-place. 'orderBefore', if given, names a sibling in the
+     * destination to position the moved/renamed node right before (see
+     * {@link ChangeOperations#move} again - this, too, has no resolver-API equivalent). If
+     * 'adjustReferences' is 'true' (only honored while a {@link ReferencesService} is bound), every
+     * resource under 'referencesRoot' (blank meaning the whole repository) referencing the node's
+     * *old* path is found *before* the move and then updated to the new one right after - each such
+     * adjustment gets its own pending-changes log entry, so it shows (and can be individually
+     * reviewed/reverted via Revert All) exactly like any other staged change.
      */
     protected @NotNull Result<?> moveNode(@NotNull final SlingHttpServletRequest request) {
         final String destParentPath = request.getParameter("path");
@@ -509,6 +540,7 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
             return errorResult(SC_BAD_REQUEST, "Destination path is required.");
         }
         final String newName = request.getParameter("name");
+        final String orderBefore = request.getParameter("orderBefore");
         final ChangeSession session = ChangeSession.get(request, true);
         final Resource resource = session.resolver().getResource(targetPath(request));
         final Resource destParent = session.resolver().getResource(destParentPath);
@@ -525,7 +557,7 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
                 StringUtils.defaultString(request.getParameter("referencesRoot")), sourcePath)
                 : List.of();
         try {
-            final Resource moved = ChangeOperations.move(session.resolver(), resource, destParentPath, newName);
+            final Resource moved = ChangeOperations.move(session.resolver(), resource, destParentPath, newName, orderBefore);
             session.log("Moved", sourcePath, "→ " + moved.getPath());
             for (final ReferencesService.Hit hit : references) {
                 referencesService.updateReferences(hit, sourcePath, moved.getPath());
@@ -604,12 +636,6 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
                 }
             } else {
                 final String type = StringUtils.defaultIfBlank(request.getParameter("type"), "String");
-                final boolean multi = "true".equalsIgnoreCase(request.getParameter("multi"));
-                // one 'value' form field per row (see changes/dialogs/propertyValue.html) - the
-                // browser submits each row under the same field name, so 'getParameterValues'
-                // already gives one raw string per row, each preserving its own internal newlines
-                final String[] submittedValues = Optional.ofNullable(request.getParameterValues("value"))
-                        .orElse(new String[0]);
                 boolean renamed = false;
                 if (StringUtils.isNotBlank(oldName) && !oldName.equals(name)) {
                     if (!manager.isAllowedProperty(oldName)) {
@@ -617,15 +643,40 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
                     }
                     renamed = ChangeOperations.removeProperty(resource, oldName);
                 }
-                // a re-submitted, unedited dialog would otherwise write nothing (setProperty is
-                // itself a no-op for an unchanged value) but still clutter Pending Changes with an
-                // identical "name = value" entry every time - so only log when something actually
-                // changed, i.e. the value itself changed, or a rename genuinely happened
-                final boolean changed = ChangeOperations.setProperty(resource, name, type, multi, submittedValues);
-                if (changed || renamed) {
-                    session.log("Property", resource.getPath(), name + " = " + (multi
-                            ? "[" + String.join(", ", submittedValues) + "]"
-                            : "'" + submittedValues[0] + "'"));
+                if ("Binary".equals(type)) {
+                    // a file input can't be pre-filled with an existing binary's content, so
+                    // leaving it empty while editing an existing property means "keep the current
+                    // value" - only a genuinely picked file (or adding a brand new property, where
+                    // there is no existing value to keep) is treated as an actual change; multi-value
+                    // Binary is deliberately not supported, see ChangeOperations#setBinaryProperty
+                    final RequestParameter file = request.getRequestParameter("binary");
+                    final boolean hasFile = file != null && file.getSize() > 0;
+                    if (hasFile) {
+                        ChangeOperations.setBinaryProperty(resource, name, file);
+                        session.log("Property", resource.getPath(), name + " = " + file.getFileName()
+                                + " (" + file.getSize() + " bytes)");
+                    } else if (StringUtils.isBlank(oldName)) {
+                        return errorResult(SC_BAD_REQUEST, "Please select a file.");
+                    } else if (renamed) {
+                        session.log("Property", resource.getPath(), name + " = (unchanged binary value)");
+                    }
+                } else {
+                    final boolean multi = "true".equalsIgnoreCase(request.getParameter("multi"));
+                    // one 'value' form field per row (see changes/dialogs/propertyValue.html) - the
+                    // browser submits each row under the same field name, so 'getParameterValues'
+                    // already gives one raw string per row, each preserving its own internal newlines
+                    final String[] submittedValues = Optional.ofNullable(request.getParameterValues("value"))
+                            .orElse(new String[0]);
+                    // a re-submitted, unedited dialog would otherwise write nothing (setProperty is
+                    // itself a no-op for an unchanged value) but still clutter Pending Changes with an
+                    // identical "name = value" entry every time - so only log when something actually
+                    // changed, i.e. the value itself changed, or a rename genuinely happened
+                    final boolean changed = ChangeOperations.setProperty(resource, name, type, multi, submittedValues);
+                    if (changed || renamed) {
+                        session.log("Property", resource.getPath(), name + " = " + (multi
+                                ? "[" + String.join(", ", submittedValues) + "]"
+                                : "'" + submittedValues[0] + "'"));
+                    }
                 }
             }
             return new Result<>(Map.of("path", resource.getPath(), "pending", session.pendingChanges().size()));

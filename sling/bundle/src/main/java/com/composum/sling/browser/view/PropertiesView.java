@@ -120,7 +120,7 @@ public class PropertiesView extends AbstractView {
                     final Reader content = browser.templateReader(getTemplate(new TemplateContext(
                             new TemplateContext.Values()
                                     .with("resource", values)
-                                    .with("browser.writeEnabled", browser.writeEnabled())
+                                    .with("browser.writeEnabled", browser.writeEnabled(request))
                                     .with("browser.dialog", browser.dialogUri())
                                     .with("browser.propertyCopyAction", browser.changeActionLink("propertyCopy"))
                                     .with("browser.propertyDeleteAction", browser.changeActionLink("propertyDelete"))
@@ -142,7 +142,7 @@ public class PropertiesView extends AbstractView {
                             new TemplateContext.Values()
                                     .with("resource", values)
                                     .with("properties", values.get("properties"))
-                                    .with("browser.writeEnabled", browser.writeEnabled())
+                                    .with("browser.writeEnabled", browser.writeEnabled(request))
                     ), "view"));
                     if (content != null) {
                         result = new Result<>(content, HTML_TYPE);

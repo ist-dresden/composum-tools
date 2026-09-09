@@ -11,7 +11,8 @@
 }
 
 .browser-tool_query-head {
-    background: #777;
+    height: var(--toolbar-height);
+    background: var(--toolbar-color-bg);
 }
 
 .composum-dashboard-widget__page .browser-tool_query-head {
@@ -19,17 +20,20 @@
 }
 
 .browser-tool_query-form {
-    padding: 0.3rem 0.6rem;
+    padding: 3px var(--toolbar-gap-lg);
 }
 
 .browser-tool_query-form .browser-tool_query-argument {
     width: 24%;
-    margin-left: 0.3rem;
+    margin-left: 3px;
 }
 
-.browser-tool_query-field {
-    height: 32px;
-    padding: 0.3rem 0.6rem;
+.browser-tool_query-field,
+.browser-tool_query-argument {
+    height: 29px;
+    padding: 3px var(--toolbar-gap-lg);
+    border: 1px solid var(--toolbar-color-bg);
+    border-radius: var(--border-radius);
 }
 
 .browser-tool_query-form .hidden {
@@ -37,12 +41,11 @@
 }
 
 .browser-tool_query-form .btn {
-    height: 32px;
     padding: 0.2rem 0.6rem;
 }
 
 .browser-tool_query-form .query-history {
-    margin-right: 0.3rem;
+    margin-right: var(--toolbar-gap);
 }
 
 .browser-tool_query-form .query-templates .btn {
@@ -53,33 +56,18 @@
 .browser-tool_query-form .query-history .btn {
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
-    border-left-color: #777;
+    border-left-color: var(--toolbar-color-bg);
 }
 
 .browser-tool_query-form .query-submit,
 .browser-tool_query-form .query-save {
-    margin-left: 0.4rem;
-}
-
-.browser-tool_query-form_hint {
-    display: block;
-    width: 100%;
-    margin-top: -0.15rem;
-    padding: 0 0.6rem 0.3rem;
-    border: none;
-    border-radius: 0;
-    text-align: left;
-    font-size: 80%;
-    color: #eee;
-    background: #777;
-    white-space: nowrap;
-    overflow: auto;
+    margin-left: var(--toolbar-gap);
 }
 
 .browser-tool_query-result,
 .browser-tool_query-spinner {
     position: absolute;
-    top: 63px;
+    top: var(--toolbar-height);
     left: 0;
     right: 0;
     bottom: 0;

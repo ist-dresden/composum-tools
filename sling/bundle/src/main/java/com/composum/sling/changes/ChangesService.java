@@ -27,12 +27,16 @@ public interface ChangesService {
     @NotNull ResourceResolver resolver(@NotNull SlingHttpServletRequest request);
 
     /**
-     * Whether mutating actions are currently allowed (a runtime pause independent of whether this
-     * service is bound at all - see {@code Changes.Config#writeEnabled()}). A consuming plugin
-     * should hide its own edit-triggering UI when this is 'false', not just when the service is
-     * altogether unbound.
+     * Whether mutating actions are currently allowed for the current request's user (a runtime
+     * pause independent of whether this service is bound at all - see
+     * {@code Changes.Config#writeEnabled()}/{@code Changes.Config#writePrincipals()}): the global
+     * flag must be on, and, if a non-empty principal list is configured, the request's own user
+     * must be that user or a member of that group for at least one of them - an empty list means no
+     * restriction (every user, same as before this check existed). A consuming plugin should hide
+     * its own edit-triggering UI when this is 'false', not just when the service is altogether
+     * unbound.
      */
-    boolean writeEnabled();
+    boolean writeEnabled(@NotNull SlingHttpServletRequest request);
 
     /**
      * The base URL for this service's on-demand dialog fragments (append '&lt;name&gt;.html' plus

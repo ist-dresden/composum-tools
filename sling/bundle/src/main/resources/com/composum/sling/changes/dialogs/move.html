@@ -22,9 +22,16 @@
                         <label class="form-label">Name</label>
                         <input type="text" class="form-control" name="name" value="${attr:move.name}">
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Order Before (sibling name, optional)</label>
+                        <input type="text" class="form-control" name="orderBefore"
+                               placeholder="leave empty to keep the default position">
+                    </div>
                     <small class="text-muted">Leave the Name unchanged to keep it while moving; leave
                         the Destination Path as it already is (its current parent) and only change
-                        the Name to rename it in place.</small>
+                        the Name to rename it in place. Order Before names an existing sibling in the
+                        destination to position this node right before - leave it empty to leave the
+                        position wherever the move/rename itself puts it.</small>
                     ${if:references.available;'<div class="form-check mt-3"><input type="checkbox" class="form-check-input changes-move_adjust-toggle" name="adjustReferences" value="true"><label class="form-check-label">Also adjust path references (path properties, rich-text links) pointing to this node</label></div><div class="mb-3 mt-2 changes-move_references-root d-none"><label class="form-label">Search Root</label><div class="input-group"><input type="text" class="form-control tools-path_input" name="referencesRoot" data-suggest-uri="${attr:dialog.pathSuggest}" placeholder="/ (whole repository)"><button type="button" class="btn btn-outline-secondary tools-tree_picker-btn" data-tree-uri="${attr:dialog.tree}" tabindex="-1" title="Browse..."><i class="bi bi-folder2-open"></i></button></div></div>'}
                 </div>
                 <div class="modal-footer">

@@ -126,6 +126,12 @@ public class PackageManager extends AbstractToolsPlugin {
         @AttributeDefinition(name = "Write Enabled",
                 description = "whether mutating operations (create/upload/update/install/uninstall/assemble/delete) are allowed")
         boolean writeEnabled() default true;
+
+        @AttributeDefinition(name = "Write Principals",
+                description = "if not empty, restricts mutating operations to these user or group " +
+                        "names (the current user must be one of them, or a member of one of them if " +
+                        "it names a group) - empty means every user (subject to 'Write Enabled' above)")
+        String[] writePrincipals() default {};
     }
 
     /** the manager this plugin is registered with */
@@ -271,6 +277,17 @@ public class PackageManager extends AbstractToolsPlugin {
         return request.getResourceResolver().adaptTo(Session.class);
     }
 
+    /**
+     * Whether mutating operations are currently allowed for the given request's own user -
+     * {@code Config#writeEnabled()} first, then, if 'writePrincipals' is non-empty, narrowed to
+     * just those users/groups (see {@link AbstractToolsPlugin#isPrincipal}, shared with
+     * {@code com.composum.sling.changes.Changes}' own, independently configured version of the
+     * same restriction).
+     */
+    protected boolean writeEnabled(@NotNull final SlingHttpServletRequest request) {
+        return config.writeEnabled() && isPrincipal(request, config.writePrincipals());
+    }
+
     protected @NotNull String targetPath(@NotNull final SlingHttpServletRequest request) {
         final RequestPathInfo pathInfo = request.getRequestPathInfo();
         return Optional.ofNullable(pathInfo.getSuffix()).filter(p -> !p.isEmpty()).orElse("/");
@@ -301,7 +318,7 @@ public class PackageManager extends AbstractToolsPlugin {
                         .with("packages.modeIsJcr", !registryMode)
                         .with("packages.mode", mode)
                         .with("packages.modeLink", pageLink() + (registryMode ? "" : "?mode=" + MODE_REGISTRY))
-                        .with("packages.createEnabled", !registryMode && config.writeEnabled())
+                        .with("packages.createEnabled", !registryMode && writeEnabled(request))
                         // pre-selects this path in the tree on initial load, see PackagesTree
                         .with("packages.path", targetPath(request))
                 ), "page"));
@@ -323,8 +340,7 @@ public class PackageManager extends AbstractToolsPlugin {
                                     .with("tree", manager.serverPath() + "." + key() + ".tree.json")
                                     .with("ancestors", manager.serverPath() + "." + key() + ".ancestors.json")
                                     .with("view", manager.serverPath() + "." + key() + ".view.json")
-                                    .with("dialog", manager.serverPath() + "." + key() + ".dialog.")
-                                    .with("writeEnabled", config.writeEnabled()))
+                                    .with("dialog", manager.serverPath() + "." + key() + ".dialog."))
                             .with("html.cssClasses", (Supplier<?>) () -> getHtmlCssClasses("packages-page"))
                             .with(toolsValues())
                     ), this)
@@ -376,7 +392,7 @@ public class PackageManager extends AbstractToolsPlugin {
         final PackageInfo info = packageInfo(request);
         if (info != null) {
             final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
-                    .with("packages.actions", (Supplier<?>) () -> actions(info))
+                    .with("packages.actions", (Supplier<?>) () -> actions(request, info))
                     .with("packages.info", (Supplier<?>) () -> valuesOf(info))
                     .with("packages.downloadUri", (Supplier<?>) () -> downloadUri(info))
                     .with("packages.downloadLabel", (Supplier<?>) () -> StringUtils.substringAfterLast(info.getPath(), "/"))
@@ -393,15 +409,16 @@ public class PackageManager extends AbstractToolsPlugin {
                 final JcrPackageManager manager = session != null ? jcrOperations.packageManager(session) : null;
                 leaves = manager != null ? new JcrPackageTree(manager).leavesUnder(path) : List.of();
             }
-            return leaves.isEmpty() ? new Result<>(SC_NOT_FOUND) : viewFolder(leaves);
+            return leaves.isEmpty() ? new Result<>(SC_NOT_FOUND) : viewFolder(request, leaves);
         } catch (RepositoryException | IOException ex) {
             LOG.error(ex.getMessage(), ex);
             return new Result<>(SC_INTERNAL_SERVER_ERROR);
         }
     }
 
-    protected @NotNull Result<?> viewFolder(@NotNull final List<PackageListEntry> entries) {
-        final List<Values> actions = config.writeEnabled()
+    protected @NotNull Result<?> viewFolder(@NotNull final SlingHttpServletRequest request,
+                                            @NotNull final List<PackageListEntry> entries) {
+        final List<Values> actions = writeEnabled(request)
                 ? List.of(action("purge", "trash", "Purge Old Versions"))
                 : List.of();
         final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
@@ -421,7 +438,7 @@ public class PackageManager extends AbstractToolsPlugin {
         if ("service".equals(action)) {
             return servicePackage(request);
         }
-        if (!config.writeEnabled()) {
+        if (!writeEnabled(request)) {
             return errorResult(SC_FORBIDDEN, "Write operations are disabled.");
         }
         switch (action) {
@@ -461,10 +478,12 @@ public class PackageManager extends AbstractToolsPlugin {
         return new Values().with("group", true).with("actions", List.of(groupedActions));
     }
 
-    protected @NotNull List<Values> actions(@NotNull final PackageInfo info) {
+    protected @NotNull List<Values> actions(@NotNull final SlingHttpServletRequest request,
+                                            @NotNull final PackageInfo info) {
         final boolean isJcr = info instanceof JcrPackageInfo;
+        final boolean writeEnabled = writeEnabled(request);
         final List<Values> result = new ArrayList<>();
-        if (config.writeEnabled()) {
+        if (writeEnabled) {
             if (isJcr) {
                 result.add(actionGroup(
                         action("edit", "pencil", "Edit"),
@@ -477,7 +496,7 @@ public class PackageManager extends AbstractToolsPlugin {
                     action("install", "box-arrow-in-down", "Install")));
         }
         final List<Values> lastGroup = new ArrayList<>();
-        if (config.writeEnabled() && isJcr) {
+        if (writeEnabled && isJcr) {
             lastGroup.add(action("assemble", "arrow-repeat", "Build"));
         }
         lastGroup.add(action("download", "download", "Download")
@@ -486,7 +505,7 @@ public class PackageManager extends AbstractToolsPlugin {
         if (isJcr) {
             result.add(action("coverage", "card-list", "Coverage"));
         }
-        if (config.writeEnabled()) {
+        if (writeEnabled) {
             result.add(action("delete", "trash", "Delete"));
         }
         return result;
@@ -1061,15 +1080,15 @@ public class PackageManager extends AbstractToolsPlugin {
                     case "ls":
                         return crxList(request);
                     case "rm":
-                        return config.writeEnabled() ? crxRemove(request) : crxResponse("", "", "403", "write disabled");
+                        return writeEnabled(request) ? crxRemove(request) : crxResponse("", "", "403", "write disabled");
                     case "build":
-                        return config.writeEnabled() ? crxBuildOrUninstall(request, true) : crxResponse("", "", "403", "write disabled");
+                        return writeEnabled(request) ? crxBuildOrUninstall(request, true) : crxResponse("", "", "403", "write disabled");
                     case "uninst":
-                        return config.writeEnabled() ? crxBuildOrUninstall(request, false) : crxResponse("", "", "403", "write disabled");
+                        return writeEnabled(request) ? crxBuildOrUninstall(request, false) : crxResponse("", "", "403", "write disabled");
                     default:
                         return crxResponse("", "", "400", "unsupported command '" + cmd + "'");
                 }
-            } else if (config.writeEnabled()) {
+            } else if (writeEnabled(request)) {
                 return crxUpload(request);
             } else {
                 return crxResponse("", "", "403", "write disabled");

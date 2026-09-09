@@ -685,6 +685,11 @@ class PathPicker extends ViewWidget {
 
   select(path) {
     this.el.value = path;
+    // setting '.value' directly, like any programmatic change, dispatches no DOM event at all -
+    // other code reacting to this field (e.g. changes/script.js's 'CreateTypeToggle', which shows
+    // a file upload once the Create dialog's Primary Type field holds 'nt:file') needs an explicit
+    // 'input' to notice a value picked this way, not just one the user actually typed
+    this.$el.trigger('input');
     this.hide();
     this.el.focus();
   }
