@@ -13,7 +13,7 @@
     width: 35%;
     min-width: 22%;
     max-width: 500px;
-    border-right: 1px solid #777;
+    border-right: 1px solid var(--toolbar-color-bg);
 }
 
 .packages-page_toolbar {
@@ -24,7 +24,7 @@
 .packages-page_detail-actions {
     height: 40px;
     padding: 4px 4px 5px;
-    background: #777;
+    background: var(--toolbar-color-bg);
     color: #ddd;
 }
 
@@ -54,7 +54,7 @@
 }
 
 .packages-page_content .btn-group .btn:last-child {
-    border-left-color: #777;
+    border-left-color: var(--toolbar-color-bg);
 }
 
 .packages-page_tree-bar .btn,
@@ -125,7 +125,7 @@
 }
 
 .packages-page_hint {
-    color: #777;
+    color: var(--toolbar-color-bg);
 }
 
 .packages-page_detail-actions {

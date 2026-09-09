@@ -48,7 +48,7 @@
 
 .changes-pending_detail {
     flex: 0 0 auto;
-    color: #777;
+    color: var(--toolbar-color-bg);
     font-family: monospace;
 }
 

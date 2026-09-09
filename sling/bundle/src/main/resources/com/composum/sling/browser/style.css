@@ -262,7 +262,7 @@
     border-bottom: 1px solid var(--toolbar-color-bg);
     border-radius: 0;
     line-height: 16px;
-    color: #495057;
+    color: var(--toolbar-tab-color);
     background: #ddd;
 }
 
