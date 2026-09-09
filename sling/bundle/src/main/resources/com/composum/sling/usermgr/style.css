@@ -27,7 +27,7 @@
 
 .usermgr-page_tree-bar {
     flex: 0 0 auto;
-    padding: 6px 12px 10px;
+    padding: 6px 12px;
     background: #777;
     color: #ddd;
     border-right: 1px solid #aaa;
@@ -41,47 +41,79 @@
     margin-right: 4px;
 }
 
+/* the right column: a permanently visible search bar + result table taking a fixed ~45% of the
+   column's height (own scrollbar for however many/few results there are - the block itself never
+   shrinks or grows with the result count), and below it, taking the rest, the detail panel for
+   whatever is currently selected (a search hit, or a plain tree click) - a sibling of
+   '.usermgr-page_search', not a descendant, deliberately: 'UsersDetail' (script.js) reloads
+   '.usermgr-page_detail-panel' wholesale on every selection, and search must survive that reload
+   untouched */
+.usermgr-page_right-panel {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
 .usermgr-page_search {
-    position: relative;
-    width: 100%;
-    margin-top: 8px;
+    flex: 0 0 45%;
+    display: flex;
+    flex-direction: column;
+    height: 45%;
+    overflow: hidden;
+    background: #777;
+}
+
+.usermgr-page_search-form {
+    flex: 0 0 auto;
+    padding: 6px 12px;
+    gap: 6px;
 }
 
 .usermgr-page_search-input {
-    width: 100%;
+    flex: 1 1 0;
+    height: 32px;
 }
 
 .usermgr-page_search-results {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    z-index: 10;
-    margin: 2px 0 0;
-    padding: 4px 0;
-    list-style: none;
+    flex: 1 1 auto;
+    overflow: auto;
     background: #fff;
     color: #212529;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    max-height: 320px;
-    overflow: auto;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    border-top: 1px solid #999;
 }
 
-.usermgr-page_search-results li {
-    padding: 0;
+.usermgr-page_search-table {
+    width: 100%;
+    margin: 0;
 }
 
-.usermgr-page_search-results a {
-    display: block;
-    padding: 6px 12px;
-    color: #212529;
-    text-decoration: none;
+.usermgr-page_search-table td {
+    padding: 5px 10px;
+    vertical-align: middle;
+    border-top: 1px solid #eee;
+    cursor: pointer;
 }
 
-.usermgr-page_search-results a:hover {
+.usermgr-page_search-table tr:hover td {
     background: #f0f0f0;
+}
+
+.usermgr-page_search-table .icon {
+    width: 1%;
+    white-space: nowrap;
+    color: #777;
+}
+
+.usermgr-page_search-table .label {
+    font-weight: 600;
+    color: #0d6efd;
+}
+
+.usermgr-page_search-table .path {
+    color: #777;
+    font-family: monospace;
+    font-size: 90%;
 }
 
 .usermgr-page_search-empty {
@@ -125,14 +157,16 @@
 }
 
 .usermgr-page_detail-panel {
+    flex: 1 1 auto;
     width: 100%;
-    height: 100%;
+    overflow: hidden;
 }
 
 .usermgr-page_detail {
     position: relative;
     width: 100%;
     height: 100%;
+    overflow: auto;
 }
 
 .usermgr-page_hint {

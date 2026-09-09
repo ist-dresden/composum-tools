@@ -181,12 +181,19 @@ class UsersTree extends ViewWidget {
 
 CPM.widgets.register(UsersTree);
 
-// the tree-bar "Find" input: a small debounced-search dropdown backed by
-// UserManager#query/JcrAuthorizableOperations#find (an indexed authorizable-id search) - this is
-// deliberately not a Package-Manager-style recursive folder listing, since '/home' can hold
-// thousands of authorizables nested arbitrarily deep with no index behind a plain tree walk.
-// Selecting a result reuses the same 'path:select' event a folder-entry click already uses, so
-// the tree drills open and the detail panel loads exactly like any other navigation.
+// the permanently visible search bar in the right column (a sibling of '.usermgr-page_detail-panel',
+// not nested inside it - see '.usermgr-page_right-panel' in style.css for why), with a permanent
+// (not just capped) ~45% height - always reserved, whether or not a search is currently active.
+// Two independent, combinable patterns, each backed by its own indexed lookup: a name/principal
+// wildcard pattern (UserManager#query -> JcrAuthorizableOperations#find) and an affected-path
+// wildcard pattern (-> JcrAuthorizableOperations#findByAffectedPath) - matching the legacy Nodes
+// tool's "Authorizable Name"/"Affected Path" search fields, minus its third "Graph" mode and its
+// separate "Authorizable Path" field, neither of which was asked for. Results render as a table
+// (icon/label/path columns), matching the legacy tool's own result layout - and, unlike a
+// transient dropdown, the table stays in place after a click so several matches can be tried in
+// turn, each loading its own detail below. Selecting a result reuses the same 'path:select' event
+// a folder-entry click already uses, so the tree drills open and the detail panel loads exactly
+// like any other navigation.
 class UsersSearch extends ViewWidget {
 
   static selector = '.usermgr-page_search';
@@ -198,32 +205,38 @@ class UsersSearch extends ViewWidget {
   constructor(element) {
     super(element);
     this.queryUrl = this.$el.data('query-url');
-    this.$input = this.$el.find('.usermgr-page_search-input');
+    this.$nameInput = this.$el.find('.usermgr-page_search-input');
+    this.$pathInput = this.$el.find('.usermgr-page_search-path-input');
     this.$results = this.$el.find('.usermgr-page_search-results');
-    this.$input.on('input', this.onInput.bind(this));
-    $(document).on('click', (event) => {
-      if (!$.contains(this.el, event.target)) {
-        this.hideResults();
-      }
-    });
+    this.$nameInput.on('input', this.onInput.bind(this));
+    this.$pathInput.on('input', this.onInput.bind(this));
+    this.showHint('Enter a name and/or an affected-path pattern above (wildcards \'*\'/\'?\' allowed).');
   }
 
   onInput() {
-    const text = this.$input.val().trim();
+    const text = this.$nameInput.val().trim();
+    const path = this.$pathInput.val().trim();
     if (this.timer) {
       clearTimeout(this.timer);
     }
-    if (text.length < UsersSearch.minLength) {
-      this.hideResults();
+    if (text.length < UsersSearch.minLength && path.length < UsersSearch.minLength) {
+      this.showHint('Enter a name and/or an affected-path pattern above (wildcards \'*\'/\'?\' allowed).');
       return;
     }
-    this.timer = setTimeout(() => this.search(text), UsersSearch.debounceMillis);
+    this.timer = setTimeout(() => this.search(text, path), UsersSearch.debounceMillis);
   }
 
-  search(text) {
+  search(text, path) {
+    const params = [];
+    if (text) {
+      params.push('text=' + encodeURIComponent(text));
+    }
+    if (path) {
+      params.push('path=' + encodeURIComponent(path));
+    }
     $.ajax({
       type: 'GET',
-      url: this.queryUrl + '?text=' + encodeURIComponent(text),
+      url: this.queryUrl + '?' + params.join('&'),
       success: (results) => this.showResults(results),
       async: true,
       cache: false
@@ -231,28 +244,29 @@ class UsersSearch extends ViewWidget {
   }
 
   showResults(results) {
-    this.$results.empty();
     if (!results || results.length === 0) {
-      this.$results.append($('<li class="usermgr-page_search-empty"></li>').text('No matches'));
-    } else {
-      results.forEach((ref) => {
-        const $link = $('<a href="#"></a>')
-          .append($('<i></i>').addClass('bi bi-' + ref.icon))
-          .append(' ' + ref.label)
-          .on('click', (event) => {
-            event.preventDefault();
-            $(document).trigger('path:select', [ref.path]);
-            this.hideResults();
-            this.$input.val('');
-          });
-        this.$results.append($('<li></li>').append($link));
-      });
+      this.showHint('No matches.');
+      return;
     }
-    this.$results.removeClass('d-none');
+    const $table = $('<table class="table table-sm usermgr-page_search-table"></table>');
+    const $tbody = $('<tbody></tbody>').appendTo($table);
+    results.forEach((ref) => {
+      $('<tr></tr>')
+        .append($('<td class="icon"></td>').append($('<i></i>').addClass('bi bi-' + ref.icon)))
+        .append($('<td class="label"></td>').text(ref.label))
+        .append($('<td class="path"></td>').text(ref.path))
+        .on('click', () => {
+          // deliberately does not clear the input or hide the results - the table stays put so
+          // several matches can be clicked through in turn, each loading its own detail below
+          $(document).trigger('path:select', [ref.path]);
+        })
+        .appendTo($tbody);
+    });
+    this.$results.empty().append($table);
   }
 
-  hideResults() {
-    this.$results.addClass('d-none').empty();
+  showHint(text) {
+    this.$results.empty().append($('<div class="usermgr-page_search-empty"></div>').text(text));
   }
 }
 

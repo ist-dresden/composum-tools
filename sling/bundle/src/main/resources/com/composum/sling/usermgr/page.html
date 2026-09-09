@@ -24,11 +24,6 @@ ${include:'/sling/tools/navbar/navbar.html'}
                 <span class="usermgr-page_tree-title">Users &amp; Groups</span>
                 ${if:users.writeEnabled;'/sling/usermgr/toolbar.html'}
             </div>
-            <div class="usermgr-page_search" data-query-url="${attr:users.query}">
-                <input type="search" class="form-control form-control-sm usermgr-page_search-input"
-                       placeholder="Find..." autocomplete="off">
-                <ul class="usermgr-page_search-results d-none"></ul>
-            </div>
         </div>
         <div class="usermgr-page_tree-panel">
             <div class="usermgr-page_tree"
@@ -38,13 +33,26 @@ ${include:'/sling/tools/navbar/navbar.html'}
                  data-path="${attr:users.path}"></div>
         </div>
     </div>
-    <div class="usermgr-page_detail-panel" data-page-url="${attr:users.uri}" data-view-url="${attr:users.view}"
-         data-dialog-url="${attr:users.dialog}">
-        <div class="usermgr-page_detail">
-            <div class="usermgr-page_detail-actions">
+    <div class="usermgr-page_right-panel">
+        <div class="usermgr-page_search" data-query-url="${attr:users.query}">
+            <div class="usermgr-page_search-form d-flex align-items-stretch">
+                <input type="search" class="usermgr-page_search-input form-control form-control-sm"
+                       placeholder="Name pattern (e.g. *contact*)..." autocomplete="off">
+                <input type="search" class="usermgr-page_search-path-input form-control form-control-sm"
+                       placeholder="Affected path pattern (e.g. /content/*)..." autocomplete="off">
             </div>
-            <div class="usermgr-page_detail_content">
-                <p class="usermgr-page_hint">Select a user, group, or folder in the tree on the left.</p>
+            <div class="usermgr-page_search-results">
+                <div class="usermgr-page_search-empty">Enter a name and/or an affected-path pattern above (wildcards '*'/'?' allowed).</div>
+            </div>
+        </div>
+        <div class="usermgr-page_detail-panel" data-page-url="${attr:users.uri}" data-view-url="${attr:users.view}"
+             data-dialog-url="${attr:users.dialog}">
+            <div class="usermgr-page_detail">
+                <div class="usermgr-page_detail-actions">
+                </div>
+                <div class="usermgr-page_detail_content">
+                    <p class="usermgr-page_hint">Select a user, group, or folder in the tree on the left.</p>
+                </div>
             </div>
         </div>
     </div>

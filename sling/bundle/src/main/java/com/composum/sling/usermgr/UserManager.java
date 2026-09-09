@@ -253,19 +253,28 @@ public class UserManager extends AbstractToolsPlugin {
     protected static final int QUERY_LIMIT = 25;
 
     /**
-     * Searches for authorizables whose id contains the request's 'text' parameter, optionally
-     * restricted to the 'type' parameter ('user'/'group') - see
-     * {@link JcrAuthorizableOperations#find}, backing the tree-bar's "Find" input.
+     * Searches for authorizables matching the request's 'text' parameter (id/principal name
+     * wildcard pattern - see {@link JcrAuthorizableOperations#find}) and/or its 'path' parameter
+     * (affected-path wildcard pattern - see {@link JcrAuthorizableOperations#findByAffectedPath}),
+     * optionally restricted to the 'type' parameter ('user'/'group') - backing the fixed search
+     * bar above the detail panel. 'path' takes precedence: when given, 'text' (if also given)
+     * narrows the affected-path search further rather than running a separate name-only search.
      */
     protected @NotNull Result<?> query(@NotNull final SlingHttpServletRequest request) {
         final String text = StringUtils.trimToEmpty(request.getParameter("text"));
-        if (text.isEmpty()) {
+        final String path = StringUtils.trimToEmpty(request.getParameter("path"));
+        if (text.isEmpty() && path.isEmpty()) {
             return new Result<>(List.of());
         }
         try {
             final Session session = session(request);
-            final List<AuthorizableRef> result = session != null
-                    ? jcrOperations.find(session, text, request.getParameter("type"), QUERY_LIMIT) : List.of();
+            if (session == null) {
+                return new Result<>(List.of());
+            }
+            final List<AuthorizableRef> result = !path.isEmpty()
+                    ? jcrOperations.findByAffectedPath(request.getResourceResolver(), session,
+                            text, path, request.getParameter("type"), QUERY_LIMIT)
+                    : jcrOperations.find(session, text, request.getParameter("type"), QUERY_LIMIT);
             return new Result<>(result);
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);

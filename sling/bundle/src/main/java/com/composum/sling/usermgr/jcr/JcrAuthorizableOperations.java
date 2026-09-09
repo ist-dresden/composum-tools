@@ -6,6 +6,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.jackrabbit.api.JackrabbitSession;
 import org.apache.jackrabbit.api.security.user.Authorizable;
 import org.apache.jackrabbit.api.security.user.Group;
+import org.apache.jackrabbit.api.security.user.Query;
+import org.apache.jackrabbit.api.security.user.QueryBuilder;
 import org.apache.jackrabbit.api.security.user.User;
 import org.apache.jackrabbit.api.security.user.UserManager;
 import org.apache.sling.api.resource.Resource;
@@ -18,9 +20,11 @@ import javax.jcr.Session;
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 /**
  * Wraps the Jackrabbit {@link UserManager} API for the User Manager's detail-view, create,
@@ -233,11 +237,10 @@ public class JcrAuthorizableOperations {
         }
     }
 
-    private static final String REP_AUTHORIZABLE_ID = "rep:authorizableId";
-
     /**
-     * Finds authorizables whose id contains the given text - an indexed lookup
-     * ({@link UserManager#findAuthorizables(String, String, int)}), unlike
+     * Finds authorizables whose id or principal name matches the given wildcard pattern - an
+     * indexed lookup ({@link UserManager#findAuthorizables(Query)} with
+     * {@link QueryBuilder#nameMatches}), unlike
      * {@link com.composum.sling.usermgr.jcr.JcrAuthorizableTree#immediateChildren}'s plain node
      * walk, so this scales to a large '/home' regardless of how deeply an authorizable is
      * nested - the whole reason a "Find" box exists instead of a Package-Manager-style recursive
@@ -247,26 +250,170 @@ public class JcrAuthorizableOperations {
      *                overload the {@code UserManager} plugin class calls, so that class (whose
      *                own name collides with the Jackrabbit {@link UserManager} interface) never
      *                needs to name that type at all
-     * @param text    the (sub-)string to search the authorizable id for
+     * @param pattern the pattern to match the authorizable id/principal name against - '*' for
+     *                any run of characters, '?' for a single one (see {@link #wildcardToSqlLike});
+     *                a pattern with no wildcard at all is treated as a plain "contains" search,
+     *                matching this method's previous, simpler behavior
      * @param type    'user', 'group', or 'null'/anything else for both
      * @param limit   the maximum number of results to return
      * @return the matching authorizables, or an empty list if the session has no user manager
      */
-    public @NotNull List<AuthorizableRef> find(@NotNull final Session session, @NotNull final String text,
+    public @NotNull List<AuthorizableRef> find(@NotNull final Session session, @NotNull final String pattern,
                                                @Nullable final String type, final int limit)
             throws RepositoryException {
         final UserManager userManager = userManager(session);
         if (userManager == null) {
             return List.of();
         }
-        final int searchType = "user".equals(type) ? UserManager.SEARCH_TYPE_USER
-                : "group".equals(type) ? UserManager.SEARCH_TYPE_GROUP : UserManager.SEARCH_TYPE_AUTHORIZABLE;
-        final Iterator<Authorizable> iterator = userManager.findAuthorizables(REP_AUTHORIZABLE_ID, text, searchType);
+        final String likePattern = wildcardToSqlLike(pattern);
+        final Class<? extends Authorizable> selector = "user".equals(type) ? User.class
+                : "group".equals(type) ? Group.class : null;
+        final Iterator<Authorizable> iterator = userManager.findAuthorizables(new Query() {
+            @Override
+            public <T> void build(@NotNull final QueryBuilder<T> builder) {
+                builder.setCondition(builder.nameMatches(likePattern));
+                if (selector != null) {
+                    builder.setSelector(selector);
+                }
+                builder.setLimit(0, limit);
+            }
+        });
         final List<AuthorizableRef> result = new ArrayList<>();
         while (iterator.hasNext() && result.size() < limit) {
             result.add(toRef(iterator.next()));
         }
         return result;
+    }
+
+    /**
+     * Finds authorizables that have at least one ACL entry (grant or deny) at a repository path
+     * matching the given wildcard pattern - the reverse of {@link #affectedPaths}: that method
+     * answers "where does this authorizable's principal have rights", this one answers "which
+     * authorizables have rights somewhere matching this path". Unlike the legacy Composum Nodes
+     * tool this was ported from (which ran the equivalent of {@link #affectedPaths} once per
+     * candidate authorizable, an O(authorizable count) series of queries), this runs exactly two
+     * JCR-SQL2 queries total (one per ACE node type, same reasoning as {@link #affectedPaths}) -
+     * every 'rep:GrantACE'/'rep:DenyACE' in the whole repository is necessarily inspected once
+     * (there is no index on "the path two ancestors up"), but each is inspected exactly once
+     * regardless of how many authorizables end up matching.
+     *
+     * @param resolver     the current resolver, used for the JCR-SQL2 ACE queries
+     * @param session      the current session, resolved to a {@link UserManager} internally - the
+     *                     overload the {@code UserManager} plugin class calls, so that class
+     *                     (whose own name collides with the Jackrabbit {@link UserManager}
+     *                     interface) never needs to name that type at all, same as {@link #find}
+     * @param namePattern  an optional additional wildcard pattern the id/principal name must also
+     *                     match (see {@link #find}), or blank/'null' for no name restriction
+     * @param pathPattern  the wildcard pattern (see {@link #wildcardToRegex}) the affected path
+     *                     must match
+     * @param type         'user', 'group', or 'null'/anything else for both
+     * @param limit        the maximum number of results to return
+     * @return the matching authorizables, or an empty list if the session has no user manager
+     */
+    public @NotNull List<AuthorizableRef> findByAffectedPath(@NotNull final ResourceResolver resolver,
+                                                              @NotNull final Session session,
+                                                              @Nullable final String namePattern,
+                                                              @NotNull final String pathPattern,
+                                                              @Nullable final String type, final int limit)
+            throws RepositoryException {
+        final UserManager userManager = userManager(session);
+        if (userManager == null) {
+            return List.of();
+        }
+        final Pattern pathRegex = wildcardToRegex(pathPattern);
+        final Pattern nameRegex = StringUtils.isNotBlank(namePattern) ? wildcardToRegex(namePattern) : null;
+        final Set<String> principalNames = new LinkedHashSet<>();
+        for (final String aceType : List.of("rep:GrantACE", "rep:DenyACE")) {
+            final Iterator<Resource> iterator = resolver.findResources("SELECT * FROM [" + aceType + "]", "JCR-SQL2");
+            while (iterator.hasNext()) {
+                final Resource ace = iterator.next();
+                final Resource acl = ace.getParent();
+                final Resource controlled = acl != null ? acl.getParent() : null;
+                if (controlled == null || !pathRegex.matcher(controlled.getPath()).matches()) {
+                    continue;
+                }
+                final String principalName = ace.getValueMap().get("rep:principalName", String.class);
+                if (principalName != null) {
+                    principalNames.add(principalName);
+                }
+            }
+        }
+        final List<AuthorizableRef> result = new ArrayList<>();
+        for (final String principalName : principalNames) {
+            if (result.size() >= limit) {
+                break;
+            }
+            final Authorizable authorizable = userManager.getAuthorizable(new NamedPrincipal(principalName));
+            if (authorizable == null || (nameRegex != null && !nameRegex.matcher(authorizable.getID()).matches()
+                    && !nameRegex.matcher(principalName).matches())) {
+                continue;
+            }
+            final boolean isGroup = authorizable instanceof Group;
+            if (("user".equals(type) && isGroup) || ("group".equals(type) && !isGroup)) {
+                continue;
+            }
+            result.add(toRef(authorizable));
+        }
+        return result;
+    }
+
+    /**
+     * Translates a user-facing wildcard pattern ('*' for any run of characters, '?' for a single
+     * one) into the SQL LIKE pattern {@link QueryBuilder#nameMatches} expects ('%'/'_'), escaping
+     * any literal use of '%'/'_'/'\' in the input. A pattern with neither '*' nor '?' is treated
+     * as an implicit "contains" search (wrapped in a leading/trailing '*') - the common case of
+     * just typing part of a name, preserved from this method's simpler predecessor.
+     */
+    private static @NotNull String wildcardToSqlLike(@NotNull final String pattern) {
+        final String effective = hasWildcard(pattern) ? pattern : "*" + pattern + "*";
+        final StringBuilder like = new StringBuilder();
+        for (int i = 0; i < effective.length(); i++) {
+            final char c = effective.charAt(i);
+            switch (c) {
+                case '*':
+                    like.append('%');
+                    break;
+                case '?':
+                    like.append('_');
+                    break;
+                case '%':
+                case '_':
+                case '\\':
+                    like.append('\\').append(c);
+                    break;
+                default:
+                    like.append(c);
+            }
+        }
+        return like.toString();
+    }
+
+    /**
+     * Translates the same user-facing wildcard pattern as {@link #wildcardToSqlLike} into a
+     * case-insensitive, full-match {@link Pattern} - used where the candidate value (a repository
+     * path here) is already in hand and matched in Java, rather than pushed into a JCR query.
+     */
+    private static @NotNull Pattern wildcardToRegex(@NotNull final String pattern) {
+        final String effective = hasWildcard(pattern) ? pattern : "*" + pattern + "*";
+        final StringBuilder regex = new StringBuilder();
+        for (int i = 0; i < effective.length(); i++) {
+            final char c = effective.charAt(i);
+            switch (c) {
+                case '*':
+                    regex.append(".*");
+                    break;
+                case '?':
+                    regex.append('.');
+                    break;
+                default:
+                    regex.append(Pattern.quote(String.valueOf(c)));
+            }
+        }
+        return Pattern.compile(regex.toString(), Pattern.CASE_INSENSITIVE);
+    }
+
+    private static boolean hasWildcard(@NotNull final String pattern) {
+        return pattern.indexOf('*') >= 0 || pattern.indexOf('?') >= 0;
     }
 
     /**
