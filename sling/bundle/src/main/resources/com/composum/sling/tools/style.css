@@ -1,3 +1,31 @@
+:root {
+    --navbar-height: 40px;
+    --toolbar-height: 37px;
+    --toolbar-gap: 4px;
+    --toolbar-gap-lg: 8px;
+    --toolbar-group-gap: 8px;
+    --toolbar-group-gap-lg: 16px;
+    --toolbar-tab-padding-h-sm: 8px;
+    --toolbar-tab-padding-h-md: 12px;
+    --toolbar-item-line-height: 31px;
+    --navbar-item-line-height: 36px;
+    --toolbar-icon-font-size: 125%;
+    --icon-gap: 4px;
+    --icon-gap-lg: 8px;
+    --navbar-color: #ccc;
+    --navbar-color-active: #fff;
+    --navbar-color-bg: #1e1e1e;
+    --navbar-menu-color-bg: #444;
+    --navbar-menu-color-divider: #888;
+    --navbar-input-color: #ddd;
+    --navbar-input-color-bg: #777;
+    --toolbar-color: #ddd;
+    --toolbar-color-bg: #777;
+    --toolbar-tab-color: #495057;
+    --toolbar-tab-color-bg: #ddd;
+    --border-radius: 0.375rem;
+}
+
 html, body {
     width: 100%;
     height: 100%;
@@ -11,8 +39,8 @@ body {
 .tools-navbar {
     position: relative;
     flex-wrap: nowrap;
-    padding: 2px 10px 2px 52px;
-    background-color: #1e1e1e !important;
+    padding: 2px 10px 2px 60px;
+    background-color: var(--navbar-color-bg) !important;
 }
 
 .tools-navbar .tools-navbar_brand {
@@ -40,11 +68,11 @@ body {
 .tools-navbar .nav-item a:visited,
 .tools-navbar .nav-item {
     text-decoration: none;
-    color: #ddd;
+    color: var(--navbar-color);
 }
 
 .tools-navbar .nav-item .nav-link.active {
-    color: #fff;
+    color: var(--navbar-color-active);
 }
 
 .tools-navbar > .navbar-nav {
@@ -54,19 +82,50 @@ body {
 }
 
 .tools-navbar > .navbar-nav_left {
-    min-width: 200px;
+    min-width: 125px;
+}
+
+@media (min-width: 1024px) {
+    .tools-navbar > .navbar-nav_left {
+        min-width: 150px;
+    }
+}
+
+@media (min-width: 1200px) {
+    .tools-navbar > .navbar-nav_left {
+        min-width: 180px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .tools-navbar > .navbar-nav_left .tools-page-menu .dropdown-menu {
+        left: var(--toolbar-gap);
+    }
+}
+
+.tools-navbar > .navbar-nav .dropdown {
+    position: relative;
+}
+
+.tools-navbar > .navbar-nav .dropdown .active-item {
+    padding-right: 1px;
 }
 
 .tools-navbar > .navbar-nav .dropdown-menu {
-    position: relative;
-    top: 0;
-    background: #444;
+    position: absolute;
+    top: 34px;
+    right: var(--toolbar-gap);
+    background: var(--navbar-menu-color-bg);
+}
+
+@media (min-width: 1024px) {
+    .tools-navbar > .navbar-nav .dropdown-menu {
+        right: var(--toolbar-gap-lg);
+    }
 }
 
 .tools-navbar .dropdown-menu {
     padding-top: 4px;
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
 }
 
 .tools-navbar .dropdown-menu .dropdown-item,
@@ -76,17 +135,22 @@ body {
 }
 
 .tools-navbar .dropdown-menu .dropdown-item:hover {
-    color: #444;
+    color: var(--navbar-menu-color-bg);
 }
 
 .tools-navbar .dropdown-menu .dropdown-divider {
-    border-color: #888;
+    border-color: var(--navbar-menu-color-divider);
 }
 
-.tools-navbar .nav-link,
-.tools-navbar .dropdown {
-    padding: 0 8px;
-    line-height: 36px;
+.tools-navbar .nav-link {
+    padding: 0 var(--toolbar-gap);
+    line-height: var(--navbar-item-line-height);
+}
+
+@media (min-width: 1024px) {
+    .tools-navbar .nav-link {
+        padding: 0 var(--toolbar-gap-lg);
+    }
 }
 
 .tools-navbar .nav-link .bi {
@@ -94,26 +158,26 @@ body {
 }
 
 .tools-navbar .tools-navbar_current-user {
-    margin-left: 20px;
+    margin-left: var(--toolbar-gap);
     margin-right: -5px;
-    padding: 0 10px;
+    padding: 0 var(--toolbar-gap-lg);
+}
+
+@media (min-width: 1024px) {
+    .tools-navbar .tools-navbar_current-user {
+        margin-left: var(--toolbar-gap-lg);
+    }
 }
 
 .tools-navbar .dashboard__home-link,
 .tools-navbar .nav-item {
-    height: 36px;
-    line-height: 36px;
-}
-
-.tools-navbar .browser-tool-favorites {
-    height: 35px;
-    padding-top: 1px;
-    line-height: 34px;
+    height: var(--navbar-item-line-height);
+    line-height: var(--navbar-item-line-height);
 }
 
 .tools-navbar .nav-item,
 .tools-navbar .nav-item .nav-link {
-    color: rgba(255, 255, 255, .7);
+    color: var(--navbar-color);
 }
 
 .tools-navbar .btn {

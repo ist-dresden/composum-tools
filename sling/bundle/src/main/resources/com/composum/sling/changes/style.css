@@ -1,6 +1,24 @@
+
+.changes-pending-group {
+    margin-right: var(--toolbar-group-gap);
+}
+
 .changes-pending-group .nav-link {
-    padding-left: .5rem;
-    padding-right: .5rem;
+    padding-left: var(--toolbar-gap);
+    padding-right: var(--toolbar-gap);
+}
+
+@media (min-width: 1024px) {
+
+    .changes-pending-group {
+        margin-right: var(--toolbar-group-gap-lg);
+    }
+
+    .changes-pending-group .nav-link {
+        padding-left: var(--toolbar-gap-lg);
+        padding-right: var(--toolbar-gap-lg);
+    }
+
 }
 
 .changes-pending_list {

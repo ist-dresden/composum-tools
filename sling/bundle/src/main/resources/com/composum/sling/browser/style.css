@@ -9,6 +9,21 @@
     width: 100%;
 }
 
+.tools-navbar .browser-tool-favorites {
+    padding-top: 1px;
+}
+
+.tools-navbar .browser-tool-query {
+    margin-right: var(--toolbar-gap);
+}
+
+@media (min-width: 1024px) {
+    .tools-navbar .browser-tool-query {
+        margin-right: var(--toolbar-gap-lg);
+    }
+
+}
+
 .browser_path-group {
     display: flex;
 }
@@ -16,9 +31,9 @@
 .browser_path-field,
 .browser_path-field:focus,
 .browser_path-group .browser_path_related-btn {
-    border: 1px solid #777;
-    background: #777;
-    color: rgba(255, 255, 255, .6);
+    border: 1px solid var(--navbar-input-color-bg);
+    background: var(--navbar-input-color-bg);
+    color: var(--navbar-input-color);
 }
 
 .browser_path-field,
@@ -26,7 +41,7 @@
     flex-grow: 1;
     width: 100%;
     padding: 1px 6px;
-    border-radius: 0.375rem 0 0 0.375rem;
+    border-radius: var(--border-radius) 0 0 var(--border-radius);
     white-space: nowrap;
 }
 
@@ -38,13 +53,14 @@
 
 .browser_path-group .browser_path_related-btn {
     margin-left: 1px;
-    padding: 6px 8px;
+    padding: 6px var(--toolbar-gap-lg);
     border-radius: 0 var(--bs-btn-border-radius) var(--bs-btn-border-radius) 0;
 }
 
 .tools-navbar > .navbar-nav .browser_path-group .browser_path_related-menu {
     position: absolute;
     top: 31px;
+    right: 0;
 }
 
 .browser-node-toolbar .dropdown-menu a,
@@ -69,19 +85,29 @@
 .browser_path-group .browser_path_related-menu a,
 .browser_path-group .browser_path_related-menu a:focus,
 .browser_path-group .browser_path_related-menu a:visited {
-    color: #ddd;
+    color: var(--navbar-input-color);
 }
 
 .browser-node-toolbar .dropdown-menu a:hover,
 .browser-node-toolbar .dropdown-menu a:active {
-    color: #000;
+    color: var(--navbar-menu-color-bg);
 }
 
 .browser-node-toolbar .dropdown-menu a i,
 .browser_path-group .browser_path_related-menu a i,
 .browser_actions,
 .browser_actions .icon {
-    margin-right: 8px;
+    margin-right: var(--toolbar-gap);
+}
+
+@media (min-width: 1024px) {
+    .browser-node-toolbar .dropdown-menu a i,
+    .browser_path-group .browser_path_related-menu a i,
+    .browser_actions,
+    .browser_actions .icon {
+        margin-right: var(--toolbar-gap-lg);
+    }
+
 }
 
 .browser_path-group .browser_path_related-menu li {
@@ -97,16 +123,11 @@
     display: inline-block;
     font-family: bootstrap-icons !important;
     font-size: 125%;
-    color: #fff;
+    color: var(--navbar-color-active);
     -webkit-font-smoothing: antialiased;
 }
 
-.changes-pending-group {
-    margin-right: 16px;
-}
-
 .browser_actions .current-action {
-    min-width: 135px;
     text-align: right;
 }
 
@@ -142,7 +163,7 @@
     width: 35%;
     min-width: 22%;
     max-width: 500px;
-    padding-top: 33px;
+    padding-top: var(--toolbar-height);
     border-right: 1px solid #aaa;
 }
 
@@ -151,8 +172,8 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 33px;
-    background: #777;
+    height: var(--toolbar-height);
+    background: var(--toolbar-color-bg);
 }
 
 .browser-node-toolbar .btn-toolbar {
@@ -160,12 +181,10 @@
 }
 
 .browser-node-toolbar .browser-node-toolbar_change-toggle.btn {
-    display: inline-flex;
-    height: 28px;
-    padding: 1px 10px;
-    border-color: #777;
-    line-height: 23px;
-    font-size: 125%;
+    margin-right: 2px;
+    height: 30px;
+    line-height: 27px;
+    font-size: var(--toolbar-icon-font-size);
 }
 
 .browser-node-toolbar .dropdown-menu {
@@ -205,7 +224,6 @@
     position: relative;
     width: 100%;
     height: 35%;
-    border-bottom: 2px solid #777;
 }
 
 .browser-page_browser_right-panel.tool-visible .browser-page_browser_tool-panel {
@@ -225,9 +243,9 @@
 
 .browser-page_browser_view .browser-page_browser_tabs {
     border-bottom: none;
-    height: 33px;
-    padding: 0 2px 0;
-    background: #777;
+    height: var(--toolbar-height);
+    padding: 4px 2px 0;
+    background: var(--toolbar-color-bg);
 }
 
 .browser-favorites .browser-page_browser_view .browser-page_browser_tabs {
@@ -241,7 +259,7 @@
 .browser-page_browser_view .browser-page_browser_tabs .nav-item .nav-link {
     margin: 0 2px 0 0;
     border: none;
-    border-bottom: 1px solid #777;
+    border-bottom: 1px solid var(--toolbar-color-bg);
     border-radius: 0;
     line-height: 16px;
     color: #495057;
@@ -271,7 +289,7 @@
     position: absolute;
     top: 0;
     right: 48px;
-    height: 33px;
+    height: var(--toolbar-height);
 }
 
 @media (max-width: 1199px) {
@@ -282,14 +300,18 @@
 
 .browser-node-toolbar .btn,
 .browser-page_browser_view .browser-page_browser_parameters .btn {
-    height: 27px;
-    margin: 2px 0;
-    padding: 2px 8px;
+    height: var(--toolbar-item-line-height);
+    margin: 3px 0;
+    padding: 0 var(--toolbar-gap-lg);
+}
+
+.browser-page_browser_view .browser-page_browser_parameters {
+    line-height: var(--toolbar-item-line-height);
 }
 
 .browser-page_browser_view .browser-page_browser_parameters .form-check-label,
 .browser-page_browser_view .browser-page_browser_parameters .form-control-label {
-    color: #f8f8f8
+    color: var(--toolbar-color);
 }
 
 .browser-page_browser_view .browser-page_browser_parameters .form-control-label {
@@ -298,22 +320,23 @@
 
 .browser-page_browser_view .browser-page_browser_parameters .form-control,
 .browser-page_browser_view .browser-page_browser_parameters .form-check {
-    margin: 4px 0 4px 15px;
+    margin: 5px 0 3px 15px;
+}
+
+.browser-page_browser_view .browser-page_browser_parameters .form-check {
+    line-height: 30px;
 }
 
 .browser-page_browser_view .browser-page_browser_parameters .form-control {
-    padding: 1px 4px;
+    padding: 1px var(--toolbar-gap);
     line-height: 18px;
-    height: auto;
-}
-
-.browser-page_browser_view .browser-page_browser_parameters .form-text-input {
-    height: 24px;
+    max-height: 28px;
 }
 
 .browser-page_browser_view .browser-page_browser_parameters .form-check-input {
-    width: 17px;
-    height: 17px;
+    width: 19px;
+    height: 19px;
+    margin-top: 5px;
 }
 
 .browser-page_browser_view .browser-page_browser_parameters .src-depth {
@@ -332,7 +355,7 @@
 }
 
 .browser-node_action-reload {
-    padding: 4px;
+    padding: 6px 2px 6px 0;
 }
 
 .browser-page_browser_view .browser-tool_favorite-toggle,
@@ -343,7 +366,7 @@
 
 .browser-page_browser_view .browser-tool_favorite-toggle {
     left: 0;
-    top: 4px;
+    top: 6px;
 }
 
 .browser-page_browser_view .browser-tool_favorite-toggle.is-favorite::before {
@@ -351,7 +374,7 @@
 }
 
 .browser-page_browser_view .browser-page_browser_action-reload {
-    top: 4px;
+    top: 7px;
     right: 5px;
 }
 
@@ -363,7 +386,7 @@
 
 .browser-page_browser_view .tab-content {
     position: absolute;
-    top: 34px;
+    top: 38px;
     bottom: 0;
     right: 0;
     left: 0;
@@ -539,7 +562,7 @@
 }
 
 .browser-properties_toolbar .btn {
-    border-color: #777;
+    border-color: var(--toolbar-color-bg);
 }
 
 @media (min-width: 1200px) {
