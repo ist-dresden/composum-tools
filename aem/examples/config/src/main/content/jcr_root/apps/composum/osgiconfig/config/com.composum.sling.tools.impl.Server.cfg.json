@@ -1,0 +1,16 @@
+{
+  "sortableTypes": [
+    "nt:folder",
+    "sling:Folder",
+    "cq:Component"
+  ],
+  "cssRunmodes": [
+    "author",
+    "publish"
+  ],
+  "loginUri": "/libs/granite/core/content/login.html",
+  "systemClientlibs": [
+    "/libs/clientlibs/granite/jquery/granite/csrf/source/granite.http.externalize.js",
+    "/libs/clientlibs/granite/jquery/granite/csrf/source/csrf.js"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "queryTemplates": [
+    "[cq:Page]${path} ${1}",
+    "[dam:Asset]${path} ${1}",
+    "[nt:file]${path} ${1}",
+    "${path}//*[jcr:contains(.,'${1}')]",
+    "${path}//*[jcr:like(@sling:resourceType, '%${1}%')]",
+    "SELECT * FROM [nt:base] AS x WHERE ISDESCENDANTNODE(x, '${path}') AND x.[sling:resourceType] LIKE '%${1}%'"
+  ],
+  "queryCsvProperties": [
+    "path",
+    "name=jcr:title|title|navTitle|label|name",
+    "text=jcr:description|description|text|content",
+    "resource type=sling:resourceType|jcr:mimeType|dc:format",
+    "primary type=jcr:primaryType",
+    "last modified=jcr:lastModified|cq:lastModified"
+  ]
+}
