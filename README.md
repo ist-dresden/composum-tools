@@ -7,7 +7,7 @@ development tools for an Apache Sling or AEM (incl. AEM as a Cloud Service) inst
 resource browser, a Felix Web Console proxy, and a tile-based dashboard to arrange them on.
 
 ![Browser screenshot placeholder](docs/images/browser.png)
-*Placeholder — JCR browser with properties view*
+*JCR browser with properties view and query tool*
 
 ## Background
 
@@ -30,7 +30,8 @@ Both projects are being **replaced** by `tools`. The goals of the rewrite are:
   no JCR content package for the UI itself — the whole UI is plain Java/OSGi bundle code.
 - **Only what is actually used** — instead of porting every feature of Nodes/Dashboard, `tools`
   implements only the subset that is genuinely needed here: browsing/inspecting resources,
-  running queries, exporting results, and a couple of read-only Felix Console views.
+  running queries, exporting results, a staged (CRXDE-like) editing capability, and a couple of
+  read-only Felix Console views.
 
 If a feature you relied on in Nodes or Dashboard is missing here, that is intentional — please
 raise it so it can be added deliberately, rather than carried forward "just in case".
@@ -63,7 +64,21 @@ selected resource.
   resource, restricted to a configurable set of configuration types.
 
 **Actions**: *View* (open in a new tab) everywhere; on AEM author instances additionally *Edit*
-(page editor), *Manage* (Assets/Sites console) and *Activate*/*Deactivate* (replication).
+(page/Content-Fragment editor, or the asset details view for a plain binary asset), *Manage*
+(Assets/Sites/Experience-Fragments console, whichever applies to the selected resource) and
+*Activate*/*Deactivate* (replication — a folder or page activates its whole subtree, an asset or
+page-content resource activates only itself).
+
+**Editing (Changes)** — an optional, CRXDE-like staged editing capability layered onto the
+Browser (module `com.composum.sling.changes`, its own opt-in component — see
+[Activation: opt-in by design](#activation-opt-in-by-design)): Create Node (including an
+`nt:file` with an upload), Delete Node, Move/Rename (with an optional "adjust path references"
+step, scoped to a search root, when a `ReferencesService` is bound), Copy/Paste Node, and Change
+Property (add/edit/rename/remove, single- or multi-value, types String/Long/Double/Boolean/Date/
+Binary). Every change is staged per HTTP session rather than written immediately — a navbar badge
+shows the pending count, and a **Commit All**/**Revert All** dialog applies or discards the whole
+batch at once, the same mental model as CRXDE Lite's pending-changes tray. `Browser` binds this
+capability optionally and falls back to read-only browsing if it is not activated.
 
 ### Dashboard
 
@@ -126,7 +141,7 @@ see [Activation: opt-in by design](#activation-opt-in-by-design) below.
 ```
 tools/
 ├── sling/
-│   ├── bundle/    the core framework + Dashboard + Browser (works on plain Sling and on AEM)
+│   ├── bundle/    the core framework + Dashboard + Browser + Changes (works on plain Sling and on AEM)
 │   └── package/    a content package wrapping the sling/bundle, for package-manager based installs
 └── aem/
     ├── bundle/    AEM-specific extensions (author-only Edit/Manage/Activate actions, Felix
@@ -175,8 +190,8 @@ Once the bundle(s) are active, open (default servlet path `/apps/cpm/tools`, con
 
 ## Configuration & customization
 
-Every building block (`Dashboard`, `Browser`, `Favorites`, `Query`, each `View`, `DefaultActions`
-/ `AemActions`, each `ConsoleProxy`, ...) is a separate OSGi component with its own
+Every building block (`Dashboard`, `Browser`, `Changes`, `Favorites`, `Query`, each `View`,
+`DefaultActions` / `AemActions`, each `ConsoleProxy`, ...) is a separate OSGi component with its own
 `@ObjectClassDefinition`, configurable per environment (author/publish/dev/...) through the usual
 OSGi configuration mechanism.
 
@@ -198,6 +213,12 @@ usual OSGi config mechanism (`/system/console/configMgr`, a `.cfg.json` file, a 
 `ConfigurationAdmin` factory, ...) under the component's PID (e.g.
 `com.composum.sling.packages.PackageManager`).
 
+`Changes` (the Browser's editing capability) follows the same `ConfigurationPolicy.REQUIRE`
+opt-in pattern, even though it is not a top-level page itself — without a configuration for
+`com.composum.sling.changes.Changes`, the component simply never activates, `Browser`'s optional
+reference to it stays unbound, and the Browser falls back to plain read-only browsing with none
+of the Create/Delete/Move/Change-Property dialogs shown at all.
+
 The most commonly adjusted settings, once a component is active:
 
 - **Enable/disable** a whole module: `Browser.Config#tools()` / `Browser.Config#views()` — empty
@@ -216,6 +237,10 @@ The most commonly adjusted settings, once a component is active:
 - **Package Manager write access**: `PackageManager.Config#writeEnabled()` — `false` makes it a
   read-only browser/installer-of-nothing (Create/Upload/Edit/Filters/Install/Uninstall/Build/
   Delete all return `403`, listing/viewing/downloading/coverage stay available).
+- **Changes write access**: `Changes.Config#writeEnabled()` (a runtime pause independent of the
+  component's own OSGi-activation opt-in) and `Changes.Config#writePrincipals()` — restricts who
+  may create/delete/move/edit content through the Browser to specific users/groups, empty meaning
+  every user.
 
 For extension beyond configuration — a new tool, view, action set or console proxy — implement
 the relevant small interface (`Tool`, `View`, `Actions`, `ConsoleProxy`) as its own OSGi
