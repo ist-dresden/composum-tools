@@ -58,6 +58,7 @@ class PropertyValues extends ViewWidget {
     this.$up = this.$el.find('.changes-property_value-up');
     this.$down = this.$el.find('.changes-property_value-down');
     this.$remove = this.$el.find('.changes-property_value-remove');
+    this.$empty = this.$el.find('.changes-property_value-empty');
     this.$multi = this.$el.closest('form').find('input[name="multi"]');
     this.$multiGroup = this.$el.closest('form').find('.changes-property_multi-group');
     this.$name = this.$el.closest('form').find('input[name="name"]');
@@ -153,6 +154,14 @@ class PropertyValues extends ViewWidget {
     this.$el.toggleClass('single-value', !multi);
     if (!multi) {
       this.getItems().slice(1).remove();
+      // a multi-value property may have been emptied down to zero rows (now possible - see
+      // 'updateToolbarState'/'removeSelected') before switching back to single-value; unlike multi,
+      // single-value always needs exactly one row, so restore it here rather than submitting a
+      // property with no value at all
+      if (this.getItems().length === 0) {
+        this.addValue('');
+        return; // 'addValue' already re-invokes 'updateMulti' and selects the new row
+      }
     }
     this.ensureSelection();
     this.updateToolbarState();
@@ -179,14 +188,21 @@ class PropertyValues extends ViewWidget {
     }
   }
 
-  // disables Up on the first row, Down on the last, and Remove once only one row is left, rather
-  // than leaving a boundary click a silent no-op
+  // disables Up on the first row, Down on the last, and Remove once no more rows may be removed,
+  // rather than leaving a boundary click a silent no-op. A multi-value property may legitimately be
+  // saved with zero values (this occurs in real content), so Remove stays enabled down to an empty
+  // list while "Multi" is checked; a single-value property always needs exactly one row (there is
+  // no such thing as a property with no value at all - removing the property itself is a separate,
+  // dedicated dialog), so Remove locks once a single row remains there.
   updateToolbarState() {
     const $items = this.getItems();
     const index = $items.index(this.getSelected());
     this.$up.prop('disabled', index <= 0);
     this.$down.prop('disabled', index < 0 || index >= $items.length - 1);
-    this.$remove.prop('disabled', $items.length <= 1);
+    const minItems = this.$multi.prop('checked') ? 0 : 1;
+    this.$remove.prop('disabled', $items.length <= minItems);
+    // an emptied multi-value list would otherwise just look blank, as if something's missing
+    this.$empty.toggleClass('d-none', $items.length > 0);
   }
 
   moveSelected(direction) {
@@ -236,7 +252,8 @@ class PropertyValues extends ViewWidget {
 
   removeSelected() {
     const $item = this.getSelected();
-    if ($item.length > 0 && this.getItems().length > 1) {
+    const minItems = this.$multi.prop('checked') ? 0 : 1;
+    if ($item.length > 0 && this.getItems().length > minItems) {
       $item.remove();
       this.ensureSelection();
       this.updateToolbarState();

@@ -108,7 +108,7 @@ body {
 }
 
 .tools-navbar > .navbar-nav .dropdown .active-item {
-    padding-right: 1px;
+    padding: 5px 1px 7px 12px;
 }
 
 .tools-navbar > .navbar-nav .dropdown-menu {
