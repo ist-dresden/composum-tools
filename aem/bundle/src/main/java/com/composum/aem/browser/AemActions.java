@@ -92,6 +92,9 @@ public class AemActions extends DefaultActions {
             NT_FOLDER, SLING_FOLDER, ORDERED_FOLDER, "cq:Page"
     );
 
+    /** the JCR primary type of an AEM DAM asset (a plain binary asset as well as a Content Fragment) */
+    public static final String DAM_ASSET_TYPE = "dam:Asset";
+
     /** the configured deep-activation exclude patterns (see {@link Config#deepActivationExcludePatterns()}) */
     protected List<Pattern> deepActivationExcludePatterns;
 
@@ -159,19 +162,41 @@ public class AemActions extends DefaultActions {
     }
 
     /**
-     * The AEM page editor URL for the resource's containing page.
+     * Whether the given DAM asset is a Content Fragment rather than a plain binary asset (image,
+     * PDF, ...): Content Fragments carry AEM's {@code contentFragment} flag on their {@code
+     * jcr:content} node.
+     *
+     * @param asset a {@code dam:Asset} resource
+     * @return whether the asset is a Content Fragment
+     */
+    protected boolean isContentFragment(@NotNull final Resource asset) {
+        final Resource content = asset.getChild(JCR_CONTENT);
+        return content != null && content.getValueMap().get("contentFragment", false);
+    }
+
+    /**
+     * The AEM page/asset editor URL for the resource's containing page, Content Fragment, or (for
+     * a plain binary asset, which has no such editor) its asset details view.
      *
      * @param target the resource to build an editor link for
-     * @return the AEM page editor URL for the resource's containing page, or {@code null} if the
-     * resource is not editable
+     * @return the AEM editor URL for the resource, or {@code null} if the resource is not editable
      */
     protected @Nullable String editorUrl(@Nullable Resource target) {
         if (target != null) {
-            final String path = target.getPath();
             if (!isPublishTarget(target)) {
                 return null;
-            } else if (path.matches("^/content/dam(/.*)?")) {
-                return null;
+            }
+            final String path = target.getPath();
+            if (path.matches("^/content/dam(/.*)?")) {
+                final Resource asset = containingParent(target, Collections.singletonList(DAM_ASSET_TYPE));
+                if (asset == null) {
+                    return null;
+                }
+                // a Content Fragment is edited through the same editor shell as pages/Experience
+                // Fragments; a plain binary asset has no such editor, only its details/metadata view
+                return isContentFragment(asset)
+                        ? targetUrl(asset, "/editor.html", EXT_HTML)
+                        : targetUrl(asset, "/assetdetails.html");
             } else if (path.matches("^/content/.*")
                     && (target = containingParent(target, Collections.singletonList("cq:Page"))) != null) {
                 return targetUrl(target, "/editor.html", EXT_HTML);
@@ -181,16 +206,22 @@ public class AemActions extends DefaultActions {
     }
 
     /**
-     * The AEM Assets/Sites management console URL for the resource.
+     * The AEM Assets/Sites/Experience-Fragments management console URL for the resource.
      *
      * @param target the resource to build a management link for
-     * @return the AEM Assets/Sites management console URL for the resource, or {@code null} if none applies
+     * @return the AEM Assets/Sites/Experience-Fragments management console URL for the resource,
+     * or {@code null} if none applies
      */
     protected @Nullable String manageUrl(@Nullable Resource target) {
         if (target != null) {
             final String path = target.getPath();
             if (path.matches("^/content/dam(/.*)?")) {
                 return targetUrl(target, "/assets.html");
+            } else if (path.matches("^/content/experience-fragments(/.*)?")
+                    && (target = containingParent(target, Collections.singletonList("cq:Page"))) != null) {
+                // Experience Fragments live outside the ordinary site tree the Sites console
+                // navigates, so they get their own dedicated console rather than "/sites.html"
+                return targetUrl(target, "/aem/experience-fragments.html");
             } else if (path.matches("^/content(/.*)?")
                     && (target = containingParent(target, FOLDER_TYPES)) != null) {
                 return targetUrl(target, "/sites.html");
