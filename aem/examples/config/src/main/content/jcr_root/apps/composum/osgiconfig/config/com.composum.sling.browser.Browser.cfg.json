@@ -1,4 +1,13 @@
 {
+  "favorites": [
+    "ALL=^.*$",
+    "Content=^/content(?!/dam(/|$))(/.*)?$",
+    "DAM=^/content/dam(/.*)?$",
+    "Config=^/(conf|etc)(/.*)?$",
+    "Apps=^/(apps|libs|mnt)(/.*)?$",
+    "Data=^/(var|tmp)(/.*)?$",
+    "History=@history"
+  ],
   "queryTemplates": [
     "[cq:Page]${path} ${1}",
     "[dam:Asset]${path} ${1}",
