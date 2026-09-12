@@ -417,12 +417,14 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
             // never shown for this type client-side regardless
             if (!"Binary".equals(type)) {
                 if (array != null) {
+                    // no fallback to a single blank row here if the array is empty: an existing
+                    // multi-value property can legitimately hold zero values (see script.js's
+                    // 'PropertyValues#updateToolbarState'), and re-inflating it to one empty-string
+                    // element on every re-edit would silently turn that back into a one-element
+                    // array the moment the dialog is saved again unchanged
                     values = new ArrayList<>(array.length);
                     for (final Object item : array) {
                         values.add(editableString(item));
-                    }
-                    if (values.isEmpty()) {
-                        values.add("");
                     }
                 } else {
                     values = new ArrayList<>(List.of(editableString(rawValue)));

@@ -105,7 +105,7 @@
     right: 0;
     border: none;
     padding: 0 15px 0 80px;
-    background: #777;
+    background: var(--toolbar-color-bg);
 }
 
 .composum-tools_widget-view .nav-link {
@@ -113,7 +113,7 @@
     border: none;
     border-radius: 0;
     line-height: 22px;
-    color: #495057;
+    color: var(--toolbar-tab-color);
     background: #ddd;
 }
 
