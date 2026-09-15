@@ -1,0 +1,57 @@
+<div class="usermgr-page_detail resuming-tabs" data-tabs-id="usermgr-user-tabs">
+    <div class="usermgr-page_detail-panel-header">
+        <ul class="usermgr-page_detail-tabs resuming-tabs_nav nav nav-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <a class="nav-link active" data-bs-toggle="tab" href="#usermgr-tab-principal" role="tab" aria-controls="usermgr-tab-principal">Principal</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" data-bs-toggle="tab" href="#usermgr-tab-groups" role="tab" aria-controls="usermgr-tab-groups">Groups</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" data-bs-toggle="tab" href="#usermgr-tab-affected-paths" role="tab" aria-controls="usermgr-tab-affected-paths" data-lazy-uri="${attr:users.affectedPathsTabUri}">Affected Paths</a>
+            </li>
+        </ul>
+        <div class="usermgr-page_detail-actions">
+            ${include:'/sling/usermgr/details/toolbar.html'}
+            ${if:users.writeEnabled;'/sling/usermgr/details/addToGroupAction.html'}
+        </div>
+        ${include:'/sling/usermgr/details/reloadAction.html'}
+    </div>
+    <div class="usermgr-page_detail_content">
+        <div class="resuming-tabs_pane tab-content">
+            <div class="tab-pane fade show active" id="usermgr-tab-principal" role="tabpanel">
+                <table class="usermgr-page_detail-table table table-sm table-striped">
+                    <tr>
+                        <th>ID</th>
+                        <td>${users.info.id}</td>
+                    </tr>
+                    <tr>
+                        <th>Path</th>
+                        <td>${users.info.path}</td>
+                    </tr>
+                    <tr>
+                        <th>Principal</th>
+                        <td>${users.info.principalName}</td>
+                    </tr>
+                    <tr>
+                        <th>Type</th>
+                        <td>${if:users.info.systemUser;'System User'|'User'}</td>
+                    </tr>
+                    <tr>
+                        <th>Status</th>
+                        <td>
+                            <span class="status-value text-${if:users.info.disabled;'danger'|'success'}">${if:users.info.disabled;'disabled'|'enabled'}</span>${if:users.info.disabledReason;' - ${users.info.disabledReason}'}
+                        </td>
+                    </tr>
+                </table>
+                ${if:users.info.profile;'/sling/usermgr/details/profileSection.html'}
+            </div>
+            <div class="tab-pane fade" id="usermgr-tab-groups" role="tabpanel">
+                <ul class="usermgr-page_folder-list">
+                    ${each.entry:users.info.groups;'/sling/usermgr/details/groupsEntry.html'}
+                </ul>
+            </div>
+            <div class="tab-pane fade" id="usermgr-tab-affected-paths" role="tabpanel"></div>
+        </div>
+    </div>
+</div>

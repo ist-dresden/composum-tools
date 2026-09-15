@@ -104,7 +104,7 @@ public class PackageManager extends AbstractToolsPlugin {
     private static final String TOOLS_CONFIRM_DIALOG = "/sling/tools/dialogs/confirm.html";
     private static final String MODE_REGISTRY = "registry";
 
-    @ObjectClassDefinition(name = "Composum Package Manager")
+    @ObjectClassDefinition(name = "Composum Tools Package Manager")
     public @interface Config {
 
         @AttributeDefinition()
