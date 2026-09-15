@@ -13,27 +13,73 @@
     width: 35%;
     min-width: 22%;
     max-width: 500px;
-    border-right: 1px solid #777;
-    display: flex;
-    flex-direction: column;
-}
-
-.usermgr-page_detail-actions {
-    height: 40px;
-    padding: 4px 12px;
-    background: #777;
-    color: #ddd;
-}
-
-.usermgr-page_tree-bar {
-    flex: 0 0 auto;
-    padding: 6px 12px;
-    background: #777;
-    color: #ddd;
+    padding-top: 38px;
     border-right: 1px solid #aaa;
 }
 
-.usermgr-page_content .btn-group .btn:last-child {
+/* the detail panel's tab-row + action-toolbar strip, visually matching the Browser's own view
+   header (.browser-page_browser_tabs/.browser-page_browser_parameters in browser/style.css) -
+   the same CSS variables, same tab look, same right-aligned action buttons - but hardcoded here
+   for User Manager's own fixed tab set (Principal/Groups/Members/Affected Paths, varying only by
+   authorizable type) rather than reusing Browser's generic, per-resource pluggable View system,
+   which was never built to vary its tab set by the selected item's own type */
+.usermgr-page_detail-panel-header {
+    position: relative;
+    height: var(--toolbar-height);
+    background: var(--toolbar-color-bg);
+}
+
+.usermgr-page_detail-tabs {
+    border-bottom: none;
+    height: var(--toolbar-height);
+    margin: 0;
+    padding: 4px 2px 0;
+}
+
+.usermgr-page_detail-tabs .nav-item .nav-link {
+    margin: 0 2px 0 0;
+    border: none;
+    border-bottom: 1px solid var(--toolbar-color-bg);
+    border-radius: 0;
+    line-height: 16px;
+    color: var(--toolbar-tab-color);
+    background: var(--toolbar-tab-color-bg);
+}
+
+.usermgr-page_detail-tabs .nav-item .nav-link.active {
+    border-bottom: 1px solid transparent;
+    background: #fff;
+}
+
+.usermgr-page_tree-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--toolbar-height);
+    padding: 4px 8px 4px 12px;
+    color: var(--toolbar-color);
+    background: var(--toolbar-color-bg);
+    border-right: 1px solid #aaa;
+}
+
+.usermgr-page_add-indicator {
+    font-size: var(--toolbar-icon-font-size);
+    vertical-align: middle;
+}
+
+.usermgr-page_tree-bar .btn-group .btn {
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+@media (max-width: 1199px) {
+    .usermgr-page_tree-bar .btn-group .btn span {
+        display: none;
+    }
+}
+
+.usermgr-page_content .btn-group .btn:not(:first-child) {
     border-left-color: #777;
 }
 
@@ -61,59 +107,32 @@
     flex-direction: column;
     height: 45%;
     overflow: hidden;
-    background: #777;
 }
 
 .usermgr-page_search-form {
     flex: 0 0 auto;
-    padding: 6px 12px;
-    gap: 6px;
+    height: var(--toolbar-height);
+    padding: 4px var(--toolbar-gap-lg);
+    gap: var(--toolbar-gap);
+    background: var(--toolbar-color-bg);
 }
 
-.usermgr-page_search-input {
-    flex: 1 1 0;
-    height: 32px;
+@media (min-width: 1200px) {
+    .usermgr-page_search-form {
+        gap: var(--toolbar-gap-lg);
+    }
+}
+
+.usermgr-page_search-form .toolbar-input {
+    min-height: auto;
+    padding: 2px var(--toolbar-gap-lg);
+    line-height: 22px;
+    border-color: var(--toolbar-color-bg);
 }
 
 .usermgr-page_search-results {
     flex: 1 1 auto;
     overflow: auto;
-    background: #fff;
-    color: #212529;
-    border-top: 1px solid #999;
-}
-
-.usermgr-page_search-table {
-    width: 100%;
-    margin: 0;
-}
-
-.usermgr-page_search-table td {
-    padding: 5px 10px;
-    vertical-align: middle;
-    border-top: 1px solid #eee;
-    cursor: pointer;
-}
-
-.usermgr-page_search-table tr:hover td {
-    background: #f0f0f0;
-}
-
-.usermgr-page_search-table .icon {
-    width: 1%;
-    white-space: nowrap;
-    color: #777;
-}
-
-.usermgr-page_search-table .label {
-    font-weight: 600;
-    color: #0d6efd;
-}
-
-.usermgr-page_search-table .path {
-    color: #777;
-    font-family: monospace;
-    font-size: 90%;
 }
 
 .usermgr-page_search-empty {
@@ -122,10 +141,10 @@
 }
 
 .usermgr-page_tree-panel {
-    flex: 1 1 auto;
     position: relative;
-    overflow: auto;
+    height: 100%;
     padding: 4px 8px;
+    overflow: auto;
 }
 
 .usermgr-page_tree {
@@ -174,23 +193,46 @@
     padding: 16px;
 }
 
+/* leaves room for '.usermgr-page_detail-reload', which sits further right still - same two-zone
+   layout as the Browser's own view header ('.browser-page_browser_parameters' at right:48px,
+   '.browser-page_browser_action-reload' at right:5px, see browser/style.css) */
 .usermgr-page_detail-actions {
-    padding-left: 12px;
-    padding-right: 12px;
-    text-align: right;
+    position: absolute;
+    top: 0;
+    right: 40px;
+    height: var(--toolbar-height);
+    line-height: var(--toolbar-item-line-height);
 }
 
-.usermgr-page_detail-actions > * {
-    margin-left: 8px;
+.usermgr-page_detail-actions .btn {
+    height: var(--toolbar-item-line-height);
+    margin: 3px 0 3px 4px;
+    padding: 0 var(--toolbar-gap-lg);
+}
+
+.usermgr-page_detail-reload {
+    position: absolute;
+    top: 7px;
+    right: 5px;
+    padding: 0 10px;
+    line-height: 25px;
+    font-size: var(--toolbar-icon-font-size);
+    text-align: center;
+    color: var(--toolbar-color);
+    cursor: pointer;
 }
 
 .usermgr-page_detail_content {
     position: absolute;
-    top: 40px;
+    top: var(--toolbar-height);
     left: 0;
     right: 0;
     bottom: 0;
     overflow: auto;
+}
+
+.usermgr-page_detail-table {
+    margin-top: 12px;
 }
 
 .usermgr-page_detail-table th,
@@ -203,8 +245,20 @@
     white-space: nowrap;
 }
 
-.usermgr-page_detail_content .resuming-tabs {
-    margin-top: 12px;
+.usermgr-page_profile-heading {
+    margin: 16px 12px 4px;
+}
+
+/* the "Change Profile" dialog's dynamic name/value row editor (dialogs/changeProfile.html,
+   dialogs/changeProfileEntry.html, script.js#ProfileEditor) - same row shape as Changes' own
+   multi-value property editor, without that one's radio-select/reorder affordances (a profile
+   property has no notion of "current value" or "order" - every row simply is its own property) */
+.usermgr-page_profile-list {
+    margin-bottom: 8px;
+}
+
+.usermgr-page_profile-name {
+    max-width: 40%;
 }
 
 .usermgr-page_folder-list {
@@ -235,18 +289,40 @@
     color: #c00;
 }
 
-.usermgr-page_tab-toolbar {
-    margin: 12px 0 4px;
-}
-
+/* Path/Type/Privileges table (details/affectedPathsTable.html, affectedPathEntry.html) - one row
+   per ACL rule, not one row per path (a path with both a grant and a deny, or several separate
+   privilege/restriction combinations, simply gets one row each rather than being grouped under a
+   single, rowspan'd path cell like the legacy Composum Nodes tool's own version of this table -
+   simpler to build and read, at the cost of repeating the path when it has more than one rule) */
 .usermgr-page_affected-paths {
     margin: 0;
-    padding: 0;
-    list-style: none;
-    max-height: 60vh;
-    overflow: auto;
     font-size: 85%;
+}
+
+.usermgr-page_affected-paths .icon {
+    width: 1%;
+    white-space: nowrap;
+    color: #777;
+}
+
+.usermgr-page_affected-paths .path {
     font-family: monospace;
+}
+
+.usermgr-page_affected-paths .rule {
+    font-family: monospace;
+}
+
+/* '!important' needed here: Bootstrap's own '.table-striped > tbody > tr:nth-of-type(odd) > *'
+   rule also sets 'color' (to the table's base text color, resetting any inherited/set color) and
+   outweighs a plain class selector on specificity alone - without this, only every other (odd)
+   row loses its grant/deny coloring, exactly the "some rows colored, some not" symptom this fixes */
+.usermgr-page_affected-paths .type-grant {
+    color: #198754 !important;
+}
+
+.usermgr-page_affected-paths .type-deny {
+    color: #dc3545 !important;
 }
 
 .usermgr-page_folder-entry-link,

@@ -1,0 +1,13 @@
+<table class="usermgr-page_affected-paths table table-sm table-striped">
+    <thead>
+    <tr>
+        <th></th>
+        <th>Principal</th>
+        <th>Path</th>
+        <th>Rule</th>
+    </tr>
+    </thead>
+    <tbody>
+    ${each.entry:affectedPaths.entries;'/sling/usermgr/details/affectedPathEntry.html'}
+    </tbody>
+</table>

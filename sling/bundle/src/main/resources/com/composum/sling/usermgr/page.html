@@ -34,11 +34,11 @@ ${include:'/sling/tools/navbar/navbar.html'}
         </div>
     </div>
     <div class="usermgr-page_right-panel">
-        <div class="usermgr-page_search" data-query-url="${attr:users.query}">
+        <div class="usermgr-page_search" data-query-url="${attr:users.query}" data-browser-uri="${attr:users.browser}">
             <div class="usermgr-page_search-form d-flex align-items-stretch">
-                <input type="search" class="usermgr-page_search-input form-control form-control-sm"
+                <input type="search" class="usermgr-page_search-input toolbar-input form-control form-control-sm"
                        placeholder="Name pattern (e.g. *contact*)..." autocomplete="off">
-                <input type="search" class="usermgr-page_search-path-input form-control form-control-sm"
+                <input type="search" class="usermgr-page_search-path-input toolbar-input form-control form-control-sm"
                        placeholder="Affected path pattern (e.g. /content/*)..." autocomplete="off">
             </div>
             <div class="usermgr-page_search-results">
@@ -48,8 +48,6 @@ ${include:'/sling/tools/navbar/navbar.html'}
         <div class="usermgr-page_detail-panel" data-page-url="${attr:users.uri}" data-view-url="${attr:users.view}"
              data-dialog-url="${attr:users.dialog}">
             <div class="usermgr-page_detail">
-                <div class="usermgr-page_detail-actions">
-                </div>
                 <div class="usermgr-page_detail_content">
                     <p class="usermgr-page_hint">Select a user, group, or folder in the tree on the left.</p>
                 </div>

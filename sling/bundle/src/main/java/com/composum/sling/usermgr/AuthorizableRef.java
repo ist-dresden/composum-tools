@@ -37,7 +37,10 @@ public class AuthorizableRef {
         this.icon = iconOf(type);
     }
 
-    private static @NotNull String iconOf(@NotNull final String type) {
+    /** the same 'user'/'system-user'/'group'/'folder' -> Bootstrap-Icons-name mapping the tree
+     * itself uses - public so other authorizable-referencing DTOs (e.g. {@code AffectedPathEntry})
+     * can reuse it instead of duplicating the switch */
+    public static @NotNull String iconOf(@NotNull final String type) {
         switch (type) {
             case "user":
                 return "person";

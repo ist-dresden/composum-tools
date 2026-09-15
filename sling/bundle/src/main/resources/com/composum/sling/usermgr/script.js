@@ -205,6 +205,7 @@ class UsersSearch extends ViewWidget {
   constructor(element) {
     super(element);
     this.queryUrl = this.$el.data('query-url');
+    this.browserUri = this.$el.data('browser-uri');
     this.$nameInput = this.$el.find('.usermgr-page_search-input');
     this.$pathInput = this.$el.find('.usermgr-page_search-path-input');
     this.$results = this.$el.find('.usermgr-page_search-results');
@@ -243,23 +244,33 @@ class UsersSearch extends ViewWidget {
     });
   }
 
+  // a Principal/Path/Rule table - same shape and same per-cell behavior as the "Affected Paths"
+  // tab's own server-rendered table (details/affectedPathsTable.html), just built client-side
+  // from the AffectedPathEntry JSON UserManager#query now returns in every mode (see its own
+  // Javadoc for what each mode actually computes)
   showResults(results) {
     if (!results || results.length === 0) {
       this.showHint('No matches.');
       return;
     }
-    const $table = $('<table class="table table-sm usermgr-page_search-table"></table>');
+    // same exact classes as the "Affected Paths" tab's own table (details/affectedPathsTable.html)
+    // - 'table-striped' included, so both look identical, not just structurally similar
+    const $table = $('<table class="table table-sm table-striped usermgr-page_affected-paths"></table>');
+    const $thead = $('<thead><tr><th></th><th>Principal</th><th>Path</th><th>Rule</th></tr></thead>').appendTo($table);
     const $tbody = $('<tbody></tbody>').appendTo($table);
-    results.forEach((ref) => {
+    results.forEach((entry) => {
+      const $principal = $('<a href="#" class="usermgr-page_folder-entry-link"></a>').text(entry.principal).on('click', (event) => {
+        event.preventDefault();
+        // deliberately does not clear the inputs or hide the results - the table stays put so
+        // several matches can be tried in turn, each loading its own detail below
+        $(document).trigger('path:select', [entry.principalPath]);
+      });
+      const $path = $('<a></a>').attr('href', this.browserUri + entry.path).text(entry.path);
       $('<tr></tr>')
-        .append($('<td class="icon"></td>').append($('<i></i>').addClass('bi bi-' + ref.icon)))
-        .append($('<td class="label"></td>').text(ref.label))
-        .append($('<td class="path"></td>').text(ref.path))
-        .on('click', () => {
-          // deliberately does not clear the input or hide the results - the table stays put so
-          // several matches can be clicked through in turn, each loading its own detail below
-          $(document).trigger('path:select', [ref.path]);
-        })
+        .append($('<td class="icon"></td>').append($('<i></i>').addClass('bi bi-' + entry.principalIcon)))
+        .append($('<td class="principal"></td>').append($principal))
+        .append($('<td class="path"></td>').append($path))
+        .append($('<td class="rule"></td>').addClass('type-' + entry.type).text(entry.type + ': ' + entry.privileges))
         .appendTo($tbody);
     });
     this.$results.empty().append($table);
@@ -290,6 +301,30 @@ class UsersToolbar extends ViewWidget {
 }
 
 CPM.widgets.register(UsersToolbar);
+
+// a link that selects a given authorizable path (fires the shared 'path:select' event, same as
+// clicking the tree) - used by the Groups/Members tab entries and the Affected Paths tab's
+// Principal column alike. A plain widget rather than ad-hoc wiring inside UsersDetail's own
+// onContentLoaded, specifically so it also works for the Affected Paths tab's lazily-loaded
+// content: CPM.widgets.initialize() re-scans that content on load (see LazyTabPane in
+// tools/script.js), but UsersDetail's one-time onContentLoaded wiring never revisits it.
+class FolderEntryLink extends ViewWidget {
+
+  static selector = '.usermgr-page_folder-entry-link';
+
+  constructor(element) {
+    super(element);
+    this.$el.on('click', (event) => {
+      event.preventDefault();
+      const path = this.$el.data('path');
+      if (path) {
+        $(document).trigger('path:select', [path]);
+      }
+    });
+  }
+}
+
+CPM.widgets.register(FolderEntryLink);
 
 // the detail panel for the currently selected authorizable (or intermediate folder): the server
 // renders the whole thing - property table, tabs and action bar alike (see UserManager#actions,
@@ -334,7 +369,7 @@ class UsersDetail extends ViewWidget {
     // every action button (top action bar, and the Groups/Members tabs' own "Add" buttons alike)
     // is server-rendered with a 'usermgr-page_action-<key>' class (see details/action.html) and
     // opens the same kind of on-demand dialog, keyed off the current selection's path only
-    ['enable', 'disable', 'password', 'delete', 'addToGroup', 'addMember', 'affectedPaths'].forEach((key) => {
+    ['enable', 'disable', 'password', 'changeProfile', 'delete', 'addToGroup', 'addMember'].forEach((key) => {
       this.$el.find('.usermgr-page_action-' + key).on('click',
         () => new CPM.Dialog(this.dialogUrl + key + '.html' + this.path).open());
     });
@@ -349,14 +384,16 @@ class UsersDetail extends ViewWidget {
       new CPM.Dialog(this.dialogUrl + 'removeFromGroup.html' + this.path
         + '?authorizableId=' + encodeURIComponent(id) + '&role=' + role).open();
     });
-    // an intermediate (folder) node's list view, and every Groups/Members tab row alike: click
-    // navigates straight to that path, exactly like clicking the same node in the tree would
-    this.$el.find('.usermgr-page_folder-entry-link').on('click', function (event) {
+    // the reload icon at the far right of the header strip (details/reloadAction.html), matching
+    // the Browser's own always-available reload action - re-fetches the whole detail view rather
+    // than just the currently active tab (unlike Browser, our tabs aren't uniformly lazy-loaded,
+    // so there is no single "active tab's own content" to refetch in isolation) - this still
+    // correctly refreshes whichever tab is showing, including re-triggering the Affected Paths
+    // tab's own lazy load if that happens to be the active one, since 'ResumingTabs' restores it
+    // and 'LazyTabPane' fires fresh against the newly rendered (unloaded) tab-pane
+    this.$el.find('.usermgr-page_detail-reload').on('click', (event) => {
       event.preventDefault();
-      const path = $(event.currentTarget).data('path');
-      if (path) {
-        $(document).trigger('path:select', [path]);
-      }
+      this.load();
     });
   }
 
@@ -391,6 +428,34 @@ class UsersDetail extends ViewWidget {
 
 CPM.widgets.register(UsersDetail);
 
+// Switches which per-tab action-group is visible in the detail panel's action toolbar to match
+// whichever tab is currently active - e.g. Enable/Disable/Change Password/Delete for Principal,
+// "Add to Group" for Groups, "Add Member" for Members (see details/toolbar.html,
+// details/addToGroupAction.html, details/addMemberAction.html - each renders one
+// '.usermgr-page_detail-actions_group[data-tab="..."]' block, all siblings inside the same
+// '.usermgr-page_detail-actions' container). A tab with no matching group (Affected Paths) simply
+// shows none. Deliberately not folded into 'ResumingTabs' (its own 'onShownCallback' constructor
+// argument isn't reachable through the generic, no-extra-args widget auto-registration path) -
+// a small, independent listener on the same 'shown.bs.tab' event is simpler here.
+class TabActionSwitcher extends ViewWidget {
+
+  static selector = '.usermgr-page_detail-panel-header';
+
+  constructor(element) {
+    super(element);
+    this.$('.usermgr-page_detail-tabs a[data-bs-toggle="tab"]').on('shown.bs.tab', this.onTabShown.bind(this));
+  }
+
+  onTabShown(event) {
+    const tabId = $(event.target).attr('aria-controls');
+    this.$('.usermgr-page_detail-actions_group').each(function () {
+      $(this).toggleClass('d-none', $(this).data('tab') !== tabId);
+    });
+  }
+}
+
+CPM.widgets.register(TabActionSwitcher);
+
 // the Change Password dialog's "Confirm Password" field: a client-side "passwords match" check
 // only - the field has no 'name' the server would ever see (see dialogs/password.html); scoped
 // to its own dialog markup like PackagesFilterRoots is, so it just works whenever the dialog's
@@ -411,3 +476,36 @@ class PasswordConfirm extends ViewWidget {
 }
 
 CPM.widgets.register(PasswordConfirm);
+
+// the "Change Profile" dialog's dynamic name/value row editor - a generic, no-fixed-schema
+// property list for a user's 'profile' child node (matching the legacy Composum Nodes tool's own
+// approach), see UserManager#changeProfileDialog/#changeProfile. Each row submits as a plain
+// 'name'/'value' pair - parallel, repeated request parameters (same convention the Changes
+// plugin's own multi-value property editor uses), so no client-side indexing/renumbering is
+// needed when a row is added or removed.
+class ProfileEditor extends ViewWidget {
+
+  static selector = '.usermgr-page_profile-list';
+
+  constructor(element) {
+    super(element);
+    this.$el.closest('.tools-dialog_form').find('.usermgr-page_profile-add')
+      .on('click', this.addRow.bind(this));
+    this.$el.on('click', '.usermgr-page_profile-remove', this.removeRow.bind(this));
+  }
+
+  addRow() {
+    $('<div class="input-group mb-1 usermgr-page_profile-item">')
+      .append('<input type="text" class="form-control usermgr-page_profile-name" name="name" placeholder="Property name">')
+      .append('<input type="text" class="form-control usermgr-page_profile-value" name="value" placeholder="Value">')
+      .append('<button type="button" class="btn btn-outline-secondary usermgr-page_profile-remove" tabindex="-1" title="Remove"><i class="bi bi-x-lg"></i></button>')
+      .appendTo(this.$el)
+      .find('.usermgr-page_profile-name').trigger('focus');
+  }
+
+  removeRow(event) {
+    $(event.currentTarget).closest('.usermgr-page_profile-item').remove();
+  }
+}
+
+CPM.widgets.register(ProfileEditor);

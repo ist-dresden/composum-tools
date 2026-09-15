@@ -19,6 +19,7 @@ import org.apache.jackrabbit.api.security.user.User;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.request.RequestPathInfo;
+import org.apache.sling.api.resource.ResourceResolver;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.osgi.framework.BundleContext;
@@ -41,6 +42,7 @@ import java.io.Reader;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,15 +56,38 @@ import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
 /**
- * The User Manager: browses and manages Jackrabbit users, system users and groups under '/home' -
- * a tree on the left ('/home/users'/'/home/groups', arbitrarily nested via intermediate
- * 'rep:AuthorizableFolder' paths), the selected authorizable's details and actions on the right.
+ * The User Manager: browses and manages Jackrabbit users, system users and groups under '/home'.
  * Unlike {@link com.composum.sling.packages.PackageManager}, there is exactly one backend
  * (Jackrabbit's own {@code UserManager}, via {@code ((JackrabbitSession) session).getUserManager()})
  * so this plugin carries none of the mode-abstraction machinery that the two-backend Package
- * Manager needs. Mutating operations (create/delete/enable/disable/password/group membership) are
- * gated by {@link Config#writeEnabled()}, same pattern as {@code PackageManager.Config#writeEnabled()}
- * - actual enforcement otherwise relies entirely on the JCR session's own ACLs.
+ * Manager needs. Mutating operations (create/delete/enable/disable/password/profile/group
+ * membership) are gated by {@link Config#writeEnabled()} and, further, by
+ * {@link Config#writePrincipals()} (see {@link AbstractToolsPlugin#isPrincipal}), the same pattern
+ * {@code PackageManager}/{@code Changes} use - actual enforcement otherwise relies entirely on the
+ * JCR session's own ACLs.
+ * <p>
+ * <b>Tree</b> ({@link JcrAuthorizableTree}) - a three-root, alphabetically sorted, lazily-loaded
+ * tree: 'Users' ('/home/users'), 'System' ('/home/users/system', a plain subfolder promoted to
+ * its own root so a large '/home/users' isn't dominated by service accounts) and 'Groups'
+ * ('/home/groups'), arbitrarily nested further via intermediate 'rep:AuthorizableFolder' paths.
+ * <p>
+ * <b>Detail panel</b> - the selected authorizable's details, visually modeled on the Browser's own
+ * tab-row-plus-action-toolbar view header (but hardcoded for this plugin's own fixed, type-varying
+ * tab set rather than reusing Browser's generic per-resource View plugin system): a <i>Principal</i>
+ * tab (id/path/principal/type/status, plus any 'profile' properties - see
+ * {@link JcrAuthorizableOperations#profileProperties}); <i>Groups</i> (every user/system-user) and/
+ * or <i>Members</i> (every group) for the declared membership relations; and a lazily-loaded
+ * <i>Affected Paths</i> tab (see {@link JcrAuthorizableOperations#affectedPaths}) - every ACL rule
+ * affecting this authorizable's own principal or any group it (declaratively or transitively)
+ * belongs to, as a Principal/Path/Rule table whose Principal and Path cells are themselves
+ * navigable (to that principal's own detail view, or to the Browser at that path). An intermediate
+ * folder node shows a plain, non-recursive list of its immediate children instead of any of this.
+ * <p>
+ * <b>Search</b> ({@link #query}) - a permanently visible, two-field bar (name pattern / affected-
+ * path pattern, both accepting '*'/'?' wildcards) rendering the same Principal/Path/Rule table as
+ * the Affected Paths tab; see that method's own Javadoc for exactly what each of its three modes
+ * computes (name only, name-and-path as a genuine AND with no group inheritance, or path only
+ * across every principal repository-wide).
  */
 @Component(service = {ToolsPlugin.class, UserManager.class},
         configurationPolicy = ConfigurationPolicy.REQUIRE, immediate = true)
@@ -161,6 +186,17 @@ public class UserManager extends AbstractToolsPlugin {
         return manager.serverPath() + "." + key() + "." + action + ".json";
     }
 
+    /**
+     * The Browser plugin's own page URI, without any path suffix - a plain string built from its
+     * well-known selector key ('browser'), the same lightweight cross-plugin linking convention
+     * every other plugin-to-plugin URL in this codebase already uses (no service lookup, just the
+     * other plugin's known key) - used by the "Affected Paths" tab to link a path to where it can
+     * actually be inspected.
+     */
+    protected @NotNull String browserLink() {
+        return manager.serverPath() + ".browser.html";
+    }
+
     @Override
     public @NotNull List<Widget> widgets() {
         return List.of(new Page(key(), label(), rank(), this::pageLink));
@@ -201,6 +237,10 @@ public class UserManager extends AbstractToolsPlugin {
                 return ancestorsOf(request);
             case "view":
                 return viewAuthorizable(request);
+            case "affectedPathsTab":
+                return affectedPathsTab(request);
+            case "authorizableIdSuggest":
+                return authorizableIdSuggest(request);
             case "query":
                 return query(request);
             case "dialog":
@@ -253,12 +293,21 @@ public class UserManager extends AbstractToolsPlugin {
     protected static final int QUERY_LIMIT = 25;
 
     /**
-     * Searches for authorizables matching the request's 'text' parameter (id/principal name
-     * wildcard pattern - see {@link JcrAuthorizableOperations#find}) and/or its 'path' parameter
-     * (affected-path wildcard pattern - see {@link JcrAuthorizableOperations#findByAffectedPath}),
-     * optionally restricted to the 'type' parameter ('user'/'group') - backing the fixed search
-     * bar above the detail panel. 'path' takes precedence: when given, 'text' (if also given)
-     * narrows the affected-path search further rather than running a separate name-only search.
+     * Searches by the request's 'text' parameter (id/principal name wildcard pattern) and/or its
+     * 'path' parameter (affected-path wildcard pattern), optionally restricted to the 'type'
+     * parameter ('user'/'group') - backing the fixed search bar above the detail panel. The result
+     * is always a Principal/Path/Rule table (same shape as the "Affected Paths" tab), but computed
+     * differently per mode:
+     * <ul>
+     * <li>'text' given (with or without 'path'): each name-matching authorizable's own
+     * <em>direct</em> affected paths, optionally further narrowed to just the ones matching 'path'
+     * - a genuine AND of both criteria on the same principal, deliberately with no group-membership
+     * inheritance (see {@link JcrAuthorizableOperations#directAffectedPaths}) - inheriting would
+     * make this mode near-indistinguishable from the 'path'-only mode below, whose whole point is
+     * to show every principal (very often a group) regardless of name.</li>
+     * <li>'path' only: every ACL rule anywhere whose affected path matches the pattern, whichever
+     * principal it names (see {@link JcrAuthorizableOperations#affectedPathsByPathPattern}).</li>
+     * </ul>
      */
     protected @NotNull Result<?> query(@NotNull final SlingHttpServletRequest request) {
         final String text = StringUtils.trimToEmpty(request.getParameter("text"));
@@ -271,11 +320,45 @@ public class UserManager extends AbstractToolsPlugin {
             if (session == null) {
                 return new Result<>(List.of());
             }
-            final List<AuthorizableRef> result = !path.isEmpty()
-                    ? jcrOperations.findByAffectedPath(request.getResourceResolver(), session,
-                            text, path, request.getParameter("type"), QUERY_LIMIT)
-                    : jcrOperations.find(session, text, request.getParameter("type"), QUERY_LIMIT);
+            final String type = request.getParameter("type");
+            final ResourceResolver resolver = request.getResourceResolver();
+            final List<AffectedPathEntry> result = !text.isEmpty()
+                    ? jcrOperations.directAffectedPaths(resolver, session, text, path, type, QUERY_LIMIT)
+                    : jcrOperations.affectedPathsByPathPattern(resolver, session, path, type, QUERY_LIMIT);
             return new Result<>(result);
+        } catch (RepositoryException ex) {
+            LOG.error(ex.getMessage(), ex);
+            return new Result<>(SC_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Autocomplete suggestions (plain id strings) for the Add to Group/Add Member dialogs'
+     * "authorizableId" text field - deliberately reads the 'path' request parameter, not 'text',
+     * the same generic convention the shared, unmodified {@code PathPicker} client widget
+     * (sling/tools/script.js) already uses for path and node-type suggestions alike (see
+     * {@code Changes#primaryTypeSuggest} for the precedent this follows) - lets that widget serve
+     * this case too without knowing the difference. An optional 'type' parameter (see
+     * {@link JcrAuthorizableOperations#find}) narrows the suggestions to just groups, for Add to
+     * Group's own "authorizableId" field.
+     */
+    protected @NotNull Result<?> authorizableIdSuggest(@NotNull final SlingHttpServletRequest request) {
+        final String text = StringUtils.trimToEmpty(request.getParameter("path"));
+        if (text.isEmpty()) {
+            return new Result<>(List.of());
+        }
+        try {
+            final Session session = session(request);
+            if (session == null) {
+                return new Result<>(List.of());
+            }
+            final List<String> ids = new ArrayList<>();
+            for (final AuthorizableRef ref : jcrOperations.find(session, text, request.getParameter("type"), QUERY_LIMIT)) {
+                if (ref.getId() != null) {
+                    ids.add(ref.getId());
+                }
+            }
+            return new Result<>(ids);
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);
             return new Result<>(SC_INTERNAL_SERVER_ERROR);
@@ -303,6 +386,8 @@ public class UserManager extends AbstractToolsPlugin {
                 return disableAuthorizable(request);
             case "password":
                 return changePassword(request);
+            case "changeProfile":
+                return changeProfile(request);
             case "addToGroup":
                 return changeMembership(request, true);
             case "removeFromGroup":
@@ -340,12 +425,16 @@ public class UserManager extends AbstractToolsPlugin {
             case "password":
                 return authorizableDialog(request, DIALOGS_ROOT + "password.html", info -> new Values()
                         .with("dialog.action", actionLink("password") + info.getPath()));
+            case "changeProfile":
+                return changeProfileDialog(request);
             case "addToGroup":
                 return authorizableDialog(request, DIALOGS_ROOT + "addToGroup.html", info -> new Values()
-                        .with("dialog.action", actionLink("addToGroup") + info.getPath()));
+                        .with("dialog.action", actionLink("addToGroup") + info.getPath())
+                        .with("dialog.authorizableIdSuggest", actionLink("authorizableIdSuggest")));
             case "addMember":
                 return authorizableDialog(request, DIALOGS_ROOT + "addMember.html", info -> new Values()
-                        .with("dialog.action", actionLink("addToGroup") + info.getPath()));
+                        .with("dialog.action", actionLink("addToGroup") + info.getPath())
+                        .with("dialog.authorizableIdSuggest", actionLink("authorizableIdSuggest")));
             case "removeFromGroup": {
                 // both sides of the relationship are known here: the path-resolved authorizable
                 // (the current selection) and 'authorizableId' (the row the Remove button was
@@ -364,35 +453,94 @@ public class UserManager extends AbstractToolsPlugin {
                             .with("dialog.message", "Remove '" + memberLabel + "' from group '" + groupLabel + "'?");
                 });
             }
-            case "affectedPaths":
-                return affectedPathsDialog(request);
             default:
                 return new Result<>(SC_NOT_FOUND);
         }
     }
 
     /**
-     * A read-only report of every repository path where an ACL grants or denies a privilege to
-     * the addressed authorizable's principal - the User Manager equivalent of Package Manager's
-     * Coverage dialog. Always available, not gated by {@link Config#writeEnabled()}.
+     * The "Affected Paths" tab's content - a Path/Type/Privileges table of every ACL rule that
+     * grants or denies a privilege to the addressed authorizable's principal, the User Manager
+     * equivalent of Package Manager's Coverage dialog. Lazily loaded (see 'LazyTabPane' in
+     * {@code tools/script.js}) on first activating that tab, not eagerly with the rest of the
+     * detail view, since it is a full ACL scan ({@link JcrAuthorizableOperations#affectedPaths})
+     * not always looked at. Always available, not gated by {@link Config#writeEnabled()}.
      */
-    protected @NotNull Result<?> affectedPathsDialog(@NotNull final SlingHttpServletRequest request) {
+    protected @NotNull Result<?> affectedPathsTab(@NotNull final SlingHttpServletRequest request) {
         try {
             final Session session = session(request);
             final Authorizable authorizable = session != null ? jcrOperations.open(session, targetPath(request)) : null;
             if (authorizable == null) {
                 return new Result<>(SC_NOT_FOUND);
             }
-            List<String> lines = jcrOperations.affectedPaths(request.getResourceResolver(), authorizable);
-            if (lines.isEmpty()) {
-                // not a failure: this authorizable's principal simply isn't referenced by any
-                // rep:GrantACE/rep:DenyACE currently in the repository
-                lines = List.of("(no ACL entries reference this authorizable's principal)");
-            }
-            return renderDialog(DIALOGS_ROOT + "affectedPaths.html", new Values().with("affectedPaths.lines", lines));
+            final List<AffectedPathEntry> entries = jcrOperations.affectedPaths(request.getResourceResolver(), authorizable);
+            final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
+                    .with("affectedPaths.entries", entries)
+                    .with("affectedPaths.browserUri", browserLink())
+            ), "/sling/usermgr/details/affectedPathsTab.html"));
+            return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);
             return new Result<>(SC_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Opens the "Change Profile" dialog for a regular user, pre-filled with the user's current
+     * 'profile' properties (see {@link JcrAuthorizableOperations#profileProperties}) - a generic
+     * name/value editor, not a fixed set of form fields, since 'profile' properties have no fixed
+     * schema (matching the legacy Composum Nodes tool this was ported from). Not reusing
+     * {@link #authorizableDialog} since it only exposes {@link AuthorizableInfo}, not the session
+     * this also needs.
+     */
+    protected @NotNull Result<?> changeProfileDialog(@NotNull final SlingHttpServletRequest request) {
+        try {
+            final Session session = session(request);
+            final Authorizable authorizable = session != null ? jcrOperations.open(session, targetPath(request)) : null;
+            if (!(authorizable instanceof User)) {
+                return new Result<>(SC_NOT_FOUND);
+            }
+            return renderDialog(DIALOGS_ROOT + "changeProfile.html", new Values()
+                    .with("dialog.action", actionLink("changeProfile") + authorizable.getPath())
+                    .with("profile.entries", jcrOperations.profileProperties(session, authorizable.getPath())));
+        } catch (RepositoryException ex) {
+            LOG.error(ex.getMessage(), ex);
+            return new Result<>(SC_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Applies the "Change Profile" dialog's submission - 'name'/'value' are parallel, repeated
+     * request parameters (one pair per row, same convention the Changes plugin's own multi-value
+     * property editor uses), replacing the user's entire 'profile' property set (see
+     * {@link JcrAuthorizableOperations#updateProfile}). A row with a blank name is silently
+     * dropped (an unfilled extra "Add" row), matching the same "stray empty row" handling this
+     * project's other row-based editors already use.
+     */
+    protected @NotNull Result<?> changeProfile(@NotNull final SlingHttpServletRequest request) {
+        try {
+            final Session session = session(request);
+            final Authorizable authorizable = session != null ? jcrOperations.open(session, targetPath(request)) : null;
+            if (!(authorizable instanceof User)) {
+                return new Result<>(SC_NOT_FOUND);
+            }
+            final String[] names = request.getParameterValues("name");
+            final String[] values = request.getParameterValues("value");
+            final Map<String, String> properties = new LinkedHashMap<>();
+            if (names != null) {
+                for (int i = 0; i < names.length; i++) {
+                    final String name = StringUtils.trimToEmpty(names[i]);
+                    if (!name.isEmpty()) {
+                        properties.put(name, values != null && i < values.length
+                                ? StringUtils.defaultString(values[i]) : "");
+                    }
+                }
+            }
+            jcrOperations.updateProfile(session, authorizable.getPath(), properties);
+            return new Result<>(Map.of("path", targetPath(request)));
+        } catch (RepositoryException ex) {
+            LOG.error(ex.getMessage(), ex);
+            return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
         }
     }
 
@@ -649,17 +797,29 @@ public class UserManager extends AbstractToolsPlugin {
             final Authorizable authorizable = jcrOperations.open(session, path);
             if (authorizable != null) {
                 final AuthorizableInfo info = jcrOperations.info(authorizable);
+                if ("user".equals(info.getType())) {
+                    // regular users only - see AuthorizableInfo#profile's own Javadoc
+                    info.setProfile(jcrOperations.profileProperties(session, authorizable.getPath()));
+                }
                 final String template = "group".equals(info.getType())
                         ? "/sling/usermgr/details/group.html" : "/sling/usermgr/details/user.html";
                 final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
                         .with("users.actions", (Supplier<?>) () -> actions(request, info))
                         .with("users.info", (Supplier<?>) () -> valuesOf(info))
                         .with("users.writeEnabled", writeEnabled(request))
+                        .with("users.affectedPathsTabUri", actionLink("affectedPathsTab") + info.getPath())
                 ), template));
                 return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
             }
+            // a genuine 'rep:AuthorizableFolder' node with zero children (e.g. a Jackrabbit
+            // id-hash bucket emptied out by deleting the authorizables that used to live in it)
+            // is a real, navigable node - it renders as an empty folder view, not a 404; only a
+            // path that isn't a node at all gets the 404
+            if (!session.nodeExists(path)) {
+                return new Result<>(SC_NOT_FOUND);
+            }
             final List<AuthorizableRef> children = new JcrAuthorizableTree(session).immediateChildren(path);
-            return children.isEmpty() ? new Result<>(SC_NOT_FOUND) : viewFolder(children);
+            return viewFolder(children);
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);
             return new Result<>(SC_INTERNAL_SERVER_ERROR);
@@ -674,10 +834,13 @@ public class UserManager extends AbstractToolsPlugin {
         return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
     }
 
-    // Detail-panel action bar (rendered server-side, see details/toolbar.html + details/action*.html,
-    // reused verbatim from the Package Manager's own generic pattern). Group-membership actions
-    // (Add to Group/Add Member/Remove) live in the Groups/Members tab content, not here, see the
-    // next milestone.
+    // The Principal tab's own action group (rendered server-side, see details/toolbar.html +
+    // details/action*.html, reused verbatim from the Package Manager's own generic pattern) -
+    // Enable/Disable/Change Password/Change Profile/Delete. "Add to Group"/"Add Member" are
+    // separate, always-present action groups of their own (details/addToGroupAction.html/
+    // addMemberAction.html) that TabActionSwitcher (script.js) shows only while the matching tab
+    // (Groups/Members) is active; a Groups/Members row's own "Remove" button lives inline on the
+    // row itself (details/groupsEntry.html/membersEntry.html), not in any action group at all.
 
     protected @NotNull Values action(@NotNull final String key, @NotNull final String icon, @NotNull final String label) {
         return new Values().with("key", key).with("icon", icon).with("label", label);
@@ -698,12 +861,10 @@ public class UserManager extends AbstractToolsPlugin {
                 result.add(actionGroup(
                         info.isDisabled() ? action("enable", "box-arrow-in-right", "Enable")
                                 : action("disable", "box-arrow-right", "Disable"),
-                        action("password", "key", "Change Password")));
+                        action("password", "key", "Change Password"),
+                        action("changeProfile", "person-vcard", "Change Profile")));
             }
         }
-        // read-only, always available regardless of writeEnabled - the equivalent of Package
-        // Manager's Coverage dialog
-        result.add(action("affectedPaths", "shield-lock", "Affected Paths"));
         if (writeEnabled) {
             // 'admin'/'anonymous' never get a Delete button at all, not just a disabled one - the
             // same hard block JcrAuthorizableOperations#delete enforces server-side too
@@ -728,7 +889,8 @@ public class UserManager extends AbstractToolsPlugin {
                                     .with("ancestors", manager.serverPath() + "." + key() + ".ancestors.json")
                                     .with("view", manager.serverPath() + "." + key() + ".view.json")
                                     .with("query", manager.serverPath() + "." + key() + ".query.json")
-                                    .with("dialog", manager.serverPath() + "." + key() + ".dialog."))
+                                    .with("dialog", manager.serverPath() + "." + key() + ".dialog.")
+                                    .with("browser", browserLink()))
                             .with("html.cssClasses", (Supplier<?>) () -> getHtmlCssClasses("usermgr-page"))
                             .with(toolsValues())
                     ), this)

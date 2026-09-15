@@ -39,4 +39,25 @@ public class AuthorizableInfo {
     /** this group's own declared members - 'null' for a user/system-user */
     @Nullable
     protected List<AuthorizableRef> members;
+
+    /** regular users only - the informal 'profile' child node's properties (see
+     * {@code JcrAuthorizableOperations#profileProperties}), 'null' for a system user or group */
+    @Nullable
+    protected List<ProfileEntry> profile;
+
+    /** one profile property, as a name/value pair for template iteration - a plain DTO rather
+     * than a {@code Map} entry so it round-trips predictably through the template engine's
+     * {@code valuesOf} (Jackson) conversion the same way {@link AuthorizableRef} already does */
+    @Getter
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class ProfileEntry {
+
+        protected final String name;
+        protected final String value;
+
+        public ProfileEntry(final String name, final String value) {
+            this.name = name;
+            this.value = value;
+        }
+    }
 }

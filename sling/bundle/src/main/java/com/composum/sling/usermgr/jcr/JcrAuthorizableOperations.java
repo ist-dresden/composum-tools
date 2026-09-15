@@ -1,5 +1,6 @@
 package com.composum.sling.usermgr.jcr;
 
+import com.composum.sling.usermgr.AffectedPathEntry;
 import com.composum.sling.usermgr.AuthorizableInfo;
 import com.composum.sling.usermgr.AuthorizableRef;
 import org.apache.commons.lang3.StringUtils;
@@ -12,25 +13,41 @@ import org.apache.jackrabbit.api.security.user.User;
 import org.apache.jackrabbit.api.security.user.UserManager;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
+import org.apache.sling.api.resource.ValueMap;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.jcr.Node;
+import javax.jcr.Property;
+import javax.jcr.PropertyIterator;
+import javax.jcr.PropertyType;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import java.security.Principal;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
- * Wraps the Jackrabbit {@link UserManager} API for the User Manager's detail-view, create,
- * delete, enable/disable, password and group-membership operations - the sole backend, unlike
+ * Wraps the Jackrabbit {@link UserManager} API and, for ACL-related lookups, the resolver-API
+ * JCR-SQL2 query mechanism - the sole backend, unlike
  * {@code com.composum.sling.packages.jcr.JcrPackageOperations}'s registry-mode counterpart, there
- * is nothing else to abstract over here.
+ * is nothing else to abstract over here. Covers: detail-view info ({@link #info}), the wildcard
+ * ('*'/'?') name search backing both the Add-to-Group/Add-Member autocomplete
+ * ({@link #find}) and the search bar's three modes ({@link #directAffectedPaths}/
+ * {@link #affectedPathsByPathPattern} - see {@code UserManager#query}'s own Javadoc for what each
+ * mode computes); create/delete/enable/disable/password/group-membership writes; the free-form
+ * 'profile' child-node property editor ({@link #profileProperties}/{@link #updateProfile}); and
+ * the ACL "Affected Paths" report ({@link #affectedPaths}, and its reverse,
+ * {@link #affectedPathsByPathPattern}), both built on the same principal-batched
+ * {@link #queryAffectedPaths} query helper.
  */
 public class JcrAuthorizableOperations {
 
@@ -222,6 +239,80 @@ public class JcrAuthorizableOperations {
         session.save();
     }
 
+    private static final String PROFILE_NODE_NAME = "profile";
+
+    /**
+     * A user's 'profile' child node properties - the informal, un-typed name/value convention
+     * AEM/Jackrabbit deployments commonly use for display-name/contact information (e.g.
+     * 'givenName'/'familyName'/'email'), not a JCR-defined node type with a fixed schema - hence
+     * the generic name/value editor this backs (see {@code UserManager#changeProfileDialog}/
+     * {@code #changeProfile}), rather than a fixed set of form fields. Only plain, single-value
+     * String properties are considered - a profile property is, in practice, always exactly that;
+     * 'jcr:*' protected properties (primaryType, created, ...) are always skipped.
+     *
+     * @return the profile properties, sorted by name - empty if the user has no 'profile' child
+     * node at all
+     */
+    public @NotNull List<AuthorizableInfo.ProfileEntry> profileProperties(@NotNull final Session session,
+                                                                           @NotNull final String userPath)
+            throws RepositoryException {
+        final List<AuthorizableInfo.ProfileEntry> result = new ArrayList<>();
+        final String profilePath = userPath + "/" + PROFILE_NODE_NAME;
+        if (session.nodeExists(profilePath)) {
+            final Node profile = session.getNode(profilePath);
+            final Map<String, String> sorted = new TreeMap<>();
+            final PropertyIterator iterator = profile.getProperties();
+            while (iterator.hasNext()) {
+                final Property property = iterator.nextProperty();
+                if (!property.getName().startsWith("jcr:")
+                        && property.getType() == PropertyType.STRING && !property.isMultiple()) {
+                    sorted.put(property.getName(), property.getString());
+                }
+            }
+            sorted.forEach((name, value) -> result.add(new AuthorizableInfo.ProfileEntry(name, value)));
+        }
+        return result;
+    }
+
+    /**
+     * Replaces a user's 'profile' child node properties with exactly the given set - removes any
+     * existing profile property not present in 'properties', sets/updates the rest; creates the
+     * 'profile' child node itself (a plain 'nt:unstructured', the same convention AEM's own user
+     * admin UI uses) if it does not exist yet and 'properties' is non-empty. Properties are
+     * removed/collected first, then applied, to avoid mutating the live {@link PropertyIterator}
+     * mid-walk.
+     */
+    public void updateProfile(@NotNull final Session session, @NotNull final String userPath,
+                              @NotNull final Map<String, String> properties) throws RepositoryException {
+        final String profilePath = userPath + "/" + PROFILE_NODE_NAME;
+        final boolean exists = session.nodeExists(profilePath);
+        if (!exists && properties.isEmpty()) {
+            return;
+        }
+        final Node profile = exists ? session.getNode(profilePath)
+                : session.getNode(userPath).addNode(PROFILE_NODE_NAME, "nt:unstructured");
+        final List<Property> obsolete = new ArrayList<>();
+        final PropertyIterator iterator = profile.getProperties();
+        while (iterator.hasNext()) {
+            final Property property = iterator.nextProperty();
+            if (!property.getName().startsWith("jcr:") && !properties.containsKey(property.getName())) {
+                obsolete.add(property);
+            }
+        }
+        try {
+            for (final Property property : obsolete) {
+                property.remove();
+            }
+            for (final Map.Entry<String, String> entry : properties.entrySet()) {
+                profile.setProperty(entry.getKey(), entry.getValue());
+            }
+        } catch (RuntimeException ex) {
+            // e.g. an IllegalArgumentException for a property name that isn't a valid JCR name
+            throw new RepositoryException("The profile could not be updated: " + ex.getMessage(), ex);
+        }
+        session.save();
+    }
+
     /** a minimal, name-only {@link Principal} - all the 4-arg create overloads need is a name */
     private static final class NamedPrincipal implements Principal {
 
@@ -261,6 +352,22 @@ public class JcrAuthorizableOperations {
     public @NotNull List<AuthorizableRef> find(@NotNull final Session session, @NotNull final String pattern,
                                                @Nullable final String type, final int limit)
             throws RepositoryException {
+        final List<AuthorizableRef> result = new ArrayList<>();
+        for (final Authorizable authorizable : findAuthorizables(session, pattern, type, limit)) {
+            result.add(toRef(authorizable));
+        }
+        return result;
+    }
+
+    /**
+     * The raw candidate lookup {@link #find} converts to {@link AuthorizableRef}s - also used
+     * directly by {@link #directAffectedPaths}/{@link #affectedPathsForCandidates}, which need the
+     * actual {@link Authorizable} (for its principal name and, in the latter case, its own group
+     * memberships), not just the flattened id/label/icon shape {@link #find}'s callers want.
+     */
+    private @NotNull List<Authorizable> findAuthorizables(@NotNull final Session session, @NotNull final String pattern,
+                                                           @Nullable final String type, final int limit)
+            throws RepositoryException {
         final UserManager userManager = userManager(session);
         if (userManager == null) {
             return List.of();
@@ -278,54 +385,69 @@ public class JcrAuthorizableOperations {
                 builder.setLimit(0, limit);
             }
         });
-        final List<AuthorizableRef> result = new ArrayList<>();
+        final List<Authorizable> result = new ArrayList<>();
         while (iterator.hasNext() && result.size() < limit) {
-            result.add(toRef(iterator.next()));
+            result.add(iterator.next());
         }
         return result;
     }
 
     /**
-     * Finds authorizables that have at least one ACL entry (grant or deny) at a repository path
-     * matching the given wildcard pattern - the reverse of {@link #affectedPaths}: that method
-     * answers "where does this authorizable's principal have rights", this one answers "which
-     * authorizables have rights somewhere matching this path". Unlike the legacy Composum Nodes
-     * tool this was ported from (which ran the equivalent of {@link #affectedPaths} once per
-     * candidate authorizable, an O(authorizable count) series of queries), this runs exactly two
-     * JCR-SQL2 queries total (one per ACE node type, same reasoning as {@link #affectedPaths}) -
-     * every 'rep:GrantACE'/'rep:DenyACE' in the whole repository is necessarily inspected once
-     * (there is no index on "the path two ancestors up"), but each is inspected exactly once
-     * regardless of how many authorizables end up matching.
+     * The search bar's name-pattern mode (with an optional path-pattern narrowing it further): for
+     * every authorizable matching the given name wildcard pattern, its own <em>directly</em>
+     * configured affected paths - no group-membership inheritance (unlike {@link #affectedPaths}),
+     * deliberately: a name-and-path search is meant as a genuine AND of both criteria on the same
+     * principal ("who, among these name matches, is themselves directly granted/denied on a
+     * matching path") - pulling in each candidate's inherited group rules too made this mode look
+     * near-indistinguishable from {@link #affectedPathsByPathPattern}'s own, deliberately broader
+     * "anyone at all" search, since group principals ended up dominating both result sets. One
+     * principal-batched query pair (see {@link #queryAffectedPaths}) covering every candidate's
+     * own principal name at once, regardless of candidate count.
      *
-     * @param resolver     the current resolver, used for the JCR-SQL2 ACE queries
-     * @param session      the current session, resolved to a {@link UserManager} internally - the
-     *                     overload the {@code UserManager} plugin class calls, so that class
-     *                     (whose own name collides with the Jackrabbit {@link UserManager}
-     *                     interface) never needs to name that type at all, same as {@link #find}
-     * @param namePattern  an optional additional wildcard pattern the id/principal name must also
-     *                     match (see {@link #find}), or blank/'null' for no name restriction
-     * @param pathPattern  the wildcard pattern (see {@link #wildcardToRegex}) the affected path
-     *                     must match
-     * @param type         'user', 'group', or 'null'/anything else for both
-     * @param limit        the maximum number of results to return
-     * @return the matching authorizables, or an empty list if the session has no user manager
+     * @param pathPattern the wildcard pattern (see {@link #wildcardToRegex}) a hit's affected path
+     *                     must additionally match, or blank/'null' for the name-pattern-only mode
      */
-    public @NotNull List<AuthorizableRef> findByAffectedPath(@NotNull final ResourceResolver resolver,
-                                                              @NotNull final Session session,
-                                                              @Nullable final String namePattern,
-                                                              @NotNull final String pathPattern,
-                                                              @Nullable final String type, final int limit)
+    public @NotNull List<AffectedPathEntry> directAffectedPaths(@NotNull final ResourceResolver resolver,
+                                                                 @NotNull final Session session,
+                                                                 @NotNull final String namePattern,
+                                                                 @Nullable final String pathPattern,
+                                                                 @Nullable final String type, final int limit)
+            throws RepositoryException {
+        final Map<String, PrincipalInfo> principals = new LinkedHashMap<>();
+        for (final Authorizable candidate : findAuthorizables(session, namePattern, type, limit)) {
+            principals.put(candidate.getPrincipal().getName(), new PrincipalInfo(candidate));
+        }
+        final Pattern pathFilter = StringUtils.isNotBlank(pathPattern) ? wildcardToRegex(pathPattern) : null;
+        return queryAffectedPaths(resolver, principals, pathFilter, limit);
+    }
+
+    /**
+     * The search bar's path-pattern-only mode: every ACL rule (any principal at all, including
+     * ones that would never turn up in a name search, e.g. a service principal) whose affected
+     * path matches the given wildcard pattern - the reverse of {@link #affectedPaths}: that method
+     * answers "where does this authorizable's principal have rights", this one answers "who has
+     * rights somewhere matching this path". Unlike {@link #queryAffectedPaths} (used by every
+     * other mode here), the candidate principal set isn't known up front, so this still has to
+     * inspect every 'rep:GrantACE'/'rep:DenyACE' in the whole repository once (there is no index
+     * on "the path two ancestors up") - but exactly once each, regardless of how many end up
+     * matching, and each matching principal's own path is resolved and cached at most once too.
+     */
+    public @NotNull List<AffectedPathEntry> affectedPathsByPathPattern(@NotNull final ResourceResolver resolver,
+                                                                        @NotNull final Session session,
+                                                                        @NotNull final String pathPattern,
+                                                                        @Nullable final String type, final int limit)
             throws RepositoryException {
         final UserManager userManager = userManager(session);
         if (userManager == null) {
             return List.of();
         }
         final Pattern pathRegex = wildcardToRegex(pathPattern);
-        final Pattern nameRegex = StringUtils.isNotBlank(namePattern) ? wildcardToRegex(namePattern) : null;
-        final Set<String> principalNames = new LinkedHashSet<>();
+        final Map<String, PrincipalInfo> resolved = new LinkedHashMap<>();
+        final List<AffectedPathEntry> result = new ArrayList<>();
         for (final String aceType : List.of("rep:GrantACE", "rep:DenyACE")) {
+            final String ruleType = "rep:GrantACE".equals(aceType) ? "grant" : "deny";
             final Iterator<Resource> iterator = resolver.findResources("SELECT * FROM [" + aceType + "]", "JCR-SQL2");
-            while (iterator.hasNext()) {
+            while (iterator.hasNext() && result.size() < limit) {
                 final Resource ace = iterator.next();
                 final Resource acl = ace.getParent();
                 final Resource controlled = acl != null ? acl.getParent() : null;
@@ -333,28 +455,58 @@ public class JcrAuthorizableOperations {
                     continue;
                 }
                 final String principalName = ace.getValueMap().get("rep:principalName", String.class);
-                if (principalName != null) {
-                    principalNames.add(principalName);
+                if (principalName == null) {
+                    continue;
+                }
+                final PrincipalInfo principal = resolved.computeIfAbsent(principalName,
+                        name -> resolvePrincipal(userManager, name, type));
+                if (principal != null) {
+                    result.add(new AffectedPathEntry(controlled.getPath(), principalName, principal.path,
+                            principal.icon, ruleType, formatPrivileges(ace)));
                 }
             }
         }
-        final List<AuthorizableRef> result = new ArrayList<>();
-        for (final String principalName : principalNames) {
-            if (result.size() >= limit) {
-                break;
-            }
+        result.sort(Comparator.comparing(AffectedPathEntry::getPath).thenComparing(AffectedPathEntry::getPrincipal));
+        return result;
+    }
+
+    /**
+     * Resolves a principal name to its own authorizable, honoring 'type' - 'null' (cached the same
+     * as any other result, avoiding repeat lookups for the same principal) if it doesn't resolve
+     * at all or doesn't match 'type'.
+     */
+    private @Nullable PrincipalInfo resolvePrincipal(@NotNull final UserManager userManager,
+                                                      @NotNull final String principalName, @Nullable final String type) {
+        try {
             final Authorizable authorizable = userManager.getAuthorizable(new NamedPrincipal(principalName));
-            if (authorizable == null || (nameRegex != null && !nameRegex.matcher(authorizable.getID()).matches()
-                    && !nameRegex.matcher(principalName).matches())) {
-                continue;
+            if (authorizable == null) {
+                return null;
             }
             final boolean isGroup = authorizable instanceof Group;
             if (("user".equals(type) && isGroup) || ("group".equals(type) && !isGroup)) {
-                continue;
+                return null;
             }
-            result.add(toRef(authorizable));
+            return new PrincipalInfo(authorizable);
+        } catch (RepositoryException ex) {
+            return null;
         }
-        return result;
+    }
+
+    /** an authorizable's own path plus the Bootstrap Icons name for its type - everything the
+     * "Type" and "Principal" columns of an {@link AffectedPathEntry} row need about whichever
+     * principal it names, gathered once so {@link #queryAffectedPaths} doesn't need the
+     * {@link Authorizable} itself, just this small, already-resolved pair */
+    private static final class PrincipalInfo {
+
+        final String path;
+        final String icon;
+
+        PrincipalInfo(@NotNull final Authorizable authorizable) throws RepositoryException {
+            this.path = authorizable.getPath();
+            final String type = authorizable instanceof Group ? "group"
+                    : ((User) authorizable).isSystemUser() ? "system-user" : "user";
+            this.icon = AuthorizableRef.iconOf(type);
+        }
     }
 
     /**
@@ -364,7 +516,9 @@ public class JcrAuthorizableOperations {
      * as an implicit "contains" search (wrapped in a leading/trailing '*') - the common case of
      * just typing part of a name, preserved from this method's simpler predecessor.
      */
-    private static @NotNull String wildcardToSqlLike(@NotNull final String pattern) {
+    // package-private (not private) so JcrAuthorizableOperationsTest can exercise it directly -
+    // pure String logic, no JCR/Sling types involved, the ideal candidate for a real unit test
+    static @NotNull String wildcardToSqlLike(@NotNull final String pattern) {
         final String effective = hasWildcard(pattern) ? pattern : "*" + pattern + "*";
         final StringBuilder like = new StringBuilder();
         for (int i = 0; i < effective.length(); i++) {
@@ -393,7 +547,8 @@ public class JcrAuthorizableOperations {
      * case-insensitive, full-match {@link Pattern} - used where the candidate value (a repository
      * path here) is already in hand and matched in Java, rather than pushed into a JCR query.
      */
-    private static @NotNull Pattern wildcardToRegex(@NotNull final String pattern) {
+    // package-private, same reasoning as #wildcardToSqlLike
+    static @NotNull Pattern wildcardToRegex(@NotNull final String pattern) {
         final String effective = hasWildcard(pattern) ? pattern : "*" + pattern + "*";
         final StringBuilder regex = new StringBuilder();
         for (int i = 0; i < effective.length(); i++) {
@@ -412,39 +567,132 @@ public class JcrAuthorizableOperations {
         return Pattern.compile(regex.toString(), Pattern.CASE_INSENSITIVE);
     }
 
-    private static boolean hasWildcard(@NotNull final String pattern) {
+    static boolean hasWildcard(@NotNull final String pattern) {
         return pattern.indexOf('*') >= 0 || pattern.indexOf('?') >= 0;
     }
 
     /**
-     * The repository paths where an ACL grants or denies a privilege to this authorizable's
-     * principal - a read-only diagnostic report, the User Manager equivalent of
-     * {@code com.composum.sling.packages.jcr.JcrPackageOperations#coverage}. Two plain JCR-SQL2
-     * queries (one per ACE node type - not a single UNION query, which is an Oak-specific
-     * extension not guaranteed on every JCR implementation) via
-     * {@link ResourceResolver#findResources}, the same query-execution API the Browser module's
-     * own Query tool already uses ({@code browser.tool.JcrQuery#find}) rather than the raw JCR
-     * {@code QueryManager}. For each hit, the protected path is simply its grandparent - an ACE's
-     * parent is the ACL node ('rep:policy'/'rep:repoPolicy'), whose parent is the node the ACL
-     * actually controls.
+     * The repository paths where an ACL grants or denies a privilege to this authorizable's own
+     * principal, or to any group it is a (declared or inherited) member of - a read-only
+     * diagnostic report, the User Manager equivalent of
+     * {@code com.composum.sling.packages.jcr.JcrPackageOperations#coverage}. Including the group
+     * memberships is what makes the "Principal" column meaningful (see
+     * {@link AffectedPathEntry}'s own Javadoc) and, more importantly, is what actually answers
+     * "why does this user have access to X" - a real-world grant is at least as often held by a
+     * group the user belongs to as by the user's own principal directly. Two plain JCR-SQL2
+     * queries total (one per ACE node type - not a single UNION query, which is an Oak-specific
+     * extension not guaranteed on every JCR implementation, and not one query per candidate
+     * principal either, which would not scale with group membership count), each with an
+     * OR-chained '[rep:principalName] = ...' condition covering every candidate principal at
+     * once, via {@link ResourceResolver#findResources}, the same query-execution API the Browser
+     * module's own Query tool already uses ({@code browser.tool.JcrQuery#find}) rather than the
+     * raw JCR {@code QueryManager}. For each hit, the protected path is simply its grandparent -
+     * an ACE's parent is the ACL node ('rep:policy'/'rep:repoPolicy'), whose parent is the node
+     * the ACL actually controls.
      */
-    public @NotNull List<String> affectedPaths(@NotNull final ResourceResolver resolver,
-                                               @NotNull final Authorizable authorizable) throws RepositoryException {
-        final String principalName = authorizable.getPrincipal().getName();
-        final Set<String> paths = new TreeSet<>();
+    public @NotNull List<AffectedPathEntry> affectedPaths(@NotNull final ResourceResolver resolver,
+                                                           @NotNull final Authorizable authorizable) throws RepositoryException {
+        final Map<String, PrincipalInfo> principals = new LinkedHashMap<>();
+        principals.put(authorizable.getPrincipal().getName(), new PrincipalInfo(authorizable));
+        final Iterator<Group> groups = authorizable.memberOf();
+        while (groups.hasNext()) {
+            final Group group = groups.next();
+            principals.put(group.getPrincipal().getName(), new PrincipalInfo(group));
+        }
+        // unbounded - the per-authorizable tab shows everything, unlike the search modes below,
+        // which cap their (necessarily broader) result at the same QUERY_LIMIT their candidate
+        // lookup already used
+        return queryAffectedPaths(resolver, principals, null, Integer.MAX_VALUE);
+    }
+
+    /**
+     * The actual ACE lookup shared by {@link #affectedPaths}, {@link #directAffectedPaths} and
+     * {@link #affectedPathsForCandidates}: exactly two JCR-SQL2 queries total (one per ACE node
+     * type), each with an OR-chained '[rep:principalName] = ...' condition covering every entry in
+     * 'principalPaths' at once - scales with two queries regardless of how many principals (one
+     * authorizable's own plus its groups, or a whole batch of search candidates') are being asked
+     * about, not one query per principal. 'pathFilter', if given, additionally restricts hits to a
+     * matching affected path (used by the search bar's combined name+path mode; 'null' for the
+     * unfiltered per-authorizable tab and the name-only search mode).
+     */
+    private @NotNull List<AffectedPathEntry> queryAffectedPaths(@NotNull final ResourceResolver resolver,
+                                                                 @NotNull final Map<String, PrincipalInfo> principals,
+                                                                 @Nullable final Pattern pathFilter, final int limit)
+            throws RepositoryException {
+        if (principals.isEmpty()) {
+            return List.of();
+        }
+        final String principalCondition = principals.keySet().stream()
+                .map(name -> "[rep:principalName] = " + sql2Literal(name))
+                .collect(Collectors.joining(" OR "));
+        final List<AffectedPathEntry> result = new ArrayList<>();
         for (final String aceType : List.of("rep:GrantACE", "rep:DenyACE")) {
-            final String query = "SELECT * FROM [" + aceType + "] WHERE [rep:principalName] = " + sql2Literal(principalName);
+            final String type = "rep:GrantACE".equals(aceType) ? "grant" : "deny";
+            final String query = "SELECT * FROM [" + aceType + "] WHERE " + principalCondition;
             final Iterator<Resource> iterator = resolver.findResources(query, "JCR-SQL2");
-            while (iterator.hasNext()) {
+            while (iterator.hasNext() && result.size() < limit) {
                 final Resource ace = iterator.next();
                 final Resource acl = ace.getParent();
                 final Resource controlled = acl != null ? acl.getParent() : null;
-                if (controlled != null) {
-                    paths.add(controlled.getPath());
+                final String principalName = ace.getValueMap().get("rep:principalName", String.class);
+                final PrincipalInfo principal = principalName != null ? principals.get(principalName) : null;
+                if (controlled != null && principalName != null && principal != null
+                        && (pathFilter == null || pathFilter.matcher(controlled.getPath()).matches())) {
+                    result.add(new AffectedPathEntry(controlled.getPath(), principalName, principal.path,
+                            principal.icon, type, formatPrivileges(ace)));
                 }
             }
         }
-        return new ArrayList<>(paths);
+        result.sort(Comparator.comparing(AffectedPathEntry::getPath).thenComparing(AffectedPathEntry::getPrincipal));
+        return result;
+    }
+
+    /**
+     * A single, ready-to-display string for one 'rep:GrantACE'/'rep:DenyACE' node's own
+     * privileges plus any restrictions (e.g. 'rep:glob', 'rep:ntNames', 'rep:subtrees', ...) -
+     * every property other than the well-known 'jcr:primaryType'/'rep:privileges'/
+     * 'rep:principalName' ones is treated generically as a restriction, matching the legacy
+     * Composum Nodes tool's own "AC rule" formatting (no fixed restriction-name list to maintain).
+     * Restrictions are read from two places: any legacy-format restriction stored directly on the
+     * ACE node itself, and (Oak's current format, used by every ACE actually carrying a
+     * restriction on a reasonably current repository) a 'rep:restrictions' child node's own
+     * properties - without the latter, restrictions silently never showed up at all.
+     */
+    private @NotNull String formatPrivileges(@NotNull final Resource ace) {
+        final ValueMap values = ace.getValueMap();
+        final String[] privileges = values.get("rep:privileges", String[].class);
+        final StringBuilder result = new StringBuilder(privileges != null ? String.join(", ", privileges) : "");
+        final List<String> restrictions = new ArrayList<>();
+        collectRestrictions(values, restrictions);
+        final Resource restrictionsNode = ace.getChild("rep:restrictions");
+        if (restrictionsNode != null) {
+            collectRestrictions(restrictionsNode.getValueMap(), restrictions);
+        }
+        if (!restrictions.isEmpty()) {
+            result.append(" (").append(String.join(", ", restrictions)).append(")");
+        }
+        return result.toString();
+    }
+
+    private void collectRestrictions(@NotNull final ValueMap values, @NotNull final List<String> restrictions) {
+        for (final String name : values.keySet()) {
+            if (!name.startsWith("jcr:") && !"rep:privileges".equals(name) && !"rep:principalName".equals(name)) {
+                restrictions.add(name + "=" + formatRestrictionValue(values.get(name)));
+            }
+        }
+    }
+
+    // package-private, same reasoning as #wildcardToSqlLike
+    @NotNull String formatRestrictionValue(@Nullable final Object value) {
+        if (value instanceof Object[]) {
+            final Object[] values = (Object[]) value;
+            final String[] strings = new String[values.length];
+            for (int i = 0; i < values.length; i++) {
+                strings[i] = String.valueOf(values[i]);
+            }
+            return "[" + String.join(",", strings) + "]";
+        }
+        return String.valueOf(value);
     }
 
     private @NotNull String sql2Literal(@NotNull final String value) {

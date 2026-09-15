@@ -1,8 +1,14 @@
 <div class="usermgr-page_detail">
-    ${include:'/sling/usermgr/details/toolbar.html'}
+    <div class="usermgr-page_detail-panel-header">
+        <div class="usermgr-page_detail-actions">
+            ${include:'/sling/usermgr/details/toolbar.html'}
+        </div>
+        ${include:'/sling/usermgr/details/reloadAction.html'}
+    </div>
     <div class="usermgr-page_detail_content">
         <ul class="usermgr-page_folder-list">
             ${each.entry:users.entries;'/sling/usermgr/details/folderEntry.html'}
         </ul>
+        ${if:!users.entries;'<p class="usermgr-page_hint">This folder is empty.</p>'}
     </div>
 </div>

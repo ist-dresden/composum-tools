@@ -1,0 +1,10 @@
+<tr>
+    <td class="icon"><i class="bi bi-${entry.principalIcon}"></i></td>
+    <td class="principal">
+        <a href="#" class="usermgr-page_folder-entry-link" data-path="${attr:entry.principalPath}">${entry.principal}</a>
+    </td>
+    <td class="path">
+        <a href="${attr:affectedPaths.browserUri}${attr:entry.path}">${entry.path}</a>
+    </td>
+    <td class="rule type-${entry.type}">${entry.type}: ${entry.privileges}</td>
+</tr>
