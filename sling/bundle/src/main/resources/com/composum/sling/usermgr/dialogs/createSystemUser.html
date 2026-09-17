@@ -14,7 +14,9 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Intermediate Path</label>
-                        <input type="text" class="form-control" name="intermediatePath" placeholder="optional, e.g. acme/service">
+                        <input type="text" class="form-control tools-path_input" name="intermediatePath"
+                               data-suggest-uri="${attr:dialog.intermediatePathSuggest}" autocomplete="off"
+                               placeholder="optional, e.g. acme/service">
                     </div>
                 </div>
                 <div class="modal-footer">

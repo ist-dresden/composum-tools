@@ -1,7 +1,10 @@
-<div><i class="usermgr-page_add-indicator bi bi-plus-lg"></i>
-    <div class="usermgr-page_toolbar btn-group btn-group-sm" data-dialog-url="${attr:users.dialog}">
-        <button type="button" class="usermgr-page_action-createUser btn btn-dark"><i class="bi bi-person"></i><span> User</span></button>
-        <button type="button" class="usermgr-page_action-createSystemUser btn btn-dark"><i class="bi bi-gear"></i><span> System User</span></button>
-        <button type="button" class="usermgr-page_action-createGroup btn btn-dark"><i class="bi bi-people"></i><span> Group</span></button>
-    </div>
+<div class="usermgr-page_change-menu" data-dialog-url="${attr:users.dialog}">
+    <button type="button" class="browser-node-toolbar_change-toggle btn btn-dark btn-sm" data-bs-toggle="dropdown" aria-expanded="false" title="Changes"><i class="bi bi-list"></i></button>
+    <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
+        <li><a class="usermgr-page_action-createUser dropdown-item"><i class="prepend bi bi-plus"></i><i class="bi bi-person"></i><span> User</span></a></li>
+        <li><a class="usermgr-page_action-createSystemUser dropdown-item"><i class="prepend bi bi-plus"></i><i class="bi bi-gear"></i><span> System User</span></a></li>
+        <li><a class="usermgr-page_action-createGroup dropdown-item"><i class="prepend bi bi-plus"></i><i class="bi bi-people"></i><span> Group</span></a></li>
+        <li class="dropdown-divider"></li>
+        <li><a class="usermgr-page_action-delete dropdown-item"><i class="no-prepend bi bi-trash"></i><span> Delete</span></a></li>
+    </ul>
 </div>

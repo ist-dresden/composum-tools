@@ -23,6 +23,7 @@ import javax.jcr.PropertyIterator;
 import javax.jcr.PropertyType;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
+import javax.jcr.nodetype.ConstraintViolationException;
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -211,9 +212,42 @@ public class JcrAuthorizableOperations {
     public void delete(@NotNull final Session session, @NotNull final Authorizable authorizable)
             throws RepositoryException {
         if (PROTECTED_IDS.contains(authorizable.getID())) {
-            throw new RepositoryException("The '" + authorizable.getID() + "' authorizable cannot be deleted.");
+            throw new ConstraintViolationException("The '" + authorizable.getID() + "' authorizable cannot be deleted.");
         }
         authorizable.remove();
+        session.save();
+    }
+
+    /** the three synthetic tree roots ({@code UserManager}'s own three-root layout, see
+     * {@link JcrAuthorizableTree}) - never actual "folders" a user created, so
+     * {@link #deleteFolder} refuses to remove any of them */
+    private static final Set<String> PROTECTED_FOLDERS = Set.of(
+            JcrAuthorizableTree.USERS_PATH, JcrAuthorizableTree.SYSTEM_PATH, JcrAuthorizableTree.GROUPS_PATH);
+
+    /**
+     * Whether the given path is an existing plain intermediate tree folder
+     * ({@code rep:AuthorizableFolder}) rather than a leaf {@link Authorizable} - the delete
+     * dialog/action needs to tell the two apart, since a folder is not an {@link Authorizable} at
+     * all and {@link #delete} (which operates on one) does not apply to it.
+     */
+    public boolean isFolder(@NotNull final Session session, @NotNull final String path) throws RepositoryException {
+        return session.nodeExists(path)
+                && "rep:AuthorizableFolder".equals(session.getNode(path).getPrimaryNodeType().getName());
+    }
+
+    /**
+     * Deletes the given intermediate folder and everything nested under it - a plain, recursive
+     * JCR node removal (a folder is not an {@link Authorizable}, so {@link #delete} does not
+     * apply), which silently takes any users/groups/subfolders it contains along with it. Refuses
+     * to remove any of the three synthetic tree roots (see {@link #PROTECTED_FOLDERS}) - those
+     * are not actual "folders" an admin created, and removing one would strip a whole branch of
+     * the authorizable tree out from under the plugin.
+     */
+    public void deleteFolder(@NotNull final Session session, @NotNull final String path) throws RepositoryException {
+        if (PROTECTED_FOLDERS.contains(path)) {
+            throw new ConstraintViolationException("The '" + path + "' root folder cannot be deleted.");
+        }
+        session.getNode(path).remove();
         session.save();
     }
 

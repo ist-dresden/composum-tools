@@ -160,8 +160,13 @@ clearly distinct from the path-only mode) searches by identity; a path pattern a
 "who has rights here at all", across every principal repository-wide, whichever kind of
 authorizable it turns out to be.
 
-Other actions: **Create User**/**Create System User**/**Create Group**, **Enable**/**Disable**,
-**Change Password**, **Delete** (never available for `admin`/`anonymous`, not just disabled).
+A "Changes" dropdown above the tree offers **Create User**/**Create System User**/**Create
+Group** (no selection needed) and **Delete** (whatever is currently selected) — mirroring the
+Browser's own node-toolbar dropdown, both in look and in relying entirely on the server to reject
+an invalid target (nothing selected yet, a folder, or a protected id like `admin`/`anonymous`)
+rather than pre-filtering what the button does client-side. **Enable**/**Disable** and **Change
+Password** stay in the Principal tab's own action toolbar, since — unlike Delete — they only ever
+make sense while that tab's own detail is already being looked at.
 
 ### Console (AEM only)
 

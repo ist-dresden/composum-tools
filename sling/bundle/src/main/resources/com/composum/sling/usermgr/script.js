@@ -81,6 +81,18 @@ class UsersTree extends ViewWidget {
     return selectedIds.length > 0 ? this.jstree.get_node(selectedIds[0]) : undefined;
   }
 
+  // re-fetches just the currently selected node's own children from the server (jsTree's
+  // 'refresh_node' re-runs the 'data' callback for that one node) - narrower than 'onRefresh'
+  // above, which refreshes the whole tree; a manual "Reload" action has no mutation result
+  // telling it what changed, so it only ever makes sense to reload the one node the user is
+  // looking at (mirrors Browser's own BrowserTree#reloadSelected)
+  reloadSelected() {
+    const node = this.getSelectedNode();
+    if (node) {
+      this.jstree.refresh_node(node);
+    }
+  }
+
   // re-selects the given path in the tree, e.g. on browser back/forward (see the 'path:select'
   // listener above) or after an edit that may have changed the currently shown authorizable
   doSelectPath(event, path) {
@@ -180,6 +192,31 @@ class UsersTree extends ViewWidget {
 }
 
 CPM.widgets.register(UsersTree);
+
+// Reload button in the tree-bar, next to the (write-gated) "Changes" dropdown - re-fetches just
+// the currently selected tree node's own children (see UsersTree#reloadSelected), useful whenever
+// the repository changed by some other means the User Manager has no way to know about on its
+// own. Kept as its own tiny widget rather than folded into UsersChangeMenu, since that one's
+// markup only exists at all while users.writeEnabled - Reload is a read-only convenience and must
+// always be available regardless (mirrors Browser's own BrowserNodeToolbar/BrowserTree split for
+// the identical reason).
+class UsersTreeReload extends ViewWidget {
+
+  static selector = '.usermgr-page_tree-reload';
+
+  constructor(element) {
+    super(element);
+    this.$el.on('click', (event) => {
+      event.preventDefault();
+      const tree = Widgets.getView(UsersTree.selector, UsersTree);
+      if (tree) {
+        tree.reloadSelected();
+      }
+    });
+  }
+}
+
+CPM.widgets.register(UsersTreeReload);
 
 // the permanently visible search bar in the right column (a sibling of '.usermgr-page_detail-panel',
 // not nested inside it - see '.usermgr-page_right-panel' in style.css for why), with a permanent
@@ -283,24 +320,40 @@ class UsersSearch extends ViewWidget {
 
 CPM.widgets.register(UsersSearch);
 
-// Create User / Create System User / Create Group buttons above the tree - shown only when
-// writeEnabled (see page.html), same on-demand-dialog pattern as the Package Manager's own
-// toolbar (packages/script.js#PackagesToolbar).
-class UsersToolbar extends ViewWidget {
+// The tree-bar's "Changes" dropdown - Create User/System User/Group (no selection needed) plus
+// Delete (moved here from the Principal tab's own action toolbar - see UserManager#actions,
+// which no longer lists it), shown only when writeEnabled (see page.html). Tracks the currently
+// selected authorizable's path via the same 'authorizable:selected' event UsersDetail itself
+// listens to, exactly like the Browser's own node-toolbar dropdown (script.js#BrowserNodeToolbar)
+// tracks 'path:selected' for its own Delete/Move/Copy/Paste actions - Delete's own server route
+// already rejects a path that isn't a real, deletable authorizable (not selected yet, a folder,
+// or a protected id like 'admin'/'anonymous'), so no client-side pre-filtering is needed here.
+class UsersChangeMenu extends ViewWidget {
 
-  static selector = '.usermgr-page_toolbar';
+  static selector = '.usermgr-page_change-menu';
 
   constructor(element) {
     super(element);
     this.dialogUrl = this.$el.data('dialog-url');
+    $(document).on('authorizable:selected', this.onAuthorizableSelected.bind(this));
     ['createUser', 'createSystemUser', 'createGroup'].forEach((key) => {
       this.$el.find('.usermgr-page_action-' + key).on('click',
         () => new CPM.Dialog(this.dialogUrl + key + '.html').open());
     });
+    this.$el.find('.usermgr-page_action-delete').on('click', (event) => {
+      event.preventDefault();
+      if (this.path) {
+        new CPM.Dialog(this.dialogUrl + 'delete.html' + this.path).open();
+      }
+    });
+  }
+
+  onAuthorizableSelected(event, path) {
+    this.path = path;
   }
 }
 
-CPM.widgets.register(UsersToolbar);
+CPM.widgets.register(UsersChangeMenu);
 
 // a link that selects a given authorizable path (fires the shared 'path:select' event, same as
 // clicking the tree) - used by the Groups/Members tab entries and the Affected Paths tab's

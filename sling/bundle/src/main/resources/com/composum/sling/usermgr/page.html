@@ -20,8 +20,8 @@ ${include:'/sling/tools/navbar/navbar.html'}
 <div class="usermgr-page_content">
     <div class="usermgr-page_left-panel">
         <div class="usermgr-page_tree-bar">
-            <div class="d-flex justify-content-between align-items-center">
-                <span class="usermgr-page_tree-title">Users &amp; Groups</span>
+            <div class="d-flex flex-row-reverse flex-nowrap">
+                <a class="usermgr-page_tree-reload" title="Reload"><i class="bi bi-arrow-clockwise"></i></a>
                 ${if:users.writeEnabled;'/sling/usermgr/toolbar.html'}
             </div>
         </div>
@@ -48,6 +48,8 @@ ${include:'/sling/tools/navbar/navbar.html'}
         <div class="usermgr-page_detail-panel" data-page-url="${attr:users.uri}" data-view-url="${attr:users.view}"
              data-dialog-url="${attr:users.dialog}">
             <div class="usermgr-page_detail">
+                <div class="usermgr-page_detail-panel-header">
+                </div>
                 <div class="usermgr-page_detail_content">
                     <p class="usermgr-page_hint">Select a user, group, or folder in the tree on the left.</p>
                 </div>

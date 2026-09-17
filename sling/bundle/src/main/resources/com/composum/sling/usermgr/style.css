@@ -8,21 +8,36 @@
     font-family: 'Titillium Web', 'Helvetica', 'Arial', sans-serif
 }
 
+.usermgr-page_content .btn i.bi {
+    margin-right: 4px;
+}
+
+.usermgr-page_content .btn-group .btn:not(:first-child) {
+    border-left-color: #777;
+}
+
+.usermgr-page_content .usermgr-page_tree-bar a,
+.usermgr-page_content .usermgr-page_tree-bar a:hover,
+.usermgr-page_content .usermgr-page_tree-bar a:focus,
+.usermgr-page_content .usermgr-page_tree-bar a:active,
+.usermgr-page_content .usermgr-page_tree-bar a:visited,
+.usermgr-page_content .usermgr-page_detail-actions a,
+.usermgr-page_content .usermgr-page_detail-actions a:hover,
+.usermgr-page_content .usermgr-page_detail-actions a:focus,
+.usermgr-page_content .usermgr-page_detail-actions a:active,
+.usermgr-page_content .usermgr-page_detail-actions a:visited {
+    color: var(--toolbar-color);
+}
+
 .usermgr-page_left-panel {
     position: relative;
-    width: 35%;
-    min-width: 22%;
+    width: 30%;
+    min-width: 24%;
     max-width: 500px;
     padding-top: 38px;
     border-right: 1px solid #aaa;
 }
 
-/* the detail panel's tab-row + action-toolbar strip, visually matching the Browser's own view
-   header (.browser-page_browser_tabs/.browser-page_browser_parameters in browser/style.css) -
-   the same CSS variables, same tab look, same right-aligned action buttons - but hardcoded here
-   for User Manager's own fixed tab set (Principal/Groups/Members/Affected Paths, varying only by
-   authorizable type) rather than reusing Browser's generic, per-resource pluggable View system,
-   which was never built to vary its tab set by the selected item's own type */
 .usermgr-page_detail-panel-header {
     position: relative;
     height: var(--toolbar-height);
@@ -46,6 +61,21 @@
     background: var(--toolbar-tab-color-bg);
 }
 
+
+@media (max-width: 1199px) {
+    .usermgr-page_detail-tabs .nav-item .nav-link {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+}
+
+@media (max-width: 809px) {
+    .usermgr-page_detail-tabs .nav-item .nav-link {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+}
+
 .usermgr-page_detail-tabs .nav-item .nav-link.active {
     border-bottom: 1px solid transparent;
     background: #fff;
@@ -57,43 +87,42 @@
     left: 0;
     right: 0;
     height: var(--toolbar-height);
-    padding: 4px 8px 4px 12px;
+    padding: 4px 0 4px 12px;
     color: var(--toolbar-color);
     background: var(--toolbar-color-bg);
     border-right: 1px solid #aaa;
 }
 
-.usermgr-page_add-indicator {
+.usermgr-page_tree-bar .btn {
+    padding-top: 1px;
+    padding-bottom: 0;
+}
+
+.usermgr-page_tree-bar .btn i.bi {
+    margin-right: 0;
     font-size: var(--toolbar-icon-font-size);
-    vertical-align: middle;
 }
 
-.usermgr-page_tree-bar .btn-group .btn {
-    padding-top: 2px;
-    padding-bottom: 2px;
+.usermgr-page_tree-bar .dropdown-item .bi {
+    margin-right: var(--toolbar-gap);
 }
 
-@media (max-width: 1199px) {
-    .usermgr-page_tree-bar .btn-group .btn span {
-        display: none;
-    }
+.usermgr-page_tree-reload {
+    padding: 2px 12px;
+    line-height: 25px;
+    font-size: var(--toolbar-icon-font-size);
+    cursor: pointer;
 }
 
-.usermgr-page_content .btn-group .btn:not(:first-child) {
-    border-left-color: #777;
+.usermgr-page_tree-bar .usermgr-page_change-menu .dropdown-item i.prepend {
+    margin-left: -8px;
+    margin-right: 0;
 }
 
-.usermgr-page_content .btn i.bi {
-    margin-right: 4px;
+.usermgr-page_change-menu i.no-prepend {
+    margin-left: 8px;
 }
 
-/* the right column: a permanently visible search bar + result table taking a fixed ~45% of the
-   column's height (own scrollbar for however many/few results there are - the block itself never
-   shrinks or grows with the result count), and below it, taking the rest, the detail panel for
-   whatever is currently selected (a search hit, or a plain tree click) - a sibling of
-   '.usermgr-page_search', not a descendant, deliberately: 'UsersDetail' (script.js) reloads
-   '.usermgr-page_detail-panel' wholesale on every selection, and search must survive that reload
-   untouched */
 .usermgr-page_right-panel {
     flex: 1 1 auto;
     min-width: 0;
@@ -193,13 +222,11 @@
     padding: 16px;
 }
 
-/* leaves room for '.usermgr-page_detail-reload', which sits further right still - same two-zone
-   layout as the Browser's own view header ('.browser-page_browser_parameters' at right:48px,
-   '.browser-page_browser_action-reload' at right:5px, see browser/style.css) */
 .usermgr-page_detail-actions {
     position: absolute;
     top: 0;
-    right: 40px;
+    right: 0;
+    padding-right: 42px;
     height: var(--toolbar-height);
     line-height: var(--toolbar-item-line-height);
 }
@@ -210,15 +237,20 @@
     padding: 0 var(--toolbar-gap-lg);
 }
 
+@media (max-width: 1199px) {
+    .usermgr-page_detail-actions .btn span {
+        display: none;
+    }
+}
+
 .usermgr-page_detail-reload {
     position: absolute;
     top: 7px;
-    right: 5px;
+    right: 2px;
     padding: 0 10px;
     line-height: 25px;
     font-size: var(--toolbar-icon-font-size);
     text-align: center;
-    color: var(--toolbar-color);
     cursor: pointer;
 }
 
@@ -249,10 +281,6 @@
     margin: 16px 12px 4px;
 }
 
-/* the "Change Profile" dialog's dynamic name/value row editor (dialogs/changeProfile.html,
-   dialogs/changeProfileEntry.html, script.js#ProfileEditor) - same row shape as Changes' own
-   multi-value property editor, without that one's radio-select/reorder affordances (a profile
-   property has no notion of "current value" or "order" - every row simply is its own property) */
 .usermgr-page_profile-list {
     margin-bottom: 8px;
 }
@@ -289,34 +317,17 @@
     color: #c00;
 }
 
-/* Path/Type/Privileges table (details/affectedPathsTable.html, affectedPathEntry.html) - one row
-   per ACL rule, not one row per path (a path with both a grant and a deny, or several separate
-   privilege/restriction combinations, simply gets one row each rather than being grouped under a
-   single, rowspan'd path cell like the legacy Composum Nodes tool's own version of this table -
-   simpler to build and read, at the cost of repeating the path when it has more than one rule) */
 .usermgr-page_affected-paths {
     margin: 0;
-    font-size: 85%;
 }
 
-.usermgr-page_affected-paths .icon {
+.usermgr-page_affected-paths .icon,
+.usermgr-page_affected-paths .principal {
     width: 1%;
     white-space: nowrap;
     color: #777;
 }
 
-.usermgr-page_affected-paths .path {
-    font-family: monospace;
-}
-
-.usermgr-page_affected-paths .rule {
-    font-family: monospace;
-}
-
-/* '!important' needed here: Bootstrap's own '.table-striped > tbody > tr:nth-of-type(odd) > *'
-   rule also sets 'color' (to the table's base text color, resetting any inherited/set color) and
-   outweighs a plain class selector on specificity alone - without this, only every other (odd)
-   row loses its grant/deny coloring, exactly the "some rows colored, some not" symptom this fixes */
 .usermgr-page_affected-paths .type-grant {
     color: #198754 !important;
 }

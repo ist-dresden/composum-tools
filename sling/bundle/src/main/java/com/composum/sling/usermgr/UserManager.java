@@ -14,6 +14,7 @@ import com.composum.sling.usermgr.jcr.JcrAuthorizableOperations;
 import com.composum.sling.usermgr.jcr.JcrAuthorizableTree;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.jackrabbit.api.security.user.Authorizable;
+import org.apache.jackrabbit.api.security.user.AuthorizableExistsException;
 import org.apache.jackrabbit.api.security.user.Group;
 import org.apache.jackrabbit.api.security.user.User;
 import org.apache.sling.api.SlingHttpServletRequest;
@@ -35,8 +36,12 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.jcr.AccessDeniedException;
+import javax.jcr.Node;
+import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
+import javax.jcr.nodetype.ConstraintViolationException;
 import javax.servlet.http.HttpServletResponse;
 import java.io.Reader;
 import java.net.URLEncoder;
@@ -51,6 +56,7 @@ import java.util.function.Supplier;
 
 import static com.composum.sling.tools.Common.HTML_TYPE;
 import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
+import static javax.servlet.http.HttpServletResponse.SC_CONFLICT;
 import static javax.servlet.http.HttpServletResponse.SC_FORBIDDEN;
 import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
@@ -70,6 +76,11 @@ import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
  * tree: 'Users' ('/home/users'), 'System' ('/home/users/system', a plain subfolder promoted to
  * its own root so a large '/home/users' isn't dominated by service accounts) and 'Groups'
  * ('/home/groups'), arbitrarily nested further via intermediate 'rep:AuthorizableFolder' paths.
+ * Above it, a "Changes" dropdown (usermgr/toolbar.html, {@code UsersChangeMenu} in script.js) -
+ * Create User/System User/Group (no selection needed) and Delete (the currently selected
+ * authorizable, tracked the same way the Browser's own node-toolbar tracks its selection) - not
+ * tied to the detail panel below it at all, which is why Delete lives here rather than as one of
+ * the Principal tab's own actions (see {@link #actions}'s own comment).
  * <p>
  * <b>Detail panel</b> - the selected authorizable's details, visually modeled on the Browser's own
  * tab-row-plus-action-toolbar view header (but hardcoded for this plugin's own fixed, type-varying
@@ -241,6 +252,8 @@ public class UserManager extends AbstractToolsPlugin {
                 return affectedPathsTab(request);
             case "authorizableIdSuggest":
                 return authorizableIdSuggest(request);
+            case "intermediatePathSuggest":
+                return intermediatePathSuggest(request);
             case "query":
                 return query(request);
             case "dialog":
@@ -365,6 +378,62 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Autocomplete suggestions for the "Intermediate Path" field of the Create User/System
+     * User/Group dialogs. Jackrabbit resolves that field relative to the authorizable type's own
+     * '/home/...' root (not as an absolute repository path) - picked via the request's 'type'
+     * parameter ("group", defaulting to the plain/system user root, both of which live under the
+     * same '/home/users' tree) - so this walks the JCR tree directly (like
+     * {@link JcrAuthorizableTree#immediateChildren}) rather than reusing the shared
+     * {@link #pathSuggestions}: that helper is gated by {@link Manager#isAllowedResource}, whose
+     * default 'allowedPathPatterns' cover the generic Browser content tree ('/content', '/apps',
+     * ...) but deliberately not '/home' at all, which would make every suggestion here silently
+     * empty. Only actual 'rep:AuthorizableFolder' children are suggested - a leaf user/group node
+     * isn't a valid place to nest another authorizable under.
+     * <p>
+     * A System User is <em>not</em> scoped to {@link JcrAuthorizableTree#SYSTEM_PATH} here even
+     * though it is the one being created there: Jackrabbit's own {@code UserManager#createSystemUser}
+     * requires the submitted 'intermediatePath' value to itself start with "system" (it is
+     * <em>not</em> implicitly relative to that subtree the way a plain user's/group's path is
+     * relative to their own root) - scoping the suggestion root to 'SYSTEM_PATH' would both hide
+     * the "system" segment itself from ever being suggested (nothing to type it as an ordinary
+     * completion of) and return values missing that required prefix if it did. Using the same
+     * {@link JcrAuthorizableTree#USERS_PATH} root as a plain user naturally offers "system" as an
+     * ordinary child while typing, and any further nesting under it once typed.
+     */
+    protected @NotNull Result<?> intermediatePathSuggest(@NotNull final SlingHttpServletRequest request) {
+        final String type = StringUtils.defaultString(request.getParameter("type"));
+        final String root = "group".equals(type) ? JcrAuthorizableTree.GROUPS_PATH
+                : JcrAuthorizableTree.USERS_PATH;
+        final String partial = StringUtils.trimToEmpty(request.getParameter("path"));
+        try {
+            final Session session = session(request);
+            if (session == null) {
+                return new Result<>(List.of());
+            }
+            final String full = root + "/" + partial;
+            final int lastSlash = full.lastIndexOf('/');
+            final String parentPath = full.substring(0, lastSlash);
+            final String prefix = full.substring(lastSlash + 1);
+            final List<String> result = new ArrayList<>();
+            if (session.nodeExists(parentPath)) {
+                final NodeIterator iterator = session.getNode(parentPath).getNodes();
+                while (iterator.hasNext() && result.size() < 20) {
+                    final Node child = iterator.nextNode();
+                    if ("rep:AuthorizableFolder".equals(child.getPrimaryNodeType().getName())
+                            && StringUtils.startsWithIgnoreCase(child.getName(), prefix)) {
+                        result.add(child.getPath().substring(root.length() + 1));
+                    }
+                }
+            }
+            result.sort(String.CASE_INSENSITIVE_ORDER);
+            return new Result<>(result);
+        } catch (RepositoryException ex) {
+            LOG.error(ex.getMessage(), ex);
+            return new Result<>(SC_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public @NotNull Result<?> processPost(@NotNull final SlingHttpServletRequest request,
                                           @NotNull final SlingHttpServletResponse response,
                                           @NotNull List<String> selectors) {
@@ -403,22 +472,23 @@ public class UserManager extends AbstractToolsPlugin {
         switch (name) {
             case "createUser":
                 return renderDialog(DIALOGS_ROOT + "createUser.html", new Values()
-                        .with("dialog.action", actionLink("createUser")));
+                        .with("dialog.action", actionLink("createUser"))
+                        .with("dialog.intermediatePathSuggest", actionLink("intermediatePathSuggest") + "?type=user"));
             case "createSystemUser":
                 return renderDialog(DIALOGS_ROOT + "createSystemUser.html", new Values()
-                        .with("dialog.action", actionLink("createSystemUser")));
+                        .with("dialog.action", actionLink("createSystemUser"))
+                        .with("dialog.intermediatePathSuggest", actionLink("intermediatePathSuggest") + "?type=systemUser"));
             case "createGroup":
                 return renderDialog(DIALOGS_ROOT + "createGroup.html", new Values()
-                        .with("dialog.action", actionLink("createGroup")));
+                        .with("dialog.action", actionLink("createGroup"))
+                        .with("dialog.intermediatePathSuggest", actionLink("intermediatePathSuggest") + "?type=group"));
             case "enable":
-            case "delete": {
-                // both reuse the generic confirm.html - only the message/title differ
-                final String title = "enable".equals(name) ? "Enable" : "Delete";
                 return authorizableDialog(request, "/sling/tools/dialogs/confirm.html", info -> new Values()
-                        .with("dialog.action", actionLink(name) + info.getPath())
-                        .with("dialog.title", title + " " + typeLabel(info.getType()))
-                        .with("dialog.message", title + " " + typeLabel(info.getType()) + " '" + info.getId() + "'?"));
-            }
+                        .with("dialog.action", actionLink("enable") + info.getPath())
+                        .with("dialog.title", "Enable " + typeLabel(info.getType()))
+                        .with("dialog.message", "Enable " + typeLabel(info.getType()) + " '" + info.getId() + "'?"));
+            case "delete":
+                return deleteDialog(request);
             case "disable":
                 return authorizableDialog(request, DIALOGS_ROOT + "disable.html", info -> new Values()
                         .with("dialog.action", actionLink("disable") + info.getPath()));
@@ -540,7 +610,7 @@ public class UserManager extends AbstractToolsPlugin {
             return new Result<>(Map.of("path", targetPath(request)));
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);
-            return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
+            return errorResult(statusFor(ex), ex.getMessage());
         }
     }
 
@@ -561,6 +631,45 @@ public class UserManager extends AbstractToolsPlugin {
                 return new Result<>(SC_NOT_FOUND);
             }
             return renderDialog(templatePath, values.apply(jcrOperations.info(authorizable)));
+        } catch (RepositoryException ex) {
+            LOG.error(ex.getMessage(), ex);
+            return new Result<>(SC_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * The "Delete" confirm dialog for the tree toolbar's own selection - unlike every other
+     * dialog case, the selected path may be either a leaf {@link Authorizable} (the common case,
+     * handled exactly as before via {@link #authorizableDialog}) or a plain intermediate
+     * 'rep:AuthorizableFolder' tree node, which isn't an {@link Authorizable} at all and needs its
+     * own warning message, since deleting one recursively removes everything nested under it
+     * (users, groups, subfolders alike) - see {@link #deleteAuthorizable}/
+     * {@link JcrAuthorizableOperations#deleteFolder} for the actual removal.
+     */
+    protected @NotNull Result<?> deleteDialog(@NotNull final SlingHttpServletRequest request) {
+        final String path = targetPath(request);
+        try {
+            final Session session = session(request);
+            if (session == null) {
+                return new Result<>(SC_INTERNAL_SERVER_ERROR);
+            }
+            if (jcrOperations.isFolder(session, path)) {
+                final String name = StringUtils.defaultIfBlank(StringUtils.substringAfterLast(path, "/"), path);
+                return renderDialog("/sling/tools/dialogs/confirm.html", new Values()
+                        .with("dialog.action", actionLink("delete") + path)
+                        .with("dialog.title", "Delete Folder")
+                        .with("dialog.message", "Delete folder '" + name
+                                + "' and everything under it? This cannot be undone."));
+            }
+            final Authorizable authorizable = jcrOperations.open(session, path);
+            if (authorizable == null) {
+                return new Result<>(SC_NOT_FOUND);
+            }
+            final AuthorizableInfo info = jcrOperations.info(authorizable);
+            return renderDialog("/sling/tools/dialogs/confirm.html", new Values()
+                    .with("dialog.action", actionLink("delete") + info.getPath())
+                    .with("dialog.title", "Delete " + typeLabel(info.getType()))
+                    .with("dialog.message", "Delete " + typeLabel(info.getType()) + " '" + info.getId() + "'?"));
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);
             return new Result<>(SC_INTERNAL_SERVER_ERROR);
@@ -589,6 +698,29 @@ public class UserManager extends AbstractToolsPlugin {
         return new Result<>(statusCode, Map.of("message", StringUtils.defaultString(message, "Request failed.")));
     }
 
+    /**
+     * Maps a write operation's {@link RepositoryException} to the most fitting HTTP status - most
+     * of the concrete exceptions the JCR/Jackrabbit user API actually throws here are entirely
+     * expectable consequences of bad input (a duplicate id, an intermediate path the repository
+     * itself rejects - e.g. a System User's must live under the 'system' subtree, see
+     * {@link #intermediatePathSuggest} - or a write blocked by the repository's own ACLs), not
+     * genuine server failures, so they should surface as a 4xx client error rather than the
+     * generic 500 a plain, uncategorized 'RepositoryException' would otherwise map to. Falls back
+     * to 500 for anything not specifically recognized, exactly as before this method existed.
+     */
+    protected int statusFor(@NotNull final RepositoryException ex) {
+        if (ex instanceof AuthorizableExistsException) {
+            return SC_CONFLICT;
+        }
+        if (ex instanceof ConstraintViolationException) {
+            return SC_BAD_REQUEST;
+        }
+        if (ex instanceof AccessDeniedException) {
+            return SC_FORBIDDEN;
+        }
+        return SC_INTERNAL_SERVER_ERROR;
+    }
+
     protected @NotNull Result<?> createUser(@NotNull final SlingHttpServletRequest request) {
         final String id = request.getParameter("id");
         final String password = request.getParameter("password");
@@ -605,7 +737,7 @@ public class UserManager extends AbstractToolsPlugin {
             return new Result<>(Map.of("path", StringUtils.defaultString(authorizable.getPath())));
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);
-            return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
+            return errorResult(statusFor(ex), ex.getMessage());
         }
     }
 
@@ -624,7 +756,7 @@ public class UserManager extends AbstractToolsPlugin {
             return new Result<>(Map.of("path", StringUtils.defaultString(authorizable.getPath())));
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);
-            return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
+            return errorResult(statusFor(ex), ex.getMessage());
         }
     }
 
@@ -643,7 +775,7 @@ public class UserManager extends AbstractToolsPlugin {
             return new Result<>(Map.of("path", StringUtils.defaultString(authorizable.getPath())));
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);
-            return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
+            return errorResult(statusFor(ex), ex.getMessage());
         }
     }
 
@@ -651,20 +783,29 @@ public class UserManager extends AbstractToolsPlugin {
         final String path = targetPath(request);
         try {
             final Session session = session(request);
-            final Authorizable authorizable = session != null ? jcrOperations.open(session, path) : null;
+            if (session == null) {
+                return new Result<>(SC_INTERNAL_SERVER_ERROR);
+            }
+            // unlike a package's synthetic tree path, an authorizable's (or folder's own) path is
+            // a real, persistent JCR node - the parent 'rep:AuthorizableFolder' it sits in is
+            // never pruned just because it becomes empty, so (unlike
+            // PackageManager#deletePackage) the parent is always still there after the delete, no
+            // "surviving ancestor" search needed
+            final String parent = StringUtils.defaultIfBlank(StringUtils.substringBeforeLast(path, "/"), "/");
+            if (jcrOperations.isFolder(session, path)) {
+                // a plain intermediate tree folder, not an Authorizable at all - see #deleteDialog
+                jcrOperations.deleteFolder(session, path);
+                return new Result<>(Map.of("deleted", path, "parent", parent));
+            }
+            final Authorizable authorizable = jcrOperations.open(session, path);
             if (authorizable == null) {
                 return new Result<>(SC_NOT_FOUND);
             }
-            // unlike a package's synthetic tree path, an authorizable's path is a real,
-            // persistent JCR node - its parent 'rep:AuthorizableFolder' is never pruned just
-            // because it becomes empty, so (unlike PackageManager#deletePackage) the parent is
-            // always still there after the delete, no "surviving ancestor" search needed
-            final String parent = StringUtils.defaultIfBlank(StringUtils.substringBeforeLast(path, "/"), "/");
             jcrOperations.delete(session, authorizable);
             return new Result<>(Map.of("deleted", path, "parent", parent));
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);
-            return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
+            return errorResult(statusFor(ex), ex.getMessage());
         }
     }
 
@@ -679,7 +820,7 @@ public class UserManager extends AbstractToolsPlugin {
             return new Result<>(Map.of("path", targetPath(request)));
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);
-            return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
+            return errorResult(statusFor(ex), ex.getMessage());
         }
     }
 
@@ -694,7 +835,7 @@ public class UserManager extends AbstractToolsPlugin {
             return new Result<>(Map.of("path", targetPath(request)));
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);
-            return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
+            return errorResult(statusFor(ex), ex.getMessage());
         }
     }
 
@@ -713,7 +854,7 @@ public class UserManager extends AbstractToolsPlugin {
             return new Result<>(Map.of("path", targetPath(request)));
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);
-            return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
+            return errorResult(statusFor(ex), ex.getMessage());
         }
     }
 
@@ -765,7 +906,7 @@ public class UserManager extends AbstractToolsPlugin {
             return new Result<>(Map.of("path", targetPath(request)));
         } catch (RepositoryException ex) {
             LOG.error(ex.getMessage(), ex);
-            return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
+            return errorResult(statusFor(ex), ex.getMessage());
         }
     }
 
@@ -836,11 +977,16 @@ public class UserManager extends AbstractToolsPlugin {
 
     // The Principal tab's own action group (rendered server-side, see details/toolbar.html +
     // details/action*.html, reused verbatim from the Package Manager's own generic pattern) -
-    // Enable/Disable/Change Password/Change Profile/Delete. "Add to Group"/"Add Member" are
-    // separate, always-present action groups of their own (details/addToGroupAction.html/
-    // addMemberAction.html) that TabActionSwitcher (script.js) shows only while the matching tab
-    // (Groups/Members) is active; a Groups/Members row's own "Remove" button lives inline on the
-    // row itself (details/groupsEntry.html/membersEntry.html), not in any action group at all.
+    // Enable/Disable/Change Password/Change Profile. "Delete" moved out of this tab-scoped
+    // toolbar into the tree-bar's "Changes" dropdown (usermgr/toolbar.html, UsersChangeMenu in
+    // script.js), which is always present regardless of what is currently selected - matching the
+    // Browser's own node-toolbar dropdown, whose Delete/Move/Copy/Paste actions are likewise not
+    // tied to the currently displayed detail content, just to the tree's current selection.
+    // "Add to Group"/"Add Member" are separate, always-present action groups of their own
+    // (details/addToGroupAction.html/addMemberAction.html) that TabActionSwitcher (script.js)
+    // shows only while the matching tab (Groups/Members) is active; a Groups/Members row's own
+    // "Remove" button lives inline on the row itself (details/groupsEntry.html/membersEntry.html),
+    // not in any action group at all.
 
     protected @NotNull Values action(@NotNull final String key, @NotNull final String icon, @NotNull final String label) {
         return new Values().with("key", key).with("icon", icon).with("label", label);
@@ -859,17 +1005,10 @@ public class UserManager extends AbstractToolsPlugin {
             // interactive login, and a group has neither state
             if ("user".equals(info.getType())) {
                 result.add(actionGroup(
-                        info.isDisabled() ? action("enable", "box-arrow-in-right", "Enable")
-                                : action("disable", "box-arrow-right", "Disable"),
+                        info.isDisabled() ? action("enable", "check-lg", "Enable")
+                                : action("disable", "x-lg", "Disable"),
                         action("password", "key", "Change Password"),
                         action("changeProfile", "person-vcard", "Change Profile")));
-            }
-        }
-        if (writeEnabled) {
-            // 'admin'/'anonymous' never get a Delete button at all, not just a disabled one - the
-            // same hard block JcrAuthorizableOperations#delete enforces server-side too
-            if (!JcrAuthorizableOperations.PROTECTED_IDS.contains(info.getId())) {
-                result.add(action("delete", "trash", "Delete"));
             }
         }
         return result;
