@@ -17,7 +17,7 @@
 
     <modules>
         <module>bundle</module>
-        <module>package</module>
+        <!--module>package</module - not part of the provided artifacts -->
     </modules>
 
 </project>
