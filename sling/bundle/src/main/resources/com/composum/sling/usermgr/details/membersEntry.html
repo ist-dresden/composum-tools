@@ -1,0 +1,4 @@
+<li class="usermgr-page_folder-entry usermgr-page_membership-entry" data-role="group">
+    <a href="#" class="usermgr-page_folder-entry-link" data-path="${attr:entry.path}"><i class="bi bi-${entry.icon}"></i> ${entry.label}</a>
+    ${if:users.writeEnabled;'<button type="button" class="usermgr-page_membership-remove" data-id="${attr:entry.id}" title="Remove"><i class="bi bi-x-lg"></i></button>'}
+</li>

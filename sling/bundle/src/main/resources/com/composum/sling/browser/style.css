@@ -40,7 +40,7 @@
 .browser_path-field:focus {
     flex-grow: 1;
     width: 100%;
-    padding: 1px 6px;
+    padding: 1px 6px 0;
     border-radius: var(--border-radius) 0 0 var(--border-radius);
     white-space: nowrap;
 }
@@ -107,7 +107,6 @@
     .browser_actions .icon {
         margin-right: var(--toolbar-gap-lg);
     }
-
 }
 
 .browser_path-group .browser_path_related-menu li {
@@ -129,6 +128,10 @@
 
 .browser_actions .current-action {
     text-align: right;
+}
+
+.browser_actions .current-action .bi:before {
+    line-height: 16px;
 }
 
 .browser-page_browser {
@@ -554,7 +557,7 @@
 .browser-action_result-targets {
     margin: 8px 0 0;
     padding: 4px 0 0 18px;
-    max-height: 200px;
+    max-height: 60vh;
     overflow: auto;
     font-family: monospace;
     font-size: 12px;

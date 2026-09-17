@@ -265,8 +265,16 @@ class ResumingTabs extends ViewWidget {
         super(element)
         this.onShownCallback = onShownCallback;
         this.profile = new Profile(identifier || this.$el.data('tabs-id'));
-        this.$(ResumingTabs.css.nav + ' a[data-toggle="tab"]').on('shown.bs.tab', this.onTabShown.bind(this));
-        this.showTab(this.profile.get('currentTab'), true);
+        this.$(ResumingTabs.css.nav + ' a[data-bs-toggle="tab"]').on('shown.bs.tab', this.onTabShown.bind(this));
+        // deferred to the next tick, not called synchronously here: bootstrap.Tab#show() fires
+        // 'shown.bs.tab' immediately (with no transition delay) on the tab *trigger* element -
+        // only the target pane has the 'fade' class, the trigger link doesn't - so restoring a
+        // non-default tab right here, during this widget's own construction, would fire that
+        // event before any other widget registered *after* 'ResumingTabs' in the same
+        // 'CPM.widgets.initialize()' pass (e.g. a lazily-loaded tab pane) has had a chance to
+        // attach its own 'shown.bs.tab' listener yet - silently missing the restored tab's own
+        // first activation. Deferring lets every widget in this pass finish attaching first.
+        setTimeout(() => this.showTab(this.profile.get('currentTab'), true), 0);
     }
 
     activeTabId() {
@@ -288,15 +296,56 @@ class ResumingTabs extends ViewWidget {
 
     showTab(tabId, force) {
         const $tab = this.$(ResumingTabs.css.link + '[aria-controls="' + tabId + '"]');
-        if ($tab.length > 0) {
-            $tab.tab('show');
-        } else if (force) {
-            this.$(ResumingTabs.css.link).first().tab('show');
+        const $target = $tab.length > 0 ? $tab : (force ? this.$(ResumingTabs.css.link).first() : undefined);
+        if ($target && $target.length > 0) {
+            bootstrap.Tab.getOrCreateInstance($target[0]).show();
         }
     }
 }
 
 CPM.widgets.register(ResumingTabs);
+
+/**
+ * Lazily fetches a Bootstrap tab-pane's content the first time its own tab is actually shown,
+ * instead of rendering it eagerly with the rest of a detail view - for a tab whose content is
+ * comparatively expensive to compute (e.g. a full ACL scan) and not always looked at. Generic and
+ * plugin-agnostic (any plugin's tab markup can opt in, not just one specific consumer): attaches
+ * to the tab-toggle link itself (marked with 'data-lazy-uri'), fetches once via its own 'href'
+ * (the target pane's id selector, Bootstrap's own tab convention) on first 'shown.bs.tab', then
+ * stays silent on every later re-show of the same tab.
+ */
+class LazyTabPane extends ViewWidget {
+
+  static selector = '[data-lazy-uri]';
+
+  constructor(element) {
+    super(element);
+    this.$el.on('shown.bs.tab', this.onShown.bind(this));
+  }
+
+  onShown() {
+    if (this.loaded) {
+      return;
+    }
+    this.loaded = true;
+    const $pane = $(this.$el.attr('href'));
+    $.ajax({
+      type: 'GET',
+      url: this.$el.data('lazy-uri'),
+      success: (content) => {
+        $pane.html(content);
+        CPM.widgets.initialize($pane[0]);
+      },
+      error: () => {
+        $pane.html('<p class="text-danger">This could not be loaded.</p>');
+      },
+      async: true,
+      cache: false
+    });
+  }
+}
+
+CPM.widgets.register(LazyTabPane);
 
 /**
  * A full-viewport, semi-transparent, click-consuming curtain with a centered spinner, shown

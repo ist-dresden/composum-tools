@@ -14,10 +14,15 @@ resource browser, a Felix Web Console proxy, and a tile-based dashboard to arran
 Composum Tools is a from-scratch, purpose-built successor to two older, independently maintained
 projects:
 
-- the full [Composum Nodes](https://github.com/ist-dresden/composum-nodes) JCR browser,
-  including many features (user management, Groovy console, ACL editor, ...) that have not been
-  migrated yet, but will be added later if useful or necessary. Its package manager *has* been
-  migrated — see [Package Manager](#package-manager) below.
+- the full [Composum Nodes](https://github.com/ist-dresden/composum-nodes) JCR browser. Its
+  package manager and user manager *have* been migrated — see
+  [Package Manager](#package-manager) and [User Manager](#user-manager) below. The remaining gap
+  is Nodes' ACL editor (browsing/editing `rep:policy` access control lists directly); it may be
+  added later, plausibly as a Browser `View` on the User Manager's own selected authorizable
+  rather than as a separate page, but nothing is settled yet — Nodes' Groovy console is not
+  planned to be migrated at all (a Sling instance can already run Groovy scripts through other
+  means, and shipping a remote code execution surface as an opt-in default felt like the wrong
+  trade-off for this project).
 - the more lightweight [Composum Dashboard](https://github.com/ist-dresden/composum-dashboard),
   an earlier attempt at replacing Nodes with a tile-based framework for arranging a small set of
   read-only tools.
@@ -126,6 +131,43 @@ not specific to the Package Manager): a dialog's HTML fragment is fetched on dem
 opened and removed from the DOM again once it is closed (cancelled or successfully submitted) —
 no dialog markup is ever left lingering in the page.
 
+### User Manager
+
+Browses and manages Jackrabbit users, system users and groups under `/home` — a three-root,
+alphabetically sorted tree (**Users**, **System** — a plain `/home/users/system` subfolder broken
+out into its own root so a large user base isn't dominated by service accounts, and **Groups**),
+the selected authorizable's details and actions on the right. **Requires an OSGi configuration to
+activate** — see [Activation: opt-in by design](#activation-opt-in-by-design) below.
+
+The detail panel is visually modeled on the Browser's own tab-row-plus-action-toolbar header, with
+its own fixed, type-varying set of tabs:
+
+- **Principal** — id/path/principal/type/status, plus any `profile` child-node properties (a
+  generic name/value editor — `profile` has no fixed schema, so this is not a fixed
+  givenName/familyName/email form) via the **Change Profile** action.
+- **Groups** (users) / **Members** (groups) — declared membership, with **Add to Group**/**Add
+  Member** actions (only shown while that tab is active) and a per-row **Remove**.
+- **Affected Paths** — lazily loaded (only fetched once actually opened, since it is a full ACL
+  scan): every repository path where an ACL grants or denies a privilege to this authorizable's
+  own principal *or* to any group it (declaratively or transitively) belongs to, as a
+  Principal/Path/Rule table. Both the Principal and Path cells are themselves navigable — to that
+  principal's own detail view, or to the Browser at that path.
+
+A permanently visible, two-field search bar (name pattern / affected-path pattern, both accepting
+`*`/`?` wildcards) renders results in the same Principal/Path/Rule shape: a name pattern alone (or
+combined with a path pattern, a genuine AND on the same principal — no group inheritance, to stay
+clearly distinct from the path-only mode) searches by identity; a path pattern alone searches by
+"who has rights here at all", across every principal repository-wide, whichever kind of
+authorizable it turns out to be.
+
+A "Changes" dropdown above the tree offers **Create User**/**Create System User**/**Create
+Group** (no selection needed) and **Delete** (whatever is currently selected) — mirroring the
+Browser's own node-toolbar dropdown, both in look and in relying entirely on the server to reject
+an invalid target (nothing selected yet, a folder, or a protected id like `admin`/`anonymous`)
+rather than pre-filtering what the button does client-side. **Enable**/**Disable** and **Change
+Password** stay in the Principal tab's own action toolbar, since — unlike Delete — they only ever
+make sense while that tab's own detail is already being looked at.
+
 ### Console (AEM only)
 
 Embeds selected read-only [Felix Web Console](https://felix.apache.org/documentation/subprojects/apache-felix-web-console.html)
@@ -186,6 +228,7 @@ Once the bundle(s) are active, open (default servlet path `/apps/cpm/tools`, con
 | `/apps/cpm/tools.dashboard.html` | Dashboard overview |
 | `/apps/cpm/tools.browser.html` | JCR Browser |
 | `/apps/cpm/tools.packages.html` | Package Manager |
+| `/apps/cpm/tools.users.html` | User Manager |
 | `/apps/cpm/tools.console.html` | Felix Console proxy (AEM only) |
 
 ## Configuration & customization
@@ -201,8 +244,8 @@ OSGi configuration mechanism.
 present at all — it is the part of the toolset that is virtually always wanted, so there is
 deliberately no extra step between deploying the bundle and being able to use it.
 
-**Every other top-level page — `Dashboard`, `PackageManager`, and `Console` (AEM only) —
-requires an explicit OSGi configuration to activate**
+**Every other top-level page — `Dashboard`, `PackageManager`, `UserManager`, and `Console` (AEM
+only) — requires an explicit OSGi configuration to activate**
 (`configurationPolicy = ConfigurationPolicy.REQUIRE`); without one, the component simply does not
 start, and its page/tile/proxy is not registered anywhere. An **empty configuration (`{}`) is
 enough** — this is not about setting any particular value, it is a deliberate per-instance
@@ -241,6 +284,11 @@ The most commonly adjusted settings, once a component is active:
   component's own OSGi-activation opt-in) and `Changes.Config#writePrincipals()` — restricts who
   may create/delete/move/edit content through the Browser to specific users/groups, empty meaning
   every user.
+- **User Manager write access**: `UserManager.Config#writeEnabled()` and
+  `UserManager.Config#writePrincipals()` — same two-layer pattern as `Changes`/`PackageManager`
+  above (a runtime pause plus an optional user/group allow-list), applied to
+  create/delete/enable/disable/password/profile/group-membership operations; actual enforcement
+  otherwise relies entirely on the JCR session's own ACLs.
 
 For extension beyond configuration — a new tool, view, action set or console proxy — implement
 the relevant small interface (`Tool`, `View`, `Actions`, `ConsoleProxy`) as its own OSGi
