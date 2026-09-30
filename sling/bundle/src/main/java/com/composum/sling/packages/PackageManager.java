@@ -366,8 +366,9 @@ public class PackageManager extends AbstractToolsPlugin {
                     return pkg != null ? registryOperations().info(pkg) : null;
                 }
             } else {
-                final JcrPackage pkg = openPackage(request);
-                return pkg != null ? jcrOperations.info(jcrOperations.packageManager(session(request)), pkg) : null;
+                try (JcrPackage pkg = openPackage(request)) {
+                    return pkg != null ? jcrOperations.info(jcrOperations.packageManager(session(request)), pkg) : null;
+                }
             }
         } catch (IOException | RepositoryException ex) {
             return null;
@@ -489,10 +490,7 @@ public class PackageManager extends AbstractToolsPlugin {
                         action("edit", "pencil", "Edit"),
                         action("filters", "funnel", "Filters")));
             }
-            // both stay available regardless of the current 'installed' state - installing an
-            // already installed package (re-install, e.g. after fixing its content) is normal
             result.add(actionGroup(
-                    action("uninstall", "box-arrow-down", "Uninstall"),
                     action("install", "box-arrow-in-down", "Install")));
         }
         final List<Values> lastGroup = new ArrayList<>();
@@ -506,7 +504,9 @@ public class PackageManager extends AbstractToolsPlugin {
             result.add(action("coverage", "card-list", "Coverage"));
         }
         if (writeEnabled) {
-            result.add(action("delete", "trash", "Delete"));
+            result.add(actionGroup(
+                    action("uninstall", "box-arrow-down", "Uninstall"),
+                    action("delete", "trash", "Delete")));
         }
         return result;
     }
@@ -558,8 +558,10 @@ public class PackageManager extends AbstractToolsPlugin {
                     return pkg != null ? registryOperations().download(pkg) : new Result<>(SC_NOT_FOUND);
                 }
             }
-            final JcrPackage jcrPackage = openPackage(request);
-            return jcrPackage != null ? jcrOperations.download(jcrPackage) : new Result<>(SC_NOT_FOUND);
+            // closing the package releases its archive only - the data binary's stream stays readable
+            try (JcrPackage jcrPackage = openPackage(request)) {
+                return jcrPackage != null ? jcrOperations.download(jcrPackage) : new Result<>(SC_NOT_FOUND);
+            }
         } catch (RepositoryException | IOException ex) {
             LOG.error(ex.getMessage(), ex);
             return new Result<>(SC_INTERNAL_SERVER_ERROR);
@@ -691,8 +693,7 @@ public class PackageManager extends AbstractToolsPlugin {
     protected @NotNull Result<?> jcrPackageDialog(@NotNull final SlingHttpServletRequest request,
                                                   @NotNull final String templatePath,
                                                   @NotNull final Function<JcrPackageInfo, Values> values) {
-        try {
-            final JcrPackage jcrPackage = openPackage(request);
+        try (JcrPackage jcrPackage = openPackage(request)) {
             if (jcrPackage == null) {
                 return new Result<>(SC_NOT_FOUND);
             }
@@ -720,8 +721,7 @@ public class PackageManager extends AbstractToolsPlugin {
     }
 
     protected @NotNull Result<?> coverageDialog(@NotNull final SlingHttpServletRequest request) {
-        try {
-            final JcrPackage jcrPackage = openPackage(request);
+        try (JcrPackage jcrPackage = openPackage(request)) {
             if (jcrPackage == null) {
                 return new Result<>(SC_NOT_FOUND);
             }
@@ -783,9 +783,13 @@ public class PackageManager extends AbstractToolsPlugin {
             final String group = StringUtils.defaultString(request.getParameter("group"));
             final String version = request.getParameter("version");
             final JcrPackageManager manager = jcrOperations.packageManager(session(request));
-            final JcrPackage jcrPackage = manager != null ? jcrOperations.create(manager, group, name, version) : null;
-            return jcrPackage != null ? new Result<>(Map.of("path", StringUtils.defaultString(
-                    JcrPackageOperations.relativePath(manager, jcrPackage)))) : new Result<>(SC_NOT_FOUND);
+            if (manager == null) {
+                return new Result<>(SC_NOT_FOUND);
+            }
+            try (JcrPackage jcrPackage = jcrOperations.create(manager, group, name, version)) {
+                return new Result<>(Map.of("path", StringUtils.defaultString(
+                        JcrPackageOperations.relativePath(manager, jcrPackage))));
+            }
         } catch (RepositoryException | IOException ex) {
             LOG.error(ex.getMessage(), ex);
             return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
@@ -803,9 +807,10 @@ public class PackageManager extends AbstractToolsPlugin {
             if (jcrPackageManager != null) {
                 try (InputStream input = file.getInputStream()) {
                     if (input != null) {
-                        final JcrPackage jcrPackage = jcrOperations.upload(jcrPackageManager, input, force);
-                        return new Result<>(Map.of("path", StringUtils.defaultString(
-                                JcrPackageOperations.relativePath(jcrPackageManager, jcrPackage))));
+                        try (JcrPackage jcrPackage = jcrOperations.upload(jcrPackageManager, input, force)) {
+                            return new Result<>(Map.of("path", StringUtils.defaultString(
+                                    JcrPackageOperations.relativePath(jcrPackageManager, jcrPackage))));
+                        }
                     }
                 }
             }
@@ -819,16 +824,23 @@ public class PackageManager extends AbstractToolsPlugin {
     protected @NotNull Result<?> updatePackage(@NotNull final SlingHttpServletRequest request) {
         try {
             final JcrPackageManager manager = jcrOperations.packageManager(session(request));
-            JcrPackage jcrPackage = manager != null ? jcrOperations.open(manager, targetPath(request)) : null;
-            if (jcrPackage == null) {
+            if (manager == null) {
                 return new Result<>(SC_NOT_FOUND);
             }
-            // a group/name/version change renames (moves) the underlying node, so the response
-            // must report the package's possibly new path back to the client - it's still
-            // selected by its old path otherwise, which no longer exists afterwards
-            jcrPackage = jcrOperations.update(manager, jcrPackage, request.getParameterMap());
-            return new Result<>(Map.of("path", StringUtils.defaultString(
-                    JcrPackageOperations.relativePath(manager, jcrPackage))));
+            try (JcrPackage jcrPackage = jcrOperations.open(manager, targetPath(request))) {
+                if (jcrPackage == null) {
+                    return new Result<>(SC_NOT_FOUND);
+                }
+                // a group/name/version change renames (moves) the underlying node, so the response
+                // must report the package's possibly new path back to the client - it's still
+                // selected by its old path otherwise, which no longer exists afterwards; the
+                // returned handle (a new one after a rename, the same one otherwise) is closed as
+                // well - closing a package twice is harmless
+                try (JcrPackage updated = jcrOperations.update(manager, jcrPackage, request.getParameterMap())) {
+                    return new Result<>(Map.of("path", StringUtils.defaultString(
+                            JcrPackageOperations.relativePath(manager, updated))));
+                }
+            }
         } catch (RepositoryException | PackageException ex) {
             LOG.error(ex.getMessage(), ex);
             return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
@@ -845,11 +857,12 @@ public class PackageManager extends AbstractToolsPlugin {
                 }
                 return operationResult(registryOperations().install(session, id));
             }
-            final JcrPackage jcrPackage = openPackage(request);
-            if (jcrPackage == null) {
-                return new Result<>(SC_NOT_FOUND);
+            try (JcrPackage jcrPackage = openPackage(request)) {
+                if (jcrPackage == null) {
+                    return new Result<>(SC_NOT_FOUND);
+                }
+                return operationResult(jcrOperations.install(jcrPackage));
             }
-            return operationResult(jcrOperations.install(jcrPackage));
         } catch (RepositoryException | PackageException | IOException ex) {
             LOG.error(ex.getMessage(), ex);
             return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
@@ -866,11 +879,12 @@ public class PackageManager extends AbstractToolsPlugin {
                 }
                 return operationResult(registryOperations().uninstall(session, id));
             }
-            final JcrPackage jcrPackage = openPackage(request);
-            if (jcrPackage == null) {
-                return new Result<>(SC_NOT_FOUND);
+            try (JcrPackage jcrPackage = openPackage(request)) {
+                if (jcrPackage == null) {
+                    return new Result<>(SC_NOT_FOUND);
+                }
+                return operationResult(jcrOperations.uninstall(jcrPackage));
             }
-            return operationResult(jcrOperations.uninstall(jcrPackage));
         } catch (RepositoryException | PackageException | IOException ex) {
             LOG.error(ex.getMessage(), ex);
             return errorResult(SC_INTERNAL_SERVER_ERROR, ex.getMessage());
@@ -878,8 +892,7 @@ public class PackageManager extends AbstractToolsPlugin {
     }
 
     protected @NotNull Result<?> assemblePackage(@NotNull final SlingHttpServletRequest request) {
-        try {
-            final JcrPackage jcrPackage = openPackage(request);
+        try (JcrPackage jcrPackage = openPackage(request)) {
             if (jcrPackage == null) {
                 return new Result<>(SC_NOT_FOUND);
             }
@@ -892,8 +905,7 @@ public class PackageManager extends AbstractToolsPlugin {
     }
 
     protected @NotNull Result<?> filtersPackage(@NotNull final SlingHttpServletRequest request) {
-        try {
-            final JcrPackage jcrPackage = openPackage(request);
+        try (JcrPackage jcrPackage = openPackage(request)) {
             if (jcrPackage == null) {
                 return new Result<>(SC_NOT_FOUND);
             }
@@ -922,11 +934,15 @@ public class PackageManager extends AbstractToolsPlugin {
                 registryOperations().remove(id);
             } else {
                 final JcrPackageManager manager = jcrOperations.packageManager(session(request));
-                final JcrPackage jcrPackage = manager != null ? jcrOperations.open(manager, path) : null;
-                if (jcrPackage == null) {
+                if (manager == null) {
                     return new Result<>(SC_NOT_FOUND);
                 }
-                jcrOperations.delete(manager, jcrPackage);
+                try (JcrPackage jcrPackage = jcrOperations.open(manager, path)) {
+                    if (jcrPackage == null) {
+                        return new Result<>(SC_NOT_FOUND);
+                    }
+                    jcrOperations.delete(manager, jcrPackage);
+                }
             }
             return deletedResult(path, survivingAncestor(request, ancestors));
         } catch (RepositoryException | IOException ex) {
@@ -1043,13 +1059,14 @@ public class PackageManager extends AbstractToolsPlugin {
                     return new Result<>(SC_INTERNAL_SERVER_ERROR);
                 }
                 for (final String leafPath : candidates) {
-                    final JcrPackage jcrPackage = jcrOperations.open(manager, leafPath);
-                    if (jcrPackage != null) {
-                        try {
-                            jcrOperations.delete(manager, jcrPackage);
-                            log.onMessage(ProgressTrackerListener.Mode.TEXT, "Deleted", leafPath);
-                        } catch (RepositoryException ex) {
-                            log.onError(ProgressTrackerListener.Mode.TEXT, leafPath, ex);
+                    try (JcrPackage jcrPackage = jcrOperations.open(manager, leafPath)) {
+                        if (jcrPackage != null) {
+                            try {
+                                jcrOperations.delete(manager, jcrPackage);
+                                log.onMessage(ProgressTrackerListener.Mode.TEXT, "Deleted", leafPath);
+                            } catch (RepositoryException ex) {
+                                log.onError(ProgressTrackerListener.Mode.TEXT, leafPath, ex);
+                            }
                         }
                     }
                 }
@@ -1118,12 +1135,13 @@ public class PackageManager extends AbstractToolsPlugin {
         final String requestXml = crxRequestXml("rm", name, group);
         final Session session = session(request);
         final JcrPackageManager jcrPackageManager = session != null ? jcrOperations.packageManager(session) : null;
-        final JcrPackage jcrPackage = jcrPackageManager != null ? jcrOperations.find(jcrPackageManager, group, name) : null;
-        if (jcrPackage == null) {
-            return crxResponse(requestXml, "", "500", "Package '" + group + ":" + name + "' does not exist.");
+        try (JcrPackage jcrPackage = jcrPackageManager != null ? jcrOperations.find(jcrPackageManager, group, name) : null) {
+            if (jcrPackage == null) {
+                return crxResponse(requestXml, "", "500", "Package '" + group + ":" + name + "' does not exist.");
+            }
+            jcrOperations.delete(jcrPackageManager, jcrPackage);
+            return crxResponse(requestXml, "", "200", "ok");
         }
-        jcrOperations.delete(jcrPackageManager, jcrPackage);
-        return crxResponse(requestXml, "", "200", "ok");
     }
 
     protected @NotNull Result<?> crxBuildOrUninstall(@NotNull final SlingHttpServletRequest request, final boolean build)
@@ -1133,17 +1151,18 @@ public class PackageManager extends AbstractToolsPlugin {
         final String requestXml = crxRequestXml(build ? "build" : "uninst", name, group);
         final Session session = session(request);
         final JcrPackageManager jcrPackageManager = session != null ? jcrOperations.packageManager(session) : null;
-        final JcrPackage jcrPackage = jcrPackageManager != null ? jcrOperations.find(jcrPackageManager, group, name) : null;
-        if (jcrPackage == null) {
-            return crxResponse(requestXml, "", "500", "Package '" + group + ":" + name + "' does not exist.");
+        try (JcrPackage jcrPackage = jcrPackageManager != null ? jcrOperations.find(jcrPackageManager, group, name) : null) {
+            if (jcrPackage == null) {
+                return crxResponse(requestXml, "", "500", "Package '" + group + ":" + name + "' does not exist.");
+            }
+            final JcrPackageOperations.OperationLog log = build
+                    ? jcrOperations.assemble(jcrPackageManager, jcrPackage)
+                    : jcrOperations.uninstall(jcrPackage);
+            final String data = jcrOperations.toCrxXml(jcrPackage);
+            return log.isError()
+                    ? crxResponse(requestXml, data, "500", (build ? "assemble" : "uninstall") + " does not succeed")
+                    : crxResponse(requestXml, data, "200", "ok");
         }
-        final JcrPackageOperations.OperationLog log = build
-                ? jcrOperations.assemble(jcrPackageManager, jcrPackage)
-                : jcrOperations.uninstall(jcrPackage);
-        final String data = jcrOperations.toCrxXml(jcrPackage);
-        return log.isError()
-                ? crxResponse(requestXml, data, "500", (build ? "assemble" : "uninstall") + " does not succeed")
-                : crxResponse(requestXml, data, "200", "ok");
     }
 
     protected @NotNull Result<?> crxUpload(@NotNull final SlingHttpServletRequest request)
@@ -1167,11 +1186,13 @@ public class PackageManager extends AbstractToolsPlugin {
                     return crxResponse("", "", "400", "no package content found");
                 }
             }
-            final JcrPackageOperations.OperationLog log = jcrOperations.install(jcrPackage);
-            final String data = jcrOperations.toCrxXml(jcrPackage);
-            return log.isError()
-                    ? crxResponse("", data, "500", "install does not succeed")
-                    : crxResponse("", data, "200", "ok");
+            try (jcrPackage) {
+                final JcrPackageOperations.OperationLog log = jcrOperations.install(jcrPackage);
+                final String data = jcrOperations.toCrxXml(jcrPackage);
+                return log.isError()
+                        ? crxResponse("", data, "500", "install does not succeed")
+                        : crxResponse("", data, "200", "ok");
+            }
         }
         return crxResponse("", "", "500", "internal error");
     }
