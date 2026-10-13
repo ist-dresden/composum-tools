@@ -8,10 +8,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${page.title}</title>
     <link rel="shortcut icon" href="${src:'/sling/tools/common/logo.svg'}"/>
-    <link rel="stylesheet" href="${src:'/lib/bootstrap/5.3.8/css/bootstrap.min.css'}"/>
-    <link rel="stylesheet" href="${src:'/lib/bootstrap/icons/1.13.1/bootstrap-icons.min.css'}"/>
-    <link rel="stylesheet" href="${src:'/lib/jstree/3.3.17/themes/default/style.min.css'}"/>
-    <link rel="stylesheet" href="${src:'/lib/jstree/3.3.17/themes/proton/style.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/bootstrap/css/bootstrap.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/bootstrap/icons/bootstrap-icons.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/jstree/themes/default/style.min.css'}"/>
+    <link rel="stylesheet" href="${src:'/lib/jstree/themes/proton/style.min.css'}"/>
     <link rel="stylesheet" href="${src:'/sling/tools/style.css'}"/>
     <link rel="stylesheet" href="${src:'/sling/browser/style.css'}"/>
     ${if:changes.available;'<link rel="stylesheet" href="${src:changes.style}"/>'}
@@ -58,10 +58,10 @@ ${include:'/sling/tools/navbar/navbar.html'}
         </div>
     </div>
 </div>
-<script src="${src:'/lib/jquery/jquery-3.7.1.min.js'}"></script>
+<script src="${src:'/lib/jquery/jquery.min.js'}"></script>
 ${each.uri:system.clientlibs;'<script src="${link:uri}"></script>'}
-<script src="${src:'/lib/bootstrap/5.3.8/js/bootstrap.bundle.min.js'}"></script>
-<script src="${src:'/lib/jstree/3.3.17/jstree.min.js'}"></script>
+<script src="${src:'/lib/bootstrap/js/bootstrap.bundle.min.js'}"></script>
+<script src="${src:'/lib/jstree/jstree.min.js'}"></script>
 <script src="${src:'/sling/tools/script.js'}"></script>
 <script src="${src:'/sling/browser/script.js'}"></script>
 ${if:changes.available;'<script src="${src:changes.script}"></script>'}
