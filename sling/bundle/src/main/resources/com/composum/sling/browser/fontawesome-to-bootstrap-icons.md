@@ -67,7 +67,7 @@ Bootstrap Icons hat kein identisches Icon-Set — viele Zuordnungen sind sinngem
 2. Falls kein passendes Icon existiert: semantisch nächstliegendes wählen und hier dokumentieren.
 3. Für Animationen (Spin, Pulse, Fade) möglichst Bootstraps eigene Komponenten/Utilities nutzen
    (`spinner-border`, `spinner-grow`, `fade`, ...) statt Icon-Font-Klassen zu ersetzen — Bootstrap 5
-   ist in diesem Modul ohnehin bereits vollständig eingebunden (`/lib/bootstrap/5.2.3/`).
+   ist in diesem Modul ohnehin bereits vollständig eingebunden.
 4. Klassen-Präfix ist `bi bi-<name>` (Basisklasse `bi` + Glyphen-Klasse `bi-<name>`), keine
    `-o`/`-fill`-Endung wie bei FontAwesome — Outline ist bei BI meist der Default, `-fill` das Suffix
    für die gefüllte Variante (z. B. `bi-folder` vs. `bi-folder-fill`).
