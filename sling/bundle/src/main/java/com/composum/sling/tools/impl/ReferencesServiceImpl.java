@@ -32,6 +32,11 @@ import java.util.regex.Pattern;
 @Component(service = ReferencesService.class, immediate = true)
 public class ReferencesServiceImpl implements ReferencesService {
 
+    /** Default constructor. */
+    public ReferencesServiceImpl() {
+    }
+
+    /** the tools manager */
     @Reference
     protected Manager manager;
 

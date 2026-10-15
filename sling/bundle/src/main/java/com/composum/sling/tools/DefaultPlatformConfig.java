@@ -37,19 +37,32 @@ import static com.composum.sling.tools.Common.ORDERED_FOLDER;
 import static com.composum.sling.tools.Common.REP_ACCESS_CONTROLLABLE;
 import static com.composum.sling.tools.Common.SLING_FOLDER;
 
+/** Default {@link PlatformConfig} implementation, configured through its OSGi {@link Config}. */
 @Component(service = PlatformConfig.class, immediate = true)
 @Designate(ocd = DefaultPlatformConfig.Config.class)
 public class DefaultPlatformConfig implements PlatformConfig {
 
+    /** Default constructor. */
+    public DefaultPlatformConfig() {
+    }
+
+    /** OSGi metatype configuration of the platform config. */
     @ObjectClassDefinition(name = "Composum Tools Platform Config")
     public @interface Config {
 
         /**
+         * The resource path whose accessibility is checked to determine if the tools are allowed.
+         *
          * @return the resource path for checking the right to access the tools
          */
         @AttributeDefinition()
         String guardNode();
 
+        /**
+         * The resource types treated as binary/file-like.
+         *
+         * @return the file-like resource types
+         */
         @AttributeDefinition()
         String[] fileTypes() default {
                 NT_FILE,
@@ -58,6 +71,8 @@ public class DefaultPlatformConfig implements PlatformConfig {
         };
 
         /**
+         * The primary node types suggested while editing jcr:primaryType.
+         *
          * @return the primary node type names offered as jcr:primaryType autocomplete suggestions
          * (see {@link PlatformConfig#primaryTypes()})
          */
@@ -73,6 +88,8 @@ public class DefaultPlatformConfig implements PlatformConfig {
         };
 
         /**
+         * The mixin node types suggested while editing jcr:mixinTypes.
+         *
          * @return the mixin node type names offered as jcr:mixinTypes autocomplete suggestions
          * (see {@link PlatformConfig#mixinTypes()})
          */
@@ -87,13 +104,20 @@ public class DefaultPlatformConfig implements PlatformConfig {
                 MIX_LAST_MODIFIED
         };
 
+        /**
+         * The service ranking of this platform config.
+         *
+         * @return the service ranking
+         */
         @AttributeDefinition()
         int rank() default 1000;
     }
 
+    /** the Sling settings service providing the run modes */
     @Reference
     protected SlingSettingsService settingsService;
 
+    /** the configured resource path for checking the right to access the tools */
     protected String guardNode;
     /** the configured file/binary resource types (see {@link Config#fileTypes()}) */
     protected List<String> fileTypes;
@@ -102,6 +126,11 @@ public class DefaultPlatformConfig implements PlatformConfig {
     /** the configured mixin node type name suggestions (see {@link Config#mixinTypes()}) */
     protected List<String> mixinTypes;
 
+    /**
+     * Applies the given configuration.
+     *
+     * @param config the current OSGi configuration
+     */
     @Activate
     @Modified
     protected void activate(final Config config) {

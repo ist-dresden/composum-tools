@@ -19,8 +19,17 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class AuthorizableInfo {
 
+    /**
+     * Creates an empty instance, to be filled through the setters (and by Jackson).
+     */
+    public AuthorizableInfo() {
+    }
+
+    /** the authorizable's own JCR path */
     protected String path;
+    /** the authorizable's id (its user or group name) */
     protected String id;
+    /** the authorizable's principal name, as referenced from ACEs */
     protected String principalName;
     /** 'user', 'system-user', or 'group' */
     protected String type;
@@ -31,6 +40,7 @@ public class AuthorizableInfo {
 
     /** users only */
     protected boolean disabled;
+    /** the reason given when the user was disabled - 'null' if it is not disabled */
     @Nullable
     protected String disabledReason;
 
@@ -52,9 +62,17 @@ public class AuthorizableInfo {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class ProfileEntry {
 
+        /** the property name */
         protected final String name;
+        /** the property value, as display text */
         protected final String value;
 
+        /**
+         * Creates one profile entry.
+         *
+         * @param name  the property name
+         * @param value the property value, as display text
+         */
         public ProfileEntry(final String name, final String value) {
             this.name = name;
             this.value = value;

@@ -82,30 +82,40 @@ public class Browser extends AbstractToolsPlugin {
     public @interface Config {
 
         /**
+         * The selector key of this plugin.
+         *
          * @return this plugin's selector key
          */
         @AttributeDefinition()
         String key() default Browser.KEY;
 
         /**
+         * The navigation label of this plugin.
+         *
          * @return this plugin's navigation label
          */
         @AttributeDefinition()
         String label() default Browser.LABEL;
 
         /**
+         * The navigation rank of this plugin.
+         *
          * @return this plugin's navigation rank
          */
         @AttributeDefinition()
         int rank() default Browser.RANK;
 
         /**
+         * Whether this plugin is enabled.
+         *
          * @return whether this plugin is enabled
          */
         @AttributeDefinition()
         boolean enabled() default true;
 
         /**
+         * The favorites tool's quick-access root paths, as 'label=regex' pairs.
+         *
          * @return the favorites tool's quick-access root paths, as 'label=regex' pairs
          */
         @AttributeDefinition()
@@ -119,6 +129,8 @@ public class Browser extends AbstractToolsPlugin {
         };
 
         /**
+         * The query tool's query templates.
+         *
          * @return the query tool's query templates
          */
         @AttributeDefinition()
@@ -130,6 +142,8 @@ public class Browser extends AbstractToolsPlugin {
         };
 
         /**
+         * The query tool's CSV export column definitions.
+         *
          * @return the query tool's CSV export column definitions
          */
         @AttributeDefinition()
@@ -143,6 +157,8 @@ public class Browser extends AbstractToolsPlugin {
         };
 
         /**
+         * The CA-configuration types exposed by the 'cac' view.
+         *
          * @return the CA-configuration types exposed by the 'cac' view
          */
         @AttributeDefinition(name = "CA-Configurations",
@@ -151,6 +167,8 @@ public class Browser extends AbstractToolsPlugin {
         String[] caConfigurations();
 
         /**
+         * The keys of the enabled tools.
+         *
          * @return the enabled tool keys, or empty to enable all implemented and active tools
          */
         @AttributeDefinition()
@@ -160,6 +178,8 @@ public class Browser extends AbstractToolsPlugin {
         };
 
         /**
+         * The keys of the enabled views.
+         *
          * @return the enabled view keys, or empty to enable all implemented and active views
          */
         @AttributeDefinition()
@@ -265,6 +285,8 @@ public class Browser extends AbstractToolsPlugin {
     }
 
     /**
+     * Activates or reconfigures this plugin and attaches it to the manager.
+     *
      * @param bundleContext the bundle context of this component
      * @param config        the current OSGi configuration
      */
@@ -342,6 +364,9 @@ public class Browser extends AbstractToolsPlugin {
      * to the optionally bound {@link ChangesService}, exposed publicly so other packages (e.g.
      * {@code view.PropertiesView}, which needs it to decide whether to render its own
      * property-edit affordances) don't need direct field access.
+     *
+     * @param request the current request
+     * @return {@code true} if node-modification actions are available
      */
     public boolean writeEnabled(@NotNull final SlingHttpServletRequest request) {
         return changesService != null && changesService.writeEnabled(request);
@@ -351,6 +376,8 @@ public class Browser extends AbstractToolsPlugin {
      * The base URL for the {@link ChangesService}'s on-demand dialog fragments (append
      * {@code <name>.html<path>}), or an empty string if none is bound - exposed publicly for the
      * same reason as {@link #writeEnabled}.
+     *
+     * @return the dialog base URL, or an empty string
      */
     public @NotNull String dialogUri() {
         return changesService != null ? changesService.dialogUri() : "";
@@ -361,6 +388,9 @@ public class Browser extends AbstractToolsPlugin {
      * path yourself), or an empty string if no service is bound - exposed publicly for the same
      * reason as {@link #dialogUri()}, e.g. for {@code view.PropertiesView}'s toolbar actions that
      * have no dialog of their own (bulk Copy/Delete of selected properties).
+     *
+     * @param action the {@link ChangesService} action name
+     * @return the action URL, or an empty string
      */
     public @NotNull String changeActionLink(@NotNull final String action) {
         return changesService != null ? changesService.actionLink(action) : "";
@@ -370,6 +400,9 @@ public class Browser extends AbstractToolsPlugin {
      * Whether the given property name is protected against editing - delegates to the optionally
      * bound {@link ChangesService} (a property is never protected while none is bound, since there
      * is nothing to protect it from), exposed publicly for the same reason as {@link #writeEnabled}.
+     *
+     * @param name the property name
+     * @return {@code true} if the property is protected against editing
      */
     public boolean isProtectedProperty(@NotNull final String name) {
         return changesService != null && changesService.isProtectedProperty(name);
@@ -432,6 +465,9 @@ public class Browser extends AbstractToolsPlugin {
 
     /**
      * The request suffix path (the resource an action targets), '/' if there is none.
+     *
+     * @param request the current request
+     * @return the suffix path of the request
      */
     protected @NotNull String targetPath(@NotNull final SlingHttpServletRequest request) {
         return Optional.ofNullable(request.getRequestPathInfo().getSuffix()).orElse("/");
@@ -446,6 +482,9 @@ public class Browser extends AbstractToolsPlugin {
      * {@code view.XmlView}, which call this via their {@code browser} reference) - the other views
      * (Display/CA-Config) intentionally keep using the plain per-request resolver: Display is
      * rendered by a separate request of the Sling engine, which could never see transient state.
+     *
+     * @param request the current request
+     * @return the target resource, or {@code null} if it does not exist or is not allowed
      */
     public @Nullable Resource targetResource(@NotNull final SlingHttpServletRequest request) {
         if (changesService != null) {

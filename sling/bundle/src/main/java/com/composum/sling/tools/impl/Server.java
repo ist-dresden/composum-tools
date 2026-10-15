@@ -52,29 +52,56 @@ import static com.composum.sling.tools.Common.SLING_FOLDER;
 import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
+/**
+ * The tools servlet; it delegates the requests to the tools plugins and provides the {@link Manager} service.
+ *
+ * <p>This is the single point for the configuration of the tools.</p>
+ */
 @Component(service = {Servlet.class, Manager.class}, immediate = true)
 @Designate(ocd = Server.Config.class)
 public class Server extends SlingAllMethodsServlet implements Manager {
 
     private static final Logger LOG = LoggerFactory.getLogger(Server.class);
 
+    /** the default URI of the login page */
     public static final String DEFAULT_LOGIN_URI = "/system/sling/form/login.html";
 
+    /** the mapper used to write JSON results */
     public static final ObjectMapper MAPPER = new ObjectMapper();
 
+    /** Default constructor. */
+    public Server() {
+    }
+
+    /** The configuration of the tools servlet. */
     @ObjectClassDefinition(name = "Composum Tools")
     public @interface Config {
 
+        /**
+         * Provides the patterns of the property names accessible by the tools.
+         *
+         * @return the regular expressions for allowed property names
+         */
         @AttributeDefinition(name = "Allowed Property Patterns")
         String[] allowedPropertyPatterns() default {
                 "^.*$"
         };
 
+        /**
+         * Provides the patterns of the property names hidden from the tools.
+         *
+         * @return the regular expressions for disabled property names
+         */
         @AttributeDefinition(name = "Disabled Property Patterns")
         String[] disabledPropertyPatterns() default {
                 "^.*password.*$"
         };
 
+        /**
+         * Provides the patterns of the paths accessible by the tools.
+         *
+         * @return the regular expressions for allowed paths
+         */
         @AttributeDefinition(name = "Allowed Path Patterns")
         String[] allowedPathPatterns() default {
                 "^/$",
@@ -85,57 +112,106 @@ public class Server extends SlingAllMethodsServlet implements Manager {
                 "^/(apps|libs|mnt)(/.*)?$"
         };
 
+        /**
+         * Provides the patterns of the paths hidden from the tools.
+         *
+         * @return the regular expressions for disabled paths
+         */
         @AttributeDefinition(name = "Disabled Path Patterns")
         String[] disabledPathPatterns() default {
                 ".*/rep:[^/]+/.*",
                 "^(/.*)?/api(/.*)?$"
         };
 
+        /**
+         * Provides the node types with sortable children.
+         *
+         * @return the sortable node types
+         */
         @AttributeDefinition(name = "Sortable Types")
         String[] sortableTypes() default {
                 NT_FOLDER, SLING_FOLDER
         };
 
+        /**
+         * Provides the run modes to add as CSS classes to the tools pages.
+         *
+         * @return the run modes
+         */
         @AttributeDefinition(name = "CSS Runmodes")
         String[] cssRunmodes();
 
+        /**
+         * Provides the URI of the login page.
+         *
+         * @return the login URI
+         */
         @AttributeDefinition(name = "Login URI")
         String loginUri() default Server.DEFAULT_LOGIN_URI;
 
+        /**
+         * Provides the categories of the system client libraries.
+         *
+         * @return the client library categories
+         */
         @AttributeDefinition(name = "System Clientlibs")
         String[] systemClientlibs() default {};
 
+        /**
+         * Provides the extensions the servlet is registered for.
+         *
+         * @return the servlet extensions
+         */
         @AttributeDefinition(name = "Servlet Extensions")
         String[] sling_servlet_extensions() default {
                 "html",
                 "json"
         };
 
+        /**
+         * Provides the paths the servlet is registered for; the first one is the server path.
+         *
+         * @return the servlet paths
+         */
         @AttributeDefinition(name = "Servlet Paths")
         String[] sling_servlet_paths() default {
                 DEFAULT_SERVLET_PATH
         };
     }
 
+    /** the XSS protection API */
     @Reference
     private XSSAPI xssapi;
 
+    /** the configuration of the platform the tools are running on */
     @Reference
     private PlatformConfig platformConfig;
 
+    /** the context of this bundle */
     protected BundleContext bundleContext;
+    /** the active configuration */
     protected Config config;
 
+    /** the patterns of the allowed property names */
     protected List<Pattern> allowedPropertyPatterns;
+    /** the patterns of the disabled property names */
     protected List<Pattern> disabledPropertyPatterns;
+    /** the patterns of the allowed paths */
     protected List<Pattern> allowedPathPatterns;
+    /** the patterns of the disabled paths */
     protected List<Pattern> disabledPathPatterns;
+    /** the node types with sortable children */
     protected List<String> sortableTypes;
+    /** the run modes to add as CSS classes */
     protected List<String> cssRunmodes;
+    /** the categories of the system client libraries */
     protected List<String> systemClientlibs;
+    /** the URI of the login page */
     protected String loginUri;
+    /** the path of the servlet */
     protected String serverPath;
 
+    /** the registered tools plugins */
     protected final PluginSet<ToolsPlugin> plugins = new PluginSet<>() {
         @Override
         protected boolean isEnabled(@NotNull final ToolsPlugin service) {
@@ -148,6 +224,12 @@ public class Server extends SlingAllMethodsServlet implements Manager {
         return plugins;
     }
 
+    /**
+     * Applies the configuration.
+     *
+     * @param bundleContext the context of this bundle
+     * @param config        the configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {
@@ -257,6 +339,13 @@ public class Server extends SlingAllMethodsServlet implements Manager {
         doIt(request, response);
     }
 
+    /**
+     * Handles a request by delegating it to the plugin selected by the first selector.
+     *
+     * @param request  the request
+     * @param response the response
+     * @throws IOException if writing the response fails
+     */
     protected void doIt(@NotNull final SlingHttpServletRequest request,
                         @NotNull final SlingHttpServletResponse response)
             throws IOException {

@@ -23,21 +23,39 @@ public class RegistryInfo implements PackageInfo {
 
     /** the package's id ('group:name:version'), used as the tree/detail path in registry mode */
     protected String path;
+    /** the package group */
     protected String group;
+    /** the package name */
     protected String name;
+    /** the package version */
     protected String version;
+    /** the package description */
     protected String description;
+    /** the package size in bytes */
     protected long size;
+    /** 'true' if the package is currently installed */
     protected boolean installed;
+    /** the creation time of the package */
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     protected Calendar created;
+    /** the user that created the package */
     protected String createdBy;
+    /** the time of the last modification of the package */
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     protected Calendar lastModified;
+    /** the user that last modified the package */
     protected String lastModifiedBy;
+    /** the time the package was last unpacked (installed) */
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     protected Calendar lastUnpacked;
+    /** the user that last unpacked (installed) the package */
     protected String lastUnpackedBy;
+    /** the package dependencies as strings */
     protected String[] dependencies;
+    /** the root paths of the package's workspace filter */
     protected Set<String> filterRoots;
+
+    /** Default constructor. */
+    public RegistryInfo() {
+    }
 }

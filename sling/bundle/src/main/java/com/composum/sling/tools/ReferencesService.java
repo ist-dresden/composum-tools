@@ -30,6 +30,9 @@ public interface ReferencesService {
      * The chain of resource super types for the given resource (see
      * {@code sling:resourceSuperType}) - also included for content resources since this is used
      * quite often in AEM.
+     *
+     * @param resource the resource to determine the supertype chain for
+     * @return the related paths of the supertype chain
      */
     @NotNull List<RelatedPath> getSupertypeChain(@NotNull Resource resource);
 
@@ -37,6 +40,9 @@ public interface ReferencesService {
      * The set of related paths for the given resource: for a resource type, the resource type
      * found in the search path and /mnt/(override|overlay); otherwise the override/overlay/
      * resource-type locations relevant to the resource itself.
+     *
+     * @param resource the resource to determine the related paths for
+     * @return the related paths of the resource
      */
     @NotNull List<RelatedPath> getRelatedPathSet(@NotNull Resource resource);
 
@@ -63,6 +69,11 @@ public interface ReferencesService {
      * the rest of its surrounding text unchanged. The caller is responsible for the resolver's own
      * commit/discard lifecycle (this only stages the property changes via
      * {@link org.apache.sling.api.resource.ModifiableValueMap}).
+     *
+     * @param hit     the resource and property names to rewrite
+     * @param oldPath the path that was searched for
+     * @param newPath the path to replace the old path with
+     * @throws PersistenceException if a property change cannot be staged
      */
     void updateReferences(@NotNull Hit hit, @NotNull String oldPath, @NotNull String newPath)
             throws PersistenceException;
@@ -75,10 +86,18 @@ public interface ReferencesService {
      */
     interface Hit {
 
-        /** the resource whose properties reference the searched path. */
+        /**
+         * The resource whose properties reference the searched path.
+         *
+         * @return the referencing resource
+         */
         @NotNull Resource resource();
 
-        /** the names of the properties that matched. */
+        /**
+         * The names of the properties that matched.
+         *
+         * @return the names of the matching properties
+         */
         @NotNull Set<String> propertyNames();
     }
 }

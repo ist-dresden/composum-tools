@@ -65,30 +65,40 @@ public class Console extends AbstractToolsPlugin {
     public @interface Config {
 
         /**
+         * The selector key of this plugin.
+         *
          * @return this plugin's selector key
          */
         @AttributeDefinition()
         String key() default Console.KEY;
 
         /**
+         * The navigation label of this plugin.
+         *
          * @return this plugin's navigation label
          */
         @AttributeDefinition()
         String label() default Console.LABEL;
 
         /**
+         * The navigation rank of this plugin.
+         *
          * @return this plugin's navigation rank
          */
         @AttributeDefinition()
         int rank() default Console.RANK;
 
         /**
+         * Whether this plugin is enabled.
+         *
          * @return whether this plugin is enabled
          */
         @AttributeDefinition()
         boolean enabled() default true;
 
         /**
+         * The keys of the console proxies to show.
+         *
          * @return the enabled {@link ConsoleProxy} keys, or empty to enable all implemented and active ones
          */
         @AttributeDefinition()
@@ -122,6 +132,8 @@ public class Console extends AbstractToolsPlugin {
     protected transient List<String> views;
 
     /**
+     * Applies the given configuration and attaches this plugin to the manager.
+     *
      * @param bundleContext the bundle context of this component
      * @param config        the current OSGi configuration
      */

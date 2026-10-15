@@ -39,31 +39,67 @@ import java.util.function.Supplier;
 
 import static com.composum.sling.tools.Common.HTML_TYPE;
 
+/**
+ * The tools plugin which provides the dashboard page presenting the tiles of all registered tools plugins.
+ */
 @Component(service = {ToolsPlugin.class, Dashboard.class},
         configurationPolicy = ConfigurationPolicy.REQUIRE, immediate = true)
 @Designate(ocd = Dashboard.Config.class)
 public class Dashboard extends AbstractToolsPlugin {
 
+    /** The default key of this plugin. */
     public static final String KEY = "dashboard";
+    /** The default label of this plugin. */
     public static final String LABEL = "Dashboard";
+    /** The default rank of this plugin. */
     public static final int RANK = 5000;
 
+    /** The widgets provided by this plugin (the dashboard page). */
     protected final List<Widget> WIDGETS = List.of(
             new Page(KEY, "Dashboard", 5000, this::getDashboardLink)
     );
 
+    /**
+     * Default constructor.
+     */
+    public Dashboard() {
+    }
+
+    /**
+     * The OSGi configuration of the dashboard plugin.
+     */
     @ObjectClassDefinition(name = "Composum Tools Dashboard")
     public @interface Config {
 
+        /**
+         * The key of the plugin.
+         *
+         * @return the plugin key
+         */
         @AttributeDefinition()
         String key() default Dashboard.KEY;
 
+        /**
+         * The label of the plugin.
+         *
+         * @return the plugin label
+         */
         @AttributeDefinition()
         String label() default Dashboard.LABEL;
 
+        /**
+         * The rank of the plugin.
+         *
+         * @return the plugin rank
+         */
         @AttributeDefinition()
         int rank() default Dashboard.RANK;
 
+        /**
+         * Whether the plugin is enabled.
+         *
+         * @return 'true' if the plugin is enabled
+         */
         @AttributeDefinition()
         boolean enabled() default true;
     }
@@ -74,9 +110,17 @@ public class Dashboard extends AbstractToolsPlugin {
         manager = service;
     }
 
+    /** The bundle context of this component. */
     protected BundleContext bundleContext;
+    /** The current configuration. */
     protected Config config;
 
+    /**
+     * Reads the configuration and attaches this plugin to the manager.
+     *
+     * @param bundleContext the bundle context
+     * @param config        the component configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {
@@ -85,6 +129,9 @@ public class Dashboard extends AbstractToolsPlugin {
         manager.plugins().attach(this);
     }
 
+    /**
+     * Detaches this plugin from the manager.
+     */
     @Deactivate
     protected void deactivate() {
         manager.plugins().detach(this);
@@ -111,6 +158,11 @@ public class Dashboard extends AbstractToolsPlugin {
         return config.enabled();
     }
 
+    /**
+     * Returns the link to the dashboard page.
+     *
+     * @return the dashboard page link
+     */
     public @NotNull String getDashboardLink() {
         return manager.serverPath() + ".dashboard.html";
     }
@@ -135,6 +187,14 @@ public class Dashboard extends AbstractToolsPlugin {
         return result;
     }
 
+    /**
+     * Processes a GET request.
+     *
+     * @param request   the current request
+     * @param response  the current response
+     * @param selectors the remaining request selectors
+     * @return the result of the request processing
+     */
     public @NotNull Result<?> processGet(@NotNull final SlingHttpServletRequest request,
                                          @NotNull final SlingHttpServletResponse response,
                                          @NotNull List<String> selectors) {
@@ -163,6 +223,7 @@ public class Dashboard extends AbstractToolsPlugin {
         return result;
     }
 
+    /** The template factories of this plugin by key. */
     public final Map<String, TemplateBuilder.Factory> templates = Map.of(
             "page", current -> new Template("/sling/dashboard/page.html",
                     new TemplateContext(current, new Values()
@@ -183,10 +244,23 @@ public class Dashboard extends AbstractToolsPlugin {
                 .orElse(key.startsWith("/") ? new Template(key, context, this) : null);
     }
 
+    /**
+     * Builds the link to the dashboard page.
+     *
+     * @return the dashboard page link
+     */
     protected @NotNull String dashboardLink() {
         return manager.serverPath() + ".dashboard.html";
     }
 
+    /**
+     * Collects the tiles of all registered plugins, ordered by descending rank.
+     *
+     * @param request   the current request
+     * @param response  the current response
+     * @param selectors the request selectors
+     * @return the template values of the tiles
+     */
     protected List<Values> tiles(@NotNull final SlingHttpServletRequest request,
                                  @NotNull final SlingHttpServletResponse response,
                                  @NotNull List<String> selectors) {
@@ -216,6 +290,15 @@ public class Dashboard extends AbstractToolsPlugin {
         return tiles;
     }
 
+    /**
+     * Renders the content of a plugin's widget by processing the widget link with the plugin.
+     *
+     * @param request   the current request
+     * @param response  the current response
+     * @param plugin    the plugin providing the widget
+     * @param selectors the selectors of the widget (widget key)
+     * @return the content provided by the plugin, or {@code null} if it could not be rendered
+     */
     protected Object include(@NotNull final SlingHttpServletRequest request,
                              @NotNull final SlingHttpServletResponse response,
                              @NotNull final ToolsPlugin plugin,

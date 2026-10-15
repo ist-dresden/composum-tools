@@ -48,17 +48,37 @@ import java.util.regex.Pattern;
 import static com.composum.sling.tools.Common.HTML_TYPE;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
+/**
+ * The tools plugin which provides a dashboard tile presenting the properties of configured OSGi services.
+ */
 @Component(service = {ToolsPlugin.class}, immediate = true)
 @Designate(ocd = SettingsWidgets.Config.class)
 public class SettingsWidgets extends AbstractToolsPlugin {
 
+    /** The default key of this plugin. */
     public static final String KEY = "settings";
+    /** The default label of this plugin. */
     public static final String LABEL = "Service Settings";
+    /** The default rank of this plugin. */
     public static final int RANK = 5500;
 
+    /**
+     * Default constructor.
+     */
+    public SettingsWidgets() {
+    }
+
+    /**
+     * The OSGi configuration of the settings widgets.
+     */
     @ObjectClassDefinition(name = "Settings Widgets")
     public @interface Config {
 
+        /**
+         * The service settings to inspect, each given as a request template.
+         *
+         * @return the inspected service settings templates
+         */
         @AttributeDefinition(name = "Inspected Settings",
                 description = "a set of request templates matching: 'service-type(filter)[service-properties,...]'; caution: prevent from showing secrets!")
         String[] inspectedSettings() default {
@@ -66,22 +86,44 @@ public class SettingsWidgets extends AbstractToolsPlugin {
                 "org.apache.sling.settings.SlingSettingsService[runModes]"
         };
 
+        /**
+         * The key of the plugin.
+         *
+         * @return the plugin key
+         */
         @AttributeDefinition()
         String key() default SettingsWidgets.KEY;
 
+        /**
+         * The label of the plugin.
+         *
+         * @return the plugin label
+         */
         @AttributeDefinition()
         String label() default SettingsWidgets.LABEL;
 
+        /**
+         * The rank of the plugin.
+         *
+         * @return the plugin rank
+         */
         @AttributeDefinition()
         int rank() default SettingsWidgets.RANK;
 
+        /**
+         * Whether the plugin is enabled.
+         *
+         * @return 'true' if the plugin is enabled
+         */
         @AttributeDefinition()
         boolean enabled() default true;
     }
 
+    /** Matches an inspected settings rule: 'service-type(filter)[service-properties,...]'. */
     public static final Pattern SETTINGS_RULE = Pattern.compile(
             "^(?<type>[^\\[(]+)(?<filter>\\([^)]+\\))?(\\[(?<props>.*)])?$");
 
+    /** Matches a plain property name (not a pattern). */
     public static final Pattern PROPERTY_NAME = Pattern.compile("^[a-zA-Z0-9$@_:.-]+$");
 
     /** the manager this plugin is registered with */
@@ -90,11 +132,20 @@ public class SettingsWidgets extends AbstractToolsPlugin {
         manager = service;
     }
 
+    /** The bundle context of this component. */
     protected BundleContext bundleContext;
+    /** The current configuration. */
     protected Config config;
 
+    /** The renderer of the inspected service settings. */
     protected Settings settings;
 
+    /**
+     * Reads the configuration, starts tracking the services and attaches this plugin to the manager.
+     *
+     * @param bundleContext the bundle context
+     * @param config        the component configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {
@@ -105,6 +156,9 @@ public class SettingsWidgets extends AbstractToolsPlugin {
         manager.plugins().attach(this);
     }
 
+    /**
+     * Detaches this plugin from the manager.
+     */
     @Deactivate
     protected void deactivate() {
         manager.plugins().detach(this);
@@ -167,12 +221,23 @@ public class SettingsWidgets extends AbstractToolsPlugin {
      */
     protected class Settings implements Processor, ServiceListener {
 
+        /**
+         * A rule which selects a service and the service properties to inspect.
+         */
         public class SettingsRule {
 
+            /** The type (interface, PID or implementation class name) of the service. */
             public final String serviceType;
+            /** The optional service filter. */
             public final String filter;
+            /** The patterns of the names of the properties to inspect (all properties if empty). */
             public final List<Pattern> properties;
 
+            /**
+             * Creates a rule from a matched rule expression.
+             *
+             * @param matcher the matcher with the groups 'type', 'filter' and 'props' of {@link #SETTINGS_RULE}
+             */
             public SettingsRule(Matcher matcher) {
                 serviceType = matcher.group("type");
                 filter = matcher.group("filter");
@@ -186,9 +251,16 @@ public class SettingsWidgets extends AbstractToolsPlugin {
             }
         }
 
+        /** The configured rules. */
         protected List<SettingsRule> configuration;
+        /** The cached service references of the rules. */
         protected transient Map<SettingsRule, List<ServiceReference<?>>> serviceReferences = new HashMap<>();
 
+        /**
+         * Creates the settings renderer from the configured rules.
+         *
+         * @param config the component configuration
+         */
         public Settings(Config config) {
             configuration = new ArrayList<>();
             for (final String rule : config.inspectedSettings()) {
@@ -234,10 +306,23 @@ public class SettingsWidgets extends AbstractToolsPlugin {
             return result;
         }
 
+        /**
+         * Retrieves the service object of a service reference.
+         *
+         * @param reference the service reference
+         * @return the service object, or {@code null} if the service is not available
+         */
         public Object getService(@NotNull final ServiceReference<?> reference) {
             return bundleContext.getService(reference);
         }
 
+        /**
+         * Collects the services matching the configured rules.
+         *
+         * @param resolver the resolver used to render the property values
+         * @param context  the current context resource
+         * @return the template values of the services
+         */
         protected List<Values> getServices(@NotNull final ResourceResolver resolver,
                                            @Nullable final Resource context) {
             List<Values> providers = new ArrayList<>();
@@ -258,6 +343,15 @@ public class SettingsWidgets extends AbstractToolsPlugin {
             return providers;
         }
 
+        /**
+         * Collects the inspected properties of a service.
+         *
+         * @param resolver  the resolver used to render the property values
+         * @param context   the current context resource
+         * @param config    the rule which selected the service
+         * @param reference the service reference
+         * @return the template values of the properties
+         */
         public @NotNull List<Values> getProperties(@NotNull final ResourceResolver resolver,
                                                    @Nullable final Resource context,
                                                    @NotNull final SettingsRule config,
@@ -275,6 +369,13 @@ public class SettingsWidgets extends AbstractToolsPlugin {
             return result;
         }
 
+        /**
+         * Determines the names of the properties to inspect for a service.
+         *
+         * @param config    the rule which selected the service
+         * @param reference the service reference
+         * @return the property names
+         */
         public @NotNull Iterable<String> getPropertyNames(@NotNull final SettingsRule config,
                                                           @NotNull final ServiceReference<?> reference) {
             final Set<String> propertyNames = new HashSet<>();
@@ -303,6 +404,14 @@ public class SettingsWidgets extends AbstractToolsPlugin {
             return propertyNames;
         }
 
+        /**
+         * Determines the value of a service property, from the service reference or, if not found there,
+         * from the getter of the service object.
+         *
+         * @param reference the service reference
+         * @param name      the property name
+         * @return the property value, or {@code null} if it can not be determined
+         */
         public @Nullable Object getProperty(@NotNull final ServiceReference<?> reference,
                                             @NotNull final String name) {
             Object value = reference.getProperty(name);
@@ -312,6 +421,12 @@ public class SettingsWidgets extends AbstractToolsPlugin {
             return value;
         }
 
+        /**
+         * Finds the service references matching a rule (cached until a service change).
+         *
+         * @param config the rule
+         * @return the matching service references
+         */
         protected @NotNull List<ServiceReference<?>> getServiceReferences(@NotNull final SettingsRule config) {
             List<ServiceReference<?>> configReferences = serviceReferences.get(config);
             if (configReferences == null) {
@@ -345,6 +460,14 @@ public class SettingsWidgets extends AbstractToolsPlugin {
             return configReferences;
         }
 
+        /**
+         * Reads a property from a service object using the getter named like the property
+         * (or its bean style 'get' variant).
+         *
+         * @param object the service object
+         * @param name   the property name
+         * @return the property value, or {@code null} if there is no accessible getter
+         */
         protected @Nullable Object getProperty(@Nullable final Object object, @Nullable final String name) {
             Object value = null;
             if (object != null && StringUtils.isNotBlank(name)) {

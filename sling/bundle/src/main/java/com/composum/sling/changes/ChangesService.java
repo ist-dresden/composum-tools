@@ -23,6 +23,9 @@ public interface ChangesService {
      * {@code request.getResourceResolver()}. A consuming plugin's own read paths (its tree, its
      * property listing, ...) should resolve through this instead of the request's own resolver
      * directly, so a user's own pending edits are visible immediately, before Save All.
+     *
+     * @param request the current request
+     * @return the resolver to read resources through
      */
     @NotNull ResourceResolver resolver(@NotNull SlingHttpServletRequest request);
 
@@ -35,17 +38,24 @@ public interface ChangesService {
      * restriction (every user, same as before this check existed). A consuming plugin should hide
      * its own edit-triggering UI when this is 'false', not just when the service is altogether
      * unbound.
+     *
+     * @param request the current request
+     * @return whether the request's user may currently perform mutating actions
      */
     boolean writeEnabled(@NotNull SlingHttpServletRequest request);
 
     /**
      * The base URL for this service's on-demand dialog fragments (append '&lt;name&gt;.html' plus
      * the target path) - see the shared {@code CPM.Dialog} client framework.
+     *
+     * @return the base URL of the dialog fragments
      */
     @NotNull String dialogUri();
 
     /**
      * The URL of the pending-changes panel fragment (Save All / Revert All).
+     *
+     * @return the URL of the pending-changes panel fragment
      */
     @NotNull String pendingUri();
 
@@ -57,24 +67,34 @@ public interface ChangesService {
      * response to a mutation made *during* the current page's lifetime and would - wrongly - start
      * back at "no pending changes" after every page reload, even though the session (and its
      * pending changes) is unaffected by a reload and still very much there.
+     *
+     * @param request the current request
+     * @return the number of pending changes of the request's HTTP session
      */
     int pendingCount(@NotNull SlingHttpServletRequest request);
 
     /**
      * The classpath resource path (usable in a '${src:...}' placeholder) of this service's own
      * client stylesheet - a consuming plugin should link it in whenever this service is bound.
+     *
+     * @return the classpath resource path of the client stylesheet
      */
     @NotNull String styleResource();
 
     /**
      * The classpath resource path (usable in a '${src:...}' placeholder) of this service's own
      * client script - a consuming plugin should include it whenever this service is bound.
+     *
+     * @return the classpath resource path of the client script
      */
     @NotNull String scriptResource();
 
     /**
      * The full POST action URL for the given action name (append the target path yourself) - e.g.
      * {@code actionLink("copy")} for a "Paste" button, which has no dialog of its own.
+     *
+     * @param action the name of the action
+     * @return the POST action URL for the action
      */
     @NotNull String actionLink(@NotNull String action);
 
@@ -83,6 +103,9 @@ public interface ChangesService {
      * (primary type, identity, versioning, locking, ...) excluded from editing - a consuming
      * plugin's own display (e.g. a properties table) should use this to decide whether to offer an
      * edit affordance for a given property row.
+     *
+     * @param name the name of the property
+     * @return 'true' if the property is protected and must not be edited
      */
     boolean isProtectedProperty(@NotNull String name);
 }

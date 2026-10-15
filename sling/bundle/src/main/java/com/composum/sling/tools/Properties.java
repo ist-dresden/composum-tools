@@ -12,8 +12,23 @@ import java.util.Calendar;
 
 import static com.composum.sling.tools.Common.JCR_CONTENT;
 
+/** Helper for rendering property values as HTML. */
 public class Properties {
 
+    /** Default constructor. */
+    public Properties() {
+    }
+
+    /**
+     * Appends an HTML representation of the given property value to the buffer; arrays and iterables are rendered as lists, strings that denote an accessible resource path or resource type are rendered as links.
+     *
+     * @param manager  the tools manager, used for XSS protection and access checks
+     * @param resolver the resolver used to resolve paths found in string values
+     * @param resource the resource owning the value, used as target of the binary download link, may be {@code null}
+     * @param buffer   the buffer to append the HTML to
+     * @param value    the value to render, may be {@code null}
+     * @return the type name of the rendered value (with a trailing '[]' for multi values), or an empty string for {@code null}
+     */
     public static String toHtml(@NotNull final Manager manager,
                                 @NotNull final ResourceResolver resolver, @Nullable final Resource resource,
                                 @NotNull final StringBuilder buffer, @Nullable final Object value) {
@@ -70,6 +85,14 @@ public class Properties {
         return type;
     }
 
+    /**
+     * Resolves a resource type (relative to the search path) to an accessible resource.
+     *
+     * @param manager  the tools manager, used for access checks
+     * @param resolver the resolver used to look up the resource
+     * @param type     the resource type, may be {@code null}
+     * @return the resource found for the type, or {@code null} if the value is not a resource type or no accessible resource exists
+     */
     protected static @Nullable Resource resolveType(@NotNull final Manager manager,
                                                     @NotNull final ResourceResolver resolver,
                                                     @Nullable final String type) {
@@ -85,6 +108,14 @@ public class Properties {
         return null;
     }
 
+    /**
+     * Resolves an absolute path to an accessible resource.
+     *
+     * @param manager  the tools manager, used for access checks
+     * @param resolver the resolver used to look up the resource
+     * @param path     the path, may be {@code null}
+     * @return the resource found at the path, or {@code null} if the value is not an absolute path or no accessible resource exists
+     */
     protected static @Nullable Resource resolvePath(@NotNull final Manager manager,
                                                     @NotNull final ResourceResolver resolver,
                                                     @Nullable final String path) {

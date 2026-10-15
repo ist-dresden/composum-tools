@@ -43,8 +43,11 @@ import static com.composum.sling.tools.Common.REP_USER;
  */
 public class JcrAuthorizableTree {
 
+    /** the repository path of the home root */
     public static final String HOME_PATH = "/home";
+    /** the repository path of the users folder */
     public static final String USERS_PATH = "/home/users";
+    /** the repository path of the groups folder */
     public static final String GROUPS_PATH = "/home/groups";
     /** Jackrabbit's own conventional location for system users - a plain subfolder of
      * {@link #USERS_PATH}, not a genuinely separate top-level path, but broken out into its own
@@ -64,6 +67,11 @@ public class JcrAuthorizableTree {
 
     private final Session session;
 
+    /**
+     * Creates the tree access for the given session.
+     *
+     * @param session the session used to read the authorizable nodes
+     */
     public JcrAuthorizableTree(@NotNull final Session session) {
         this.session = session;
     }
@@ -73,6 +81,7 @@ public class JcrAuthorizableTree {
      *
      * @param path the tree path to resolve ('/' for the synthetic root)
      * @return the resolved node, or 'null' if no such path exists
+     * @throws RepositoryException if the repository cannot be read
      */
     public @Nullable AuthorizableTreeNode nodeAt(@NotNull final String path) throws RepositoryException {
         if ("/".equals(path)) {
@@ -102,6 +111,7 @@ public class JcrAuthorizableTree {
      *
      * @param path the target path
      * @return the ancestor folder paths, top-down, or an empty list if no such path exists
+     * @throws RepositoryException if the repository cannot be read
      */
     public @NotNull List<String> ancestorsOf(@NotNull final String path) throws RepositoryException {
         final List<String> chain = new ArrayList<>();
@@ -131,6 +141,7 @@ public class JcrAuthorizableTree {
      *
      * @param path the tree path (a folder) to list the immediate children of
      * @return the immediate children, or an empty list if the path does not exist or has none
+     * @throws RepositoryException if the repository cannot be read
      */
     public @NotNull List<AuthorizableRef> immediateChildren(@NotNull final String path) throws RepositoryException {
         final List<AuthorizableRef> result = new ArrayList<>();

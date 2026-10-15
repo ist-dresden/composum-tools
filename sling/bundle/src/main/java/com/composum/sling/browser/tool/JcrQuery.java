@@ -13,17 +13,27 @@ import java.util.stream.Collectors;
 
 import static com.composum.sling.tools.Common.NT_BASE;
 
+/**
+ * A query on the JCR repository which is derived from a query pattern entered by a user:
+ * a SQL2 query, an XPath query or a simple full text search expression (translated to SQL2).
+ */
 public class JcrQuery {
 
+    /** The type name used for full text search expressions. */
     public static final String FULL_TEXT = "text";
 
+    /** Matches a SQL2 query. */
     public static final Pattern SQL2_QUERY = Pattern.compile("^(union +)?select +.*$", Pattern.CASE_INSENSITIVE);
+    /** Matches an XPath query. */
     public static final Pattern XPATH_QUERY = Pattern.compile("^(/jcr:root)?/[^ ]*([*(\\[].*)?$");
+    /** Matches a full text search expression with an optional node type, an optional root path and the search text. */
     public static final Pattern TEXT_QUERY = Pattern.compile(
             "^((\\[(?<type>[^]]+)])?(?<path>/[^/*(\\[ ]*(/[^/*(\\[ ]*)*)? +)?(?<text>.*)$");
 
+    /** Splits a search text into its terms. */
     public static final Pattern SPLIT_TERMS = Pattern.compile(" +");
 
+    /** Matches a search term prefixed by a property name in square brackets. */
     public static final Pattern NAME_AND_TEXT = Pattern.compile("^\\[(?<name>[^]]+)](?<text>.+)$");
 
     private final String pattern;
@@ -31,9 +41,16 @@ public class JcrQuery {
 
     private transient String query;
 
+    /** The matcher of the full text expression (set if the query is a full text search). */
     protected Matcher textMatcher;
+    /** The SQL2 query built from the full text expression (built lazily). */
     protected String textQuery;
 
+    /**
+     * Creates a query from the given pattern and determines the query type.
+     *
+     * @param pattern the query pattern (SQL2, XPath or full text expression)
+     */
     @SuppressWarnings("deprecation")
     public JcrQuery(@NotNull final String pattern) {
         if (SQL2_QUERY.matcher(pattern).matches()) {
@@ -51,6 +68,12 @@ public class JcrQuery {
         }
     }
 
+    /**
+     * Executes the query.
+     *
+     * @param resolver the resolver used to find the resources
+     * @return the resources found by the query
+     */
     public @NotNull Iterator<Resource> find(@NotNull final ResourceResolver resolver) {
         if (FULL_TEXT.equals(queryType)) {
             return resolver.findResources(getTextQuery(), Query.JCR_SQL2);
@@ -59,6 +82,11 @@ public class JcrQuery {
         }
     }
 
+    /**
+     * Returns the effective query string.
+     *
+     * @return the SQL2 query for a full text expression, otherwise the (normalized) query pattern
+     */
     public @NotNull String getQuery() {
         if (FULL_TEXT.equals(queryType)) {
             return getTextQuery();
@@ -67,10 +95,20 @@ public class JcrQuery {
         }
     }
 
+    /**
+     * Returns the type of the query.
+     *
+     * @return the JCR query language, or {@link #FULL_TEXT} for a full text expression
+     */
     public @NotNull String getQueryType() {
         return queryType;
     }
 
+    /**
+     * Returns the SQL2 query built from the full text expression.
+     *
+     * @return the SQL2 query
+     */
     public @NotNull String getTextQuery() {
         if (textQuery == null) {
             textQuery = textQuery();
@@ -78,6 +116,11 @@ public class JcrQuery {
         return textQuery;
     }
 
+    /**
+     * Builds the SQL2 query from the full text expression.
+     *
+     * @return the SQL2 query
+     */
     protected @NotNull String textQuery() {
         String type = StringUtils.defaultIfBlank(textMatcher.group("type"), NT_BASE);
         String path = StringUtils.defaultIfBlank(textMatcher.group("path"), "/content");

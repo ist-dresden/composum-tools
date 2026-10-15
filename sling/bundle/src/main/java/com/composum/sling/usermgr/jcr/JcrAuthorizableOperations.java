@@ -60,6 +60,17 @@ import static com.composum.sling.tools.Common.REP_RESTRICTIONS;
  */
 public class JcrAuthorizableOperations {
 
+    /** Default constructor. */
+    public JcrAuthorizableOperations() {
+    }
+
+    /**
+     * Provides the Jackrabbit user manager of the given session.
+     *
+     * @param session the session (may be 'null')
+     * @return the user manager, or 'null' if the session is 'null' or not a {@link JackrabbitSession}
+     * @throws RepositoryException if the user manager cannot be obtained
+     */
     public @Nullable UserManager userManager(@Nullable final Session session) throws RepositoryException {
         return session instanceof JackrabbitSession ? ((JackrabbitSession) session).getUserManager() : null;
     }
@@ -67,7 +78,10 @@ public class JcrAuthorizableOperations {
     /**
      * Opens the authorizable at the given path.
      *
+     * @param userManager the user manager to resolve the authorizable with
+     * @param path        the path of the authorizable
      * @return the opened authorizable, or 'null' if no such authorizable exists at that path
+     * @throws RepositoryException if the repository cannot be read
      */
     public @Nullable Authorizable open(@NotNull final UserManager userManager, @NotNull final String path)
             throws RepositoryException {
@@ -80,8 +94,11 @@ public class JcrAuthorizableOperations {
      * (whose own name collides with this interface's) never needs to name the Jackrabbit
      * {@link UserManager} type at all.
      *
+     * @param session the session to resolve the user manager from
+     * @param path    the path of the authorizable
      * @return the opened authorizable, or 'null' if no such authorizable exists at that path or
      * the session is not a {@link JackrabbitSession}
+     * @throws RepositoryException if the repository cannot be read
      */
     public @Nullable Authorizable open(@NotNull final Session session, @NotNull final String path)
             throws RepositoryException {
@@ -89,6 +106,13 @@ public class JcrAuthorizableOperations {
         return userManager != null ? userManager.getAuthorizableByPath(path) : null;
     }
 
+    /**
+     * Collects the detail data of the given authorizable.
+     *
+     * @param authorizable the authorizable
+     * @return the info (path, id, principal name, type, group memberships and members or state)
+     * @throws RepositoryException if the repository cannot be read
+     */
     public @NotNull AuthorizableInfo info(@NotNull final Authorizable authorizable) throws RepositoryException {
         final AuthorizableInfo info = new AuthorizableInfo();
         info.setPath(authorizable.getPath());
@@ -108,11 +132,25 @@ public class JcrAuthorizableOperations {
         return info;
     }
 
+    /**
+     * Lists the groups the given authorizable is a declared member of.
+     *
+     * @param authorizable the authorizable
+     * @return references to the groups
+     * @throws RepositoryException if the repository cannot be read
+     */
     public @NotNull List<AuthorizableRef> declaredMemberOf(@NotNull final Authorizable authorizable)
             throws RepositoryException {
         return toRefs(authorizable.declaredMemberOf());
     }
 
+    /**
+     * Lists the declared members of the given group.
+     *
+     * @param group the group
+     * @return references to the members
+     * @throws RepositoryException if the repository cannot be read
+     */
     public @NotNull List<AuthorizableRef> declaredMembers(@NotNull final Group group) throws RepositoryException {
         return toRefs(group.getDeclaredMembers());
     }
@@ -122,8 +160,11 @@ public class JcrAuthorizableOperations {
      * path) - used for the Add-to-Group/Add-Member dialogs, which only ever know the target's id
      * (typed into a text field), not its path.
      *
+     * @param session the session to resolve the user manager from
+     * @param id      the authorizable id
      * @return the resolved authorizable, or 'null' if no such id exists or the session has no
      * user manager
+     * @throws RepositoryException if the repository cannot be read
      */
     public @Nullable Authorizable findById(@NotNull final Session session, @NotNull final String id)
             throws RepositoryException {
@@ -131,12 +172,28 @@ public class JcrAuthorizableOperations {
         return userManager != null ? userManager.getAuthorizable(id) : null;
     }
 
+    /**
+     * Adds an authorizable to a group and saves the session.
+     *
+     * @param session the session to save
+     * @param group   the group
+     * @param member  the authorizable to add as a member
+     * @throws RepositoryException if the change cannot be made or saved
+     */
     public void addToGroup(@NotNull final Session session, @NotNull final Group group,
                            @NotNull final Authorizable member) throws RepositoryException {
         group.addMember(member);
         session.save();
     }
 
+    /**
+     * Removes an authorizable from a group and saves the session.
+     *
+     * @param session the session to save
+     * @param group   the group
+     * @param member  the member to remove
+     * @throws RepositoryException if the change cannot be made or saved
+     */
     public void removeFromGroup(@NotNull final Session session, @NotNull final Group group,
                                 @NotNull final Authorizable member) throws RepositoryException {
         group.removeMember(member);
@@ -178,10 +235,15 @@ public class JcrAuthorizableOperations {
      * {@code JcrPackageManager} operations {@code com.composum.sling.packages.jcr.JcrPackageOperations}
      * wraps. Every write operation below follows the same create-then-save shape.
      *
+     * @param session          the session to create the user with and save
+     * @param id               the id of the new user
+     * @param password         the initial password
      * @param intermediatePath where under '/home/users' to create the user, or blank for the
      *                         default (id-hash) location - passing one requires the 4-arg
      *                         {@code UserManager#createUser} overload, which in turn requires an
      *                         explicit {@link Principal} even though the id already implies one
+     * @return the created user
+     * @throws RepositoryException if the user cannot be created or saved
      */
     public @NotNull User createUser(@NotNull final Session session, @NotNull final String id,
                                     @NotNull final String password, @Nullable final String intermediatePath)
@@ -194,6 +256,15 @@ public class JcrAuthorizableOperations {
         return user;
     }
 
+    /**
+     * Creates a new system user and saves the session.
+     *
+     * @param session          the session to create the user with and save
+     * @param id               the id of the new system user
+     * @param intermediatePath where under the system users folder to create the user, or blank for the default location
+     * @return the created system user
+     * @throws RepositoryException if the user cannot be created or saved
+     */
     public @NotNull User createSystemUser(@NotNull final Session session, @NotNull final String id,
                                           @Nullable final String intermediatePath) throws RepositoryException {
         final UserManager userManager = requireUserManager(session);
@@ -202,6 +273,15 @@ public class JcrAuthorizableOperations {
         return user;
     }
 
+    /**
+     * Creates a new group and saves the session.
+     *
+     * @param session          the session to create the group with and save
+     * @param id               the id of the new group
+     * @param intermediatePath where under '/home/groups' to create the group, or blank for the default location
+     * @return the created group
+     * @throws RepositoryException if the group cannot be created or saved
+     */
     public @NotNull Group createGroup(@NotNull final Session session, @NotNull final String id,
                                       @Nullable final String intermediatePath) throws RepositoryException {
         final UserManager userManager = requireUserManager(session);
@@ -217,6 +297,14 @@ public class JcrAuthorizableOperations {
      * a delete request can't slip through even if it bypasses the UI */
     public static final Set<String> PROTECTED_IDS = Set.of("admin", "anonymous");
 
+    /**
+     * Deletes the given authorizable and saves the session - refuses to delete any of the
+     * {@link #PROTECTED_IDS}.
+     *
+     * @param session      the session to save
+     * @param authorizable the authorizable to delete
+     * @throws RepositoryException if the authorizable is protected or cannot be removed
+     */
     public void delete(@NotNull final Session session, @NotNull final Authorizable authorizable)
             throws RepositoryException {
         if (PROTECTED_IDS.contains(authorizable.getID())) {
@@ -237,6 +325,11 @@ public class JcrAuthorizableOperations {
      * ({@code rep:AuthorizableFolder}) rather than a leaf {@link Authorizable} - the delete
      * dialog/action needs to tell the two apart, since a folder is not an {@link Authorizable} at
      * all and {@link #delete} (which operates on one) does not apply to it.
+     *
+     * @param session the session to read with
+     * @param path    the path to check
+     * @return 'true' if the path is an existing {@code rep:AuthorizableFolder}
+     * @throws RepositoryException if the repository cannot be read
      */
     public boolean isFolder(@NotNull final Session session, @NotNull final String path) throws RepositoryException {
         return session.nodeExists(path)
@@ -250,6 +343,10 @@ public class JcrAuthorizableOperations {
      * to remove any of the three synthetic tree roots (see {@link #PROTECTED_FOLDERS}) - those
      * are not actual "folders" an admin created, and removing one would strip a whole branch of
      * the authorizable tree out from under the plugin.
+     *
+     * @param session the session to remove the folder with and save
+     * @param path    the path of the folder
+     * @throws RepositoryException if the folder is protected or cannot be removed
      */
     public void deleteFolder(@NotNull final Session session, @NotNull final String path) throws RepositoryException {
         if (PROTECTED_FOLDERS.contains(path)) {
@@ -259,13 +356,27 @@ public class JcrAuthorizableOperations {
         session.save();
     }
 
-    /** re-enables a disabled user - passing 'null' as the reason is Jackrabbit's own convention
-     * for lifting {@code User#disable}, as opposed to {@link #disable} passing a non-null one */
+    /**
+     * Re-enables a disabled user - passing 'null' as the reason is Jackrabbit's own convention
+     * for lifting {@code User#disable}, as opposed to {@link #disable} passing a non-null one.
+     *
+     * @param session the session to save
+     * @param user    the user to enable
+     * @throws RepositoryException if the change cannot be made or saved
+     */
     public void enable(@NotNull final Session session, @NotNull final User user) throws RepositoryException {
         user.disable(null);
         session.save();
     }
 
+    /**
+     * Disables the given user and saves the session.
+     *
+     * @param session the session to save
+     * @param user    the user to disable
+     * @param reason  the reason for the deactivation (a blank text if 'null')
+     * @throws RepositoryException if the change cannot be made or saved
+     */
     public void disable(@NotNull final Session session, @NotNull final User user, @Nullable final String reason)
             throws RepositoryException {
         // never pass 'null' here - that would re-enable the user instead (see #enable)
@@ -273,8 +384,16 @@ public class JcrAuthorizableOperations {
         session.save();
     }
 
-    /** admin bypass - no old-password check, matching this plugin's coarse
-     * {@code Config#writeEnabled()} trust model (see {@code UserManager}'s class Javadoc) */
+    /**
+     * Sets a new password for the user - admin bypass, no old-password check, matching this
+     * plugin's coarse {@code Config#writeEnabled()} trust model (see {@code UserManager}'s class
+     * Javadoc).
+     *
+     * @param session  the session to save
+     * @param user     the user
+     * @param password the new password
+     * @throws RepositoryException if the password cannot be changed or saved
+     */
     public void changePassword(@NotNull final Session session, @NotNull final User user, @NotNull final String password)
             throws RepositoryException {
         user.changePassword(password);
@@ -292,8 +411,11 @@ public class JcrAuthorizableOperations {
      * String properties are considered - a profile property is, in practice, always exactly that;
      * 'jcr:*' protected properties (primaryType, created, ...) are always skipped.
      *
+     * @param session  the session to read with
+     * @param userPath the path of the user node
      * @return the profile properties, sorted by name - empty if the user has no 'profile' child
      * node at all
+     * @throws RepositoryException if the repository cannot be read
      */
     public @NotNull List<AuthorizableInfo.ProfileEntry> profileProperties(@NotNull final Session session,
                                                                            @NotNull final String userPath)
@@ -323,6 +445,11 @@ public class JcrAuthorizableOperations {
      * admin UI uses) if it does not exist yet and 'properties' is non-empty. Properties are
      * removed/collected first, then applied, to avoid mutating the live {@link PropertyIterator}
      * mid-walk.
+     *
+     * @param session    the session to change and save
+     * @param userPath   the path of the user node
+     * @param properties the complete set of profile property names and values
+     * @throws RepositoryException if the profile cannot be updated or saved
      */
     public void updateProfile(@NotNull final Session session, @NotNull final String userPath,
                               @NotNull final Map<String, String> properties) throws RepositoryException {
@@ -390,6 +517,7 @@ public class JcrAuthorizableOperations {
      * @param type    'user', 'group', or 'null'/anything else for both
      * @param limit   the maximum number of results to return
      * @return the matching authorizables, or an empty list if the session has no user manager
+     * @throws RepositoryException if the search fails
      */
     public @NotNull List<AuthorizableRef> find(@NotNull final Session session, @NotNull final String pattern,
                                                @Nullable final String type, final int limit)
@@ -446,8 +574,15 @@ public class JcrAuthorizableOperations {
      * principal-batched query pair (see {@link #queryAffectedPaths}) covering every candidate's
      * own principal name at once, regardless of candidate count.
      *
+     * @param resolver    the resolver used to query the ACL entries
+     * @param session     the session used to find the candidate authorizables
+     * @param namePattern the wildcard pattern for the authorizable id/principal name
      * @param pathPattern the wildcard pattern (see {@link #wildcardToRegex}) a hit's affected path
      *                     must additionally match, or blank/'null' for the name-pattern-only mode
+     * @param type        'user', 'group', or 'null'/anything else for both
+     * @param limit       the maximum number of candidates and of results
+     * @return the affected path entries, sorted by path and principal
+     * @throws RepositoryException if the search fails
      */
     public @NotNull List<AffectedPathEntry> directAffectedPaths(@NotNull final ResourceResolver resolver,
                                                                  @NotNull final Session session,
@@ -473,6 +608,14 @@ public class JcrAuthorizableOperations {
      * inspect every 'rep:GrantACE'/'rep:DenyACE' in the whole repository once (there is no index
      * on "the path two ancestors up") - but exactly once each, regardless of how many end up
      * matching, and each matching principal's own path is resolved and cached at most once too.
+     *
+     * @param resolver    the resolver used to query the ACL entries
+     * @param session     the session used to resolve the principals
+     * @param pathPattern the wildcard pattern the affected path must match
+     * @param type        'user', 'group', or 'null'/anything else for both
+     * @param limit       the maximum number of results
+     * @return the affected path entries, sorted by path and principal
+     * @throws RepositoryException if the search fails
      */
     public @NotNull List<AffectedPathEntry> affectedPathsByPathPattern(@NotNull final ResourceResolver resolver,
                                                                         @NotNull final Session session,
@@ -631,6 +774,11 @@ public class JcrAuthorizableOperations {
      * raw JCR {@code QueryManager}. For each hit, the protected path is simply its grandparent -
      * an ACE's parent is the ACL node ('rep:policy'/'rep:repoPolicy'), whose parent is the node
      * the ACL actually controls.
+     *
+     * @param resolver     the resolver used to query the ACL entries
+     * @param authorizable the authorizable to report the affected paths for
+     * @return the affected path entries, sorted by path and principal
+     * @throws RepositoryException if the repository cannot be read
      */
     public @NotNull List<AffectedPathEntry> affectedPaths(@NotNull final ResourceResolver resolver,
                                                            @NotNull final Authorizable authorizable) throws RepositoryException {

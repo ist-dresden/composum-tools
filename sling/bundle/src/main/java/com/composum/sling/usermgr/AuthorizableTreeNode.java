@@ -18,13 +18,20 @@ import java.util.Collection;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class AuthorizableTreeNode {
 
+    /** the jsTree node state - whether the node's children are already loaded. */
     @Getter
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class State {
 
+        /** whether the node's children are already loaded */
         protected final boolean loaded;
 
+        /**
+         * Creates a node state.
+         *
+         * @param loaded whether the node's children are already loaded
+         */
         public State(boolean loaded) {
             this.loaded = loaded;
         }
@@ -34,6 +41,7 @@ public class AuthorizableTreeNode {
     protected final String path;
     /** the node's display name */
     protected final String name;
+    /** the label jsTree displays (the same as {@link #name}) */
     protected final String text;
     /** 'root', 'folder' (an intermediate 'rep:AuthorizableFolder'), 'user', 'system-user', or 'group' */
     protected final String type;
@@ -42,6 +50,15 @@ public class AuthorizableTreeNode {
     /** 'null' if {@link #children} is already resolved; otherwise marks whether this node has unresolved children */
     protected final State state;
 
+    /**
+     * Creates a tree node.
+     *
+     * @param path     the real JCR path
+     * @param name     the display name
+     * @param type     'root', 'folder', 'user', 'system-user', or 'group'
+     * @param children the immediate children, if already resolved
+     * @param state    'null' if the children are already resolved
+     */
     public AuthorizableTreeNode(@NotNull final String path, @NotNull final String name, @NotNull final String type,
                                 @Nullable final Collection<AuthorizableTreeNode> children, @Nullable final State state) {
         this.path = path;

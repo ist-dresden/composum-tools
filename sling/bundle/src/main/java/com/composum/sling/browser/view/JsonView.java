@@ -42,32 +42,71 @@ import static com.composum.sling.tools.Common.JCR_CONTENT;
 import static com.composum.sling.tools.Common.JCR_MIXIN_TYPES;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
+/** The browser view presenting the current resource tree as JSON. */
 @Component(service = {View.class, JsonView.class}, immediate = true)
 @Designate(ocd = JsonView.Config.class)
 public class JsonView extends AbstractSourceView {
 
+    /**
+     * Default constructor.
+     */
+    public JsonView() {
+    }
+
+    /** the key of this view */
     public static final String KEY = "json";
 
+    /** OSGi metatype configuration of the JSON view. */
     @ObjectClassDefinition(name = "Composum Browser Json View")
     public @interface Config {
 
+        /**
+         * The selector key of this view.
+         *
+         * @return the selector key of this view
+         */
         @AttributeDefinition()
         String key() default JsonView.KEY;
 
+        /**
+         * The navigation label of this view.
+         *
+         * @return the navigation label of this view
+         */
         @AttributeDefinition()
         String label() default "JSON";
 
+        /**
+         * The navigation rank of this view.
+         *
+         * @return the navigation rank of this view
+         */
         @AttributeDefinition()
         int rank() default 4000;
 
+        /**
+         * The maximum depth of the dumped resource tree.
+         *
+         * @return the maximum tree depth, 0 for the resource itself
+         */
         @AttributeDefinition(name = "Max Depth")
         int maxDepth() default 0;
 
+        /**
+         * Whether technical noise properties are hidden by default.
+         *
+         * @return {@code true} if the source mode is enabled by default
+         */
         @AttributeDefinition(name = "Source Mode",
                 description = "hides technical noise properties (jcr:uuid, jcr:created, ...); can be " +
                         "switched off per request with the 'raw' request parameter")
         boolean sourceMode() default true;
 
+        /**
+         * The patterns of the property names hidden in source mode.
+         *
+         * @return the property name patterns
+         */
         @AttributeDefinition(name = "Non Source Properties",
                 description = "property name patterns hidden in source mode")
         String[] nonSourceProperties() default {
@@ -77,6 +116,11 @@ public class JsonView extends AbstractSourceView {
                 "^cq:last(Modified|Replicat).*$"
         };
 
+        /**
+         * The patterns of the mixin types hidden in source mode.
+         *
+         * @return the mixin type patterns
+         */
         @AttributeDefinition(name = "Non Source Mixins",
                 description = "mixin type patterns hidden in source mode")
         String[] nonSourceMixins() default {
@@ -84,11 +128,19 @@ public class JsonView extends AbstractSourceView {
         };
     }
 
+    /** the browser plugin this view belongs to */
     @Reference
     protected Browser browser;
 
+    /** the current OSGi configuration */
     protected Config config;
 
+    /**
+     * Activates or reconfigures this view and attaches it to the browser.
+     *
+     * @param bundleContext the bundle context of this component
+     * @param config        the current OSGi configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {
@@ -98,6 +150,7 @@ public class JsonView extends AbstractSourceView {
         browser.views().attach(this);
     }
 
+    /** Detaches this view from the browser. */
     @Deactivate
     protected void deactivate() {
         browser.views().detach(this);
@@ -165,6 +218,7 @@ public class JsonView extends AbstractSourceView {
         return result;
     }
 
+    /** the template factories of this view by template key */
     public final Map<String, Factory> templates = Map.of(
             "view", current ->
                     new Template("/sling/browser/view/json/json.html",
@@ -178,6 +232,15 @@ public class JsonView extends AbstractSourceView {
                 .orElse(key.startsWith("/") ? new Template(key, context, this) : null);
     }
 
+    /**
+     * Dumps a resource with its children as a nested map.
+     *
+     * @param resource   the resource to dump
+     * @param depth      the depth of the resource below the dump root
+     * @param maxDepth   the maximum depth of the dump, {@code null} for no limit
+     * @param sourceMode whether to hide technical noise properties
+     * @return the properties and the child maps by name
+     */
     protected @NotNull Map<String, Object> dumpResource(@NotNull final Resource resource, final int depth,
                                                         @Nullable final Integer maxDepth, final boolean sourceMode) {
         final Map<String, Object> result = new LinkedHashMap<>();
@@ -206,6 +269,13 @@ public class JsonView extends AbstractSourceView {
         return result;
     }
 
+    /**
+     * Adds the allowed properties of a resource, sorted by name, to a target map.
+     *
+     * @param target     the map to add the properties to
+     * @param resource   the resource to read the properties from
+     * @param sourceMode whether to hide technical noise properties
+     */
     protected void dumpProperties(@NotNull final Map<String, Object> target, @NotNull final Resource resource,
                                   final boolean sourceMode) {
         final Map<String, Object> sorted = new TreeMap<>(PROPERTY_NAME_COMPARATOR);
@@ -232,6 +302,12 @@ public class JsonView extends AbstractSourceView {
         }
     }
 
+    /**
+     * Converts date values to their JSON representation; other values are kept.
+     *
+     * @param value the property value
+     * @return the JSON representation of the value
+     */
     protected @Nullable Object jsonValue(@Nullable final Object value) {
         if (value instanceof Calendar) {
             return new SimpleDateFormat(Common.JSON_DATE_FORMAT).format(((Calendar) value).getTime());

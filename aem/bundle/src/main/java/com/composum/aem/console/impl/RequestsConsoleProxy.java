@@ -35,18 +35,24 @@ public class RequestsConsoleProxy extends AbstractConsoleProxy {
     public @interface Config {
 
         /**
+         * The selector key of this proxy.
+         *
          * @return this proxy's selector key
          */
         @AttributeDefinition()
         String key() default RequestsConsoleProxy.KEY;
 
         /**
+         * The navigation label of this proxy.
+         *
          * @return this proxy's navigation label
          */
         @AttributeDefinition()
         String label() default "Requests";
 
         /**
+         * The navigation rank of this proxy.
+         *
          * @return this proxy's navigation rank
          */
         @AttributeDefinition()
@@ -67,6 +73,8 @@ public class RequestsConsoleProxy extends AbstractConsoleProxy {
     }
 
     /**
+     * Applies the given configuration and attaches this proxy to the console.
+     *
      * @param bundleContext the bundle context of this component
      * @param config        the current OSGi configuration
      */

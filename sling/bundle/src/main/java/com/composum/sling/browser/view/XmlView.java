@@ -51,35 +51,76 @@ import static com.composum.sling.tools.Common.NT_FILE;
 import static com.composum.sling.tools.Common.TEXT_TYPE;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
+/** The browser view presenting the current resource tree as JCR document view XML. */
 @Component(service = {View.class, XmlView.class}, immediate = true)
 @Designate(ocd = XmlView.Config.class)
 public class XmlView extends AbstractSourceView {
 
+    /**
+     * Default constructor.
+     */
+    public XmlView() {
+    }
+
+    /** the key of this view */
     public static final String KEY = "xml";
 
+    /** the content type of the XML output */
     protected static final String XML_TYPE = "text/xml;charset=utf-8";
+    /** the indentation of one nesting level */
     protected static final String INDENT = "  ";
 
+    /** OSGi metatype configuration of the XML view. */
     @ObjectClassDefinition(name = "Composum Browser XML View")
     public @interface Config {
 
+        /**
+         * The selector key of this view.
+         *
+         * @return the selector key of this view
+         */
         @AttributeDefinition()
         String key() default XmlView.KEY;
 
+        /**
+         * The navigation label of this view.
+         *
+         * @return the navigation label of this view
+         */
         @AttributeDefinition()
         String label() default "XML";
 
+        /**
+         * The navigation rank of this view.
+         *
+         * @return the navigation rank of this view
+         */
         @AttributeDefinition()
         int rank() default 3500;
 
+        /**
+         * The maximum depth of the dumped resource tree.
+         *
+         * @return the maximum tree depth, 0 for the resource itself
+         */
         @AttributeDefinition(name = "Max Depth")
         int maxDepth() default 0;
 
+        /**
+         * Whether technical noise properties are hidden by default.
+         *
+         * @return {@code true} if the source mode is enabled by default
+         */
         @AttributeDefinition(name = "Source Mode",
                 description = "hides technical noise properties (jcr:uuid, jcr:created, ...); can be " +
                         "switched off per request with the 'raw' request parameter")
         boolean sourceMode() default true;
 
+        /**
+         * The patterns of the property names hidden in source mode.
+         *
+         * @return the property name patterns
+         */
         @AttributeDefinition(name = "Non Source Properties",
                 description = "property name patterns hidden in source mode")
         String[] nonSourceProperties() default {
@@ -89,6 +130,11 @@ public class XmlView extends AbstractSourceView {
                 "^cq:last(Modified|Replicat).*$"
         };
 
+        /**
+         * The patterns of the mixin types hidden in source mode.
+         *
+         * @return the mixin type patterns
+         */
         @AttributeDefinition(name = "Non Source Mixins",
                 description = "mixin type patterns hidden in source mode")
         String[] nonSourceMixins() default {
@@ -96,11 +142,19 @@ public class XmlView extends AbstractSourceView {
         };
     }
 
+    /** the browser plugin this view belongs to */
     @Reference
     protected Browser browser;
 
+    /** the current OSGi configuration */
     protected Config config;
 
+    /**
+     * Activates or reconfigures this view and attaches it to the browser.
+     *
+     * @param bundleContext the bundle context of this component
+     * @param config        the current OSGi configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {
@@ -110,6 +164,7 @@ public class XmlView extends AbstractSourceView {
         browser.views().attach(this);
     }
 
+    /** Detaches this view from the browser. */
     @Deactivate
     protected void deactivate() {
         browser.views().detach(this);
@@ -181,6 +236,7 @@ public class XmlView extends AbstractSourceView {
         return result;
     }
 
+    /** the template factories of this view by template key */
     public final Map<String, Factory> templates = Map.of(
             "view", current ->
                     new Template("/sling/browser/view/display/code.html",
@@ -196,6 +252,16 @@ public class XmlView extends AbstractSourceView {
 
     // docview XML dump (JCR System View / '.content.xml' attribute encoding)
 
+    /**
+     * Writes a resource with its children as document view XML.
+     *
+     * @param writer     the builder receiving the XML
+     * @param indent     the indentation of the resource element
+     * @param resource   the resource to write
+     * @param depth      the depth of the resource below the dump root
+     * @param maxDepth   the maximum depth of the dump, {@code null} for no limit
+     * @param sourceMode whether to hide technical noise properties
+     */
     protected void dumpXml(@NotNull final StringBuilder writer, @NotNull final String indent,
                            @NotNull final Resource resource, final int depth, @Nullable final Integer maxDepth,
                            final boolean sourceMode) {
@@ -240,6 +306,14 @@ public class XmlView extends AbstractSourceView {
         }
     }
 
+    /**
+     * Writes the allowed properties of a resource as XML attributes, sorted by name.
+     *
+     * @param writer     the builder receiving the XML
+     * @param indent     the indentation of the attributes
+     * @param resource   the resource to read the properties from
+     * @param sourceMode whether to hide technical noise properties
+     */
     protected void xmlProperties(@NotNull final StringBuilder writer, @NotNull final String indent,
                                  @NotNull final Resource resource, final boolean sourceMode) {
         final Map<String, Object> sorted = new TreeMap<>(PROPERTY_NAME_COMPARATOR);
@@ -268,6 +342,14 @@ public class XmlView extends AbstractSourceView {
         }
     }
 
+    /**
+     * Writes a single property as XML attribute.
+     *
+     * @param writer the builder receiving the XML
+     * @param indent the indentation of the attribute
+     * @param name   the property name
+     * @param value  the property value
+     */
     protected void xmlProperty(@NotNull final StringBuilder writer, @NotNull final String indent,
                                @NotNull final String name, @Nullable final Object value) {
         writer.append("\n").append(indent).append(xmlName(name)).append("=\"").append(xmlType(value));
@@ -275,6 +357,12 @@ public class XmlView extends AbstractSourceView {
         writer.append("\"");
     }
 
+    /**
+     * The type prefix of a property value in the attribute encoding, e.g. '{Date}'.
+     *
+     * @param value the property value; for an array the type of its first element is used
+     * @return the type prefix, or an empty string for a string value
+     */
     protected @NotNull String xmlType(@Nullable final Object value) {
         if (value instanceof Object[]) {
             final Object[] values = (Object[]) value;
@@ -293,6 +381,12 @@ public class XmlView extends AbstractSourceView {
         return "";
     }
 
+    /**
+     * Writes a property value in the attribute encoding.
+     *
+     * @param writer the builder receiving the XML
+     * @param value  the property value, nothing is written for {@code null}
+     */
     protected void xmlValue(@NotNull final StringBuilder writer, @Nullable final Object value) {
         if (value != null) {
             if (value instanceof Object[]) {
@@ -307,6 +401,12 @@ public class XmlView extends AbstractSourceView {
         }
     }
 
+    /**
+     * Writes the values of a multi-value property as a bracketed, comma separated list.
+     *
+     * @param writer the builder receiving the XML
+     * @param values the property values
+     */
     protected void xmlArray(@NotNull final StringBuilder writer, @NotNull final Object[] values) {
         writer.append("[");
         for (int i = 0; i < values.length; ) {
@@ -318,6 +418,12 @@ public class XmlView extends AbstractSourceView {
         writer.append("]");
     }
 
+    /**
+     * The XML attribute text of a value; dates are formatted.
+     *
+     * @param value the value
+     * @return the escaped text, or an empty string for {@code null}
+     */
     protected @NotNull String xmlString(@Nullable final Object value) {
         if (value instanceof Calendar) {
             return xmlString(new SimpleDateFormat(Common.XML_DATE_FORMAT).format(((Calendar) value).getTime()));
@@ -327,6 +433,12 @@ public class XmlView extends AbstractSourceView {
         return value != null ? xmlString(value.toString()) : "";
     }
 
+    /**
+     * Escapes a text for use in an XML attribute value.
+     *
+     * @param value the text
+     * @return the escaped text
+     */
     protected @NotNull String xmlString(@NotNull final String value) {
         return value.replace("&", "&amp;")
                 .replace("<", "&lt;")
@@ -341,6 +453,9 @@ public class XmlView extends AbstractSourceView {
      * a dependency-free, simplified stand-in for {@code org.apache.jackrabbit.util.ISO9075.encode(...)}:
      * only guards against the most common real-world case (a local name starting with a digit); JCR names
      * using characters otherwise illegal in an XML Name are not fully re-encoded
+     *
+     * @param name the JCR name
+     * @return the name usable as an XML element or attribute name
      */
     protected @NotNull String xmlName(@NotNull final String name) {
         String escaped = name.replaceAll("\\s+", "_");
@@ -352,6 +467,15 @@ public class XmlView extends AbstractSourceView {
         return escaped;
     }
 
+    /**
+     * Collects the namespace prefixes used by a resource and its dumped descendants.
+     *
+     * @param keys       the set receiving the namespace prefixes
+     * @param resource   the resource to inspect
+     * @param depth      the depth of the resource below the dump root
+     * @param maxDepth   the maximum depth of the dump, {@code null} for no limit
+     * @param sourceMode whether technical noise properties are hidden
+     */
     protected void determineNamespaces(@NotNull final Set<String> keys, @NotNull final Resource resource,
                                        final int depth, @Nullable final Integer maxDepth, final boolean sourceMode) {
         final String name = resource.getName();
@@ -392,6 +516,12 @@ public class XmlView extends AbstractSourceView {
         }
     }
 
+    /**
+     * Adds the namespace prefixes of the given names or values to a set.
+     *
+     * @param keys   the set receiving the namespace prefixes
+     * @param values the names or values (arrays are unpacked) to inspect for a 'prefix:' part
+     */
     protected void extractNamespace(@NotNull final Set<String> keys, final Object... values) {
         if (values != null && values.length > 0) {
             Object[] items = values;
@@ -409,6 +539,13 @@ public class XmlView extends AbstractSourceView {
         }
     }
 
+    /**
+     * Writes the namespace declarations for the given prefixes.
+     *
+     * @param resolver   the resolver providing the JCR session used to look up the namespace URIs
+     * @param writer     the builder receiving the XML
+     * @param namespaces the namespace prefixes to declare
+     */
     protected void writeNamespaceAttributes(@NotNull final ResourceResolver resolver,
                                             @NotNull final StringBuilder writer, @NotNull final Set<String> namespaces) {
         final Session session = resolver.adaptTo(Session.class);

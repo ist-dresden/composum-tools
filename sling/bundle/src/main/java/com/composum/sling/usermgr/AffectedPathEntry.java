@@ -18,6 +18,7 @@ import org.jetbrains.annotations.NotNull;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class AffectedPathEntry {
 
+    /** the JCR path the rule applies to */
     protected final String path;
     /** the id of whichever authorizable (the selected one itself, or a group it belongs to) this
      * particular rule's ACE names as 'rep:principalName' */
@@ -37,6 +38,16 @@ public class AffectedPathEntry {
      * string, matching the legacy tool's own combined "AC rule" formatting */
     protected final String privileges;
 
+    /**
+     * Creates one row of the "affected paths" listing.
+     *
+     * @param path          the JCR path the rule applies to
+     * @param principal     the id of the authorizable the rule's ACE names
+     * @param principalPath that principal's own JCR path
+     * @param principalIcon the Bootstrap Icons name of the principal's type
+     * @param type          'grant' or 'deny'
+     * @param privileges    the ready-to-display privileges/restrictions string
+     */
     public AffectedPathEntry(@NotNull final String path, @NotNull final String principal,
                              @NotNull final String principalPath, @NotNull final String principalIcon,
                              @NotNull final String type, @NotNull final String privileges) {

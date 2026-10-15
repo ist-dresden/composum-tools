@@ -47,31 +47,64 @@ import static com.composum.sling.tools.Common.JCR_MIME_TYPE;
 import static com.composum.sling.tools.Common.PROPERTY_DATE_FORMAT;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
+/** The browser view presenting the properties of the current resource. */
 @Component(service = {View.class, PropertiesView.class}, immediate = true)
 @Designate(ocd = PropertiesView.Config.class)
 public class PropertiesView extends AbstractView {
 
+    /**
+     * Default constructor.
+     */
+    public PropertiesView() {
+    }
+
+    /** the key of this view */
     public static final String KEY = "properties";
 
+    /** OSGi metatype configuration of the Properties view. */
     @ObjectClassDefinition(name = "Composum Browser Properties View")
     public @interface Config {
 
+        /**
+         * The selector key of this view.
+         *
+         * @return the selector key of this view
+         */
         @AttributeDefinition()
         String key() default PropertiesView.KEY;
 
+        /**
+         * The navigation label of this view.
+         *
+         * @return the navigation label of this view
+         */
         @AttributeDefinition()
         String label() default "Properties";
 
+        /**
+         * The navigation rank of this view.
+         *
+         * @return the navigation rank of this view
+         */
         @AttributeDefinition()
         int rank() default 8000;
     }
 
+    /** the browser plugin this view belongs to */
     @Reference
     protected Browser browser;
 
+    /** the bundle context this view was activated with */
     protected BundleContext bundleContext;
+    /** the current OSGi configuration */
     protected Config config;
 
+    /**
+     * Activates or reconfigures this view and attaches it to the browser.
+     *
+     * @param bundleContext the bundle context of this component
+     * @param config        the current OSGi configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {
@@ -80,6 +113,7 @@ public class PropertiesView extends AbstractView {
         browser.views().attach(this);
     }
 
+    /** Detaches this view from the browser. */
     @Deactivate
     protected void deactivate() {
         browser.views().detach(this);
@@ -155,6 +189,7 @@ public class PropertiesView extends AbstractView {
         return result;
     }
 
+    /** the template factories of this view by template key */
     public final Map<String, Factory> templates = Map.of(
             "view", current ->
                     new Template("/sling/browser/view/properties/properties.html",
@@ -171,6 +206,12 @@ public class PropertiesView extends AbstractView {
                 .orElse(key.startsWith("/") ? new Template(key, context, this) : null);
     }
 
+    /**
+     * Opens the binary content of the requested resource as a download.
+     *
+     * @param request the current request
+     * @return the content stream result, or 'Not Found' if there is no binary content
+     */
     protected Result<InputStream> openContent(@NotNull final SlingHttpServletRequest request) {
         Result<InputStream> result = new Result<>(SC_NOT_FOUND);
         org.apache.sling.api.resource.Resource resource = browser.targetResource(request);
@@ -194,20 +235,51 @@ public class PropertiesView extends AbstractView {
         return result;
     }
 
+    /**
+     * The file name of the resource; for a 'jcr:content' resource the name of its parent.
+     *
+     * @param resource the resource
+     * @return the file name
+     */
     protected @NotNull String filename(@NotNull final org.apache.sling.api.resource.Resource resource) {
         final String name = resource.getName();
         return JCR_CONTENT.equals(name) ? Optional.ofNullable(resource.getParent())
                 .map(org.apache.sling.api.resource.Resource::getName).orElse(name) : name;
     }
 
-    public enum PropertyType {Unknown, String, Long, Double, Boolean, Date, Binary}
+    /** The value types of a displayed property. */
+    public enum PropertyType {
+        /** a value of a type without specific handling */
+        Unknown,
+        /** a text value */
+        String,
+        /** an integer number value */
+        Long,
+        /** a floating point number value */
+        Double,
+        /** a boolean value */
+        Boolean,
+        /** a date value */
+        Date,
+        /** a binary value */
+        Binary
+    }
 
+    /** The template model of a resource with its properties, resolved lazily. */
     public class Resource extends LinkedHashMap<String, Object> {
 
+        /** The allowed properties of a resource sorted by name. */
         public class Properties extends TreeMap<String, Property> {
 
+            /** the value map the properties are read from */
             protected final ValueMap values;
 
+            /**
+             * Creates the property collection from a value map; only properties allowed by the manager are included.
+             *
+             * @param values  the values of the resource, can be {@code null}
+             * @param manager the manager deciding which properties are allowed
+             */
             public Properties(@Nullable final ValueMap values, @NotNull final Manager manager) {
                 this.values = values;
                 if (values != null) {
@@ -221,8 +293,15 @@ public class PropertiesView extends AbstractView {
             }
         }
 
+        /** the wrapped Sling resource */
         protected transient org.apache.sling.api.resource.Resource resource;
 
+        /**
+         * Creates the template model of a resource.
+         *
+         * @param resource the resource to wrap
+         * @param manager  the manager deciding which properties are allowed
+         */
         public Resource(@NotNull final org.apache.sling.api.resource.Resource resource,
                         @NotNull final Manager manager) {
             this.resource = resource;
@@ -232,11 +311,22 @@ public class PropertiesView extends AbstractView {
             put("hasChildren", (Supplier<Boolean>) resource::hasChildren);
         }
 
+        /**
+         * The link to download a binary property value of this resource.
+         *
+         * @return the download link
+         */
         protected @NotNull String binaryDownloadLink() {
             return browser.manager.serverPath()
                     + ".browser.view.properties.load.html" + resource.getPath();
         }
 
+        /**
+         * Resolves a property value as an absolute resource path.
+         *
+         * @param value the property value
+         * @return the allowed resource at the path, or {@code null} if the value is not a path of such a resource
+         */
         protected @Nullable org.apache.sling.api.resource.Resource resolvePath(@NotNull final String value) {
             if (StringUtils.isNotBlank(value) && value.startsWith("/")) {
                 final ResourceResolver resolver = resolver();
@@ -248,6 +338,12 @@ public class PropertiesView extends AbstractView {
             return null;
         }
 
+        /**
+         * Resolves a property value as a resource type relative to the search path.
+         *
+         * @param value the property value
+         * @return the first allowed resource found in the search path, or {@code null} if there is none
+         */
         protected @Nullable org.apache.sling.api.resource.Resource resolveType(@NotNull final String value) {
             if (StringUtils.isNotBlank(value) && StringUtils.countMatches(value, "/") > 1) {
                 final ResourceResolver resolver = resolver();
@@ -262,23 +358,47 @@ public class PropertiesView extends AbstractView {
             return null;
         }
 
+        /**
+         * The resolver of the wrapped resource.
+         *
+         * @return the resource resolver
+         */
         protected ResourceResolver resolver() {
             return resource.getResourceResolver();
         }
     }
 
+    /** The template model of a single property with its type and value. */
     public static class Property extends LinkedHashMap<String, Object> {
 
+        /** the resource owning the property, can be {@code null} */
         protected final transient Resource resource;
+        /** provides the raw property value */
         protected final Supplier<?> supplier;
 
+        /** the prepared value (a map or a list of maps), determined on first access */
         protected transient Object value;
+        /** the type of the property, determined on first access */
         protected transient PropertyType type;
 
+        /**
+         * Creates a property without an owning resource.
+         *
+         * @param name  the property name
+         * @param value provides the raw property value
+         */
         public Property(@NotNull final String name, @NotNull final Supplier<?> value) {
             this(name, value, null, false);
         }
 
+        /**
+         * Creates a property.
+         *
+         * @param name        the property name
+         * @param value       provides the raw property value
+         * @param resource    the resource owning the property, can be {@code null}
+         * @param isProtected whether the property is protected against editing
+         */
         public Property(@NotNull final String name, @NotNull final Supplier<?> value,
                         @Nullable final Resource resource, final boolean isProtected) {
             this.resource = resource;
@@ -294,6 +414,11 @@ public class PropertiesView extends AbstractView {
                     .replace("[]", " type-multi"));
         }
 
+        /**
+         * The prepared value of this property; this also determines its type.
+         *
+         * @return a value map, or a list of value maps for a multi-value property
+         */
         protected @NotNull Object getValue() {
             if (value == null) {
                 Object rawValue = supplier.get();
@@ -325,15 +450,31 @@ public class PropertiesView extends AbstractView {
             return value;
         }
 
+        /**
+         * Whether this property has multiple values.
+         *
+         * @return {@code true} if the property has multiple values
+         */
         public boolean isMultiValue() {
             return getValue() instanceof Collection<?>;
         }
 
+        /**
+         * The type name of this property, with a trailing '[]' for a multi-value property.
+         *
+         * @return the type name
+         */
         public String getType() {
             getValue();
             return isMultiValue() ? type.name() + "[]" : type.name();
         }
 
+        /**
+         * Prepares a single value for presentation.
+         *
+         * @param value the raw value
+         * @return a map with the 'type', the displayed 'value' and optionally a 'link'
+         */
         protected @NotNull Map<String, Object> getValue(@Nullable final Object value) {
             Map<String, Object> result = new LinkedHashMap<>();
             if (value instanceof String) {

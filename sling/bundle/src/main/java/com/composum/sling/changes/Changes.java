@@ -71,31 +71,73 @@ import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 @Designate(ocd = Changes.Config.class)
 public class Changes extends AbstractToolsPlugin implements ChangesService {
 
+    /** The default key of this plugin. */
     public static final String KEY = "changes";
+    /** The default label of this plugin. */
     public static final String LABEL = "Changes";
+    /** The default rank of this plugin. */
     public static final int RANK = 0;
 
     private static final String DIALOGS_ROOT = "/sling/changes/dialogs/";
 
+    /**
+     * Default constructor.
+     */
+    public Changes() {
+    }
+
+    /**
+     * The OSGi configuration of the changes plugin.
+     */
     @ObjectClassDefinition(name = "Composum Changes")
     public @interface Config {
 
+        /**
+         * The key of the plugin.
+         *
+         * @return the plugin key
+         */
         @AttributeDefinition()
         String key() default Changes.KEY;
 
+        /**
+         * The label of the plugin.
+         *
+         * @return the plugin label
+         */
         @AttributeDefinition()
         String label() default Changes.LABEL;
 
+        /**
+         * The rank of the plugin.
+         *
+         * @return the plugin rank
+         */
         @AttributeDefinition()
         int rank() default Changes.RANK;
 
+        /**
+         * Whether the plugin is enabled.
+         *
+         * @return 'true' if the plugin is enabled
+         */
         @AttributeDefinition()
         boolean enabled() default true;
 
+        /**
+         * Whether node-modification actions are allowed at all (a runtime pause switch).
+         *
+         * @return 'true' if node-modification actions are allowed
+         */
         @AttributeDefinition(name = "Write Enabled",
                 description = "whether node-modification actions (create/delete/move/copy, property changes) are allowed")
         boolean writeEnabled() default true;
 
+        /**
+         * The users or groups restricting the node-modification actions.
+         *
+         * @return the user or group names, empty for no restriction
+         */
         @AttributeDefinition(name = "Write Principals",
                 description = "if not empty, restricts node-modification actions to these user or group " +
                         "names (the current user must be one of them, or a member of one of them if it " +
@@ -120,8 +162,15 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
     protected volatile @Nullable ReferencesService referencesService;
 
+    /** The current configuration. */
     protected Config config;
 
+    /**
+     * Reads the configuration and attaches this plugin to the manager.
+     *
+     * @param bundleContext the bundle context
+     * @param config        the component configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {
@@ -129,6 +178,9 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
         manager.plugins().attach(this);
     }
 
+    /**
+     * Detaches this plugin from the manager.
+     */
     @Deactivate
     protected void deactivate() {
         manager.plugins().detach(this);
@@ -228,19 +280,45 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
         }
     }
 
-    /** the parent path of 'path' - '/' for a root-level path, matching {@link #targetPath}'s convention. */
+    /**
+     * The parent path of 'path' - '/' for a root-level path, matching {@link #targetPath}'s convention.
+     *
+     * @param path the path
+     * @return the parent path
+     */
     protected @NotNull String parentPath(@NotNull final String path) {
         return StringUtils.defaultIfBlank(StringUtils.substringBeforeLast(path, "/"), "/");
     }
 
+    /**
+     * The path of the target resource of the request: its suffix, or '/' if there is none.
+     *
+     * @param request the current request
+     * @return the target path
+     */
     protected @NotNull String targetPath(@NotNull final SlingHttpServletRequest request) {
         return Optional.ofNullable(request.getRequestPathInfo().getSuffix()).orElse("/");
     }
 
+    /**
+     * Builds an error result containing a message.
+     *
+     * @param statusCode the HTTP status code
+     * @param message    the error message, a generic text is used if blank
+     * @return the error result
+     */
     protected @NotNull Result<?> errorResult(final int statusCode, @Nullable final String message) {
         return new Result<>(statusCode, Map.of("message", StringUtils.defaultString(message, "Request failed.")));
     }
 
+    /**
+     * Processes a GET request (resource, dialog, pending changes panel, suggestions and tree data).
+     *
+     * @param request   the current request
+     * @param response  the current response
+     * @param selectors the remaining request selectors
+     * @return the result of the request processing
+     */
     public @NotNull Result<?> processGet(@NotNull final SlingHttpServletRequest request,
                                          @NotNull final SlingHttpServletResponse response,
                                          @NotNull List<String> selectors) {
@@ -264,7 +342,12 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
         }
     }
 
-    /** the path-picker autocomplete endpoint - see {@link #pathSuggestions} for the shared lookup. */
+    /**
+     * The path-picker autocomplete endpoint - see {@link #pathSuggestions} for the shared lookup.
+     *
+     * @param request the current request
+     * @return the suggested paths
+     */
     protected @NotNull Result<?> pathSuggest(@NotNull final SlingHttpServletRequest request) {
         final String partial = StringUtils.defaultString(request.getParameter("path"));
         return new Result<>(pathSuggestions(resolver(request), partial, 20));
@@ -276,18 +359,34 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
      * request parameter that widget always sends, even though what it holds here is a partial type
      * name, not a path. A separate route from {@link #mixinTypeSuggest} - see
      * {@link PlatformConfig#primaryTypes()} for why the two candidate lists are kept disjoint.
+     *
+     * @param request the current request
+     * @return the suggested primary types
      */
     protected @NotNull Result<?> primaryTypeSuggest(@NotNull final SlingHttpServletRequest request) {
         final String partial = StringUtils.defaultString(request.getParameter("path"));
         return new Result<>(nodeTypeSuggestions(platformConfig.primaryTypes(), partial, 20));
     }
 
-    /** the jcr:mixinTypes counterpart of {@link #primaryTypeSuggest} - see there. */
+    /**
+     * The jcr:mixinTypes counterpart of {@link #primaryTypeSuggest} - see there.
+     *
+     * @param request the current request
+     * @return the suggested mixin types
+     */
     protected @NotNull Result<?> mixinTypeSuggest(@NotNull final SlingHttpServletRequest request) {
         final String partial = StringUtils.defaultString(request.getParameter("path"));
         return new Result<>(nodeTypeSuggestions(platformConfig.mixinTypes(), partial, 20));
     }
 
+    /**
+     * Processes a POST request (the node-modification actions and the commit or discard of the pending changes).
+     *
+     * @param request   the current request
+     * @param response  the current response
+     * @param selectors the remaining request selectors
+     * @return the result of the request processing
+     */
     public @NotNull Result<?> processPost(@NotNull final SlingHttpServletRequest request,
                                           @NotNull final SlingHttpServletResponse response,
                                           @NotNull List<String> selectors) {
@@ -322,6 +421,13 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
     // "Confirm" pattern (Delete/Enable/... style yes-no dialogs) lives in
     // '/sling/tools/dialogs/confirm.html', shared with every other plugin - not duplicated here.
 
+    /**
+     * Renders the named dialog fragment.
+     *
+     * @param request the current request
+     * @param name    the name of the dialog
+     * @return the dialog content, or a 'not found' result for an unknown dialog or target
+     */
     protected @NotNull Result<?> dialog(@NotNull final SlingHttpServletRequest request, @NotNull final String name) {
         switch (name) {
             case "create":
@@ -401,6 +507,10 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
      * {@code changes/dialogs/propertyValue.html}), deliberately not a single newline-joined string:
      * a multi-value property can have individual values that themselves contain newlines, which a
      * shared, newline-split textarea cannot represent unambiguously.
+     *
+     * @param name     the name of the property, {@code null} for a new property
+     * @param rawValue the current raw value of the property, {@code null} for a new property
+     * @return the template values of the dialog
      */
     protected @NotNull Values propertyValues(@Nullable final String name, @Nullable final Object rawValue) {
         String type = "String";
@@ -447,6 +557,13 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
         return value != null ? value.toString() : "";
     }
 
+    /**
+     * Renders a dialog template.
+     *
+     * @param templatePath the path of the template
+     * @param values       the values to render the template with
+     * @return the rendered dialog, or a 'not found' result if the template is not available
+     */
     protected @NotNull Result<?> renderDialog(@NotNull final String templatePath, @NotNull final Values values) {
         final Reader content = templateReader(getTemplate(new TemplateContext(new Values().with(values)), templatePath));
         return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
@@ -455,6 +572,9 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
     /**
      * The pending-changes panel: the current {@link ChangeSession}'s log (empty if no session
      * exists yet) plus Save All / Revert All buttons.
+     *
+     * @param request the current request
+     * @return the rendered panel
      */
     protected @NotNull Result<?> pendingChanges(@NotNull final SlingHttpServletRequest request) {
         final ChangeSession session = ChangeSession.get(request, false);
@@ -470,6 +590,14 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
     // see ChangeOperations; every mutation is staged in the current request's ChangeSession, never
     // committed here - only the explicit 'commit'/'discard' actions end the editing session.
 
+    /**
+     * Creates a child node below the request's suffix path - 'name' (required) is the node name and
+     * 'type' the primary type (default 'nt:unstructured'); for 'nt:file' the uploaded 'file' parameter
+     * provides the content.
+     *
+     * @param request the current request
+     * @return the path of the created node and the number of pending changes
+     */
     protected @NotNull Result<?> createNode(@NotNull final SlingHttpServletRequest request) {
         final String name = request.getParameter("name");
         final String type = StringUtils.defaultIfBlank(request.getParameter("type"), NT_UNSTRUCTURED);
@@ -505,6 +633,12 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
         }
     }
 
+    /**
+     * Deletes the node at the request's suffix path.
+     *
+     * @param request the current request
+     * @return the path of the parent, the path of the deleted node and the number of pending changes
+     */
     protected @NotNull Result<?> deleteNode(@NotNull final SlingHttpServletRequest request) {
         final ChangeSession session = ChangeSession.get(request, true);
         final Resource resource = session.resolver().getResource(targetPath(request));
@@ -537,6 +671,9 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
      * *old* path is found *before* the move and then updated to the new one right after - each such
      * adjustment gets its own pending-changes log entry, so it shows (and can be individually
      * reviewed/reverted via Revert All) exactly like any other staged change.
+     *
+     * @param request the current request
+     * @return the new path of the node and the number of pending changes
      */
     protected @NotNull Result<?> moveNode(@NotNull final SlingHttpServletRequest request) {
         final String destParentPath = request.getParameter("path");
@@ -583,6 +720,9 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
      * under that name instead (see {@link ChangeOperations#copy}); this is what makes duplicating a
      * node via Copy/Paste into its own parent possible at all, since a same-name copy into the same
      * parent is just a name collision. "Copy" itself never reaches the server at all.
+     *
+     * @param request the current request
+     * @return the path of the pasted node and the number of pending changes
      */
     protected @NotNull Result<?> copyNode(@NotNull final SlingHttpServletRequest request) {
         final String sourcePath = request.getParameter("source");
@@ -616,6 +756,9 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
      * 'value' field per value - see {@link #propertyValues}), 'oldName' the property's previous
      * name (renames it if it differs from 'name'; also what 'remove' deletes if present), 'remove'
      * ('true' to delete instead of set).
+     *
+     * @param request the current request
+     * @return the path of the changed resource and the number of pending changes
      */
     protected @NotNull Result<?> changeProperty(@NotNull final SlingHttpServletRequest request) {
         final String name = request.getParameter("name");
@@ -695,6 +838,9 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
      * see {@link #copyNode}): copies each of 'names' from the 'source' resource to the request's
      * suffix path resource, preserving its original type/value as-is (see
      * {@link ChangeOperations#copyProperty}).
+     *
+     * @param request the current request
+     * @return the path of the target resource and the number of pending changes
      */
     protected @NotNull Result<?> copyProperties(@NotNull final SlingHttpServletRequest request) {
         final String sourcePath = request.getParameter("source");
@@ -729,6 +875,9 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
     /**
      * Bulk "Delete" for one or more selected properties of the request's suffix path resource
      * (see {@code PropertiesToolbar} in browser/script.js).
+     *
+     * @param request the current request
+     * @return the path of the changed resource and the number of pending changes
      */
     protected @NotNull Result<?> deleteProperties(@NotNull final SlingHttpServletRequest request) {
         final String[] names = Optional.ofNullable(request.getParameterValues("names")).orElse(new String[0]);
@@ -757,6 +906,12 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
         }
     }
 
+    /**
+     * Commits all pending changes of the current editing session.
+     *
+     * @param request the current request
+     * @return the (zero) number of pending changes, or an error result if the commit failed
+     */
     protected @NotNull Result<?> commitChanges(@NotNull final SlingHttpServletRequest request) {
         try {
             ChangeSession.commit(request);
@@ -766,6 +921,12 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
         }
     }
 
+    /**
+     * Discards all pending changes of the current editing session.
+     *
+     * @param request the current request
+     * @return the (zero) number of pending changes
+     */
     protected @NotNull Result<?> discardChanges(@NotNull final SlingHttpServletRequest request) {
         ChangeSession.discard(request);
         return new Result<>(Map.of("pending", 0));

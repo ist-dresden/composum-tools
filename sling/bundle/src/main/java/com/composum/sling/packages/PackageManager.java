@@ -95,8 +95,17 @@ public class PackageManager extends AbstractToolsPlugin {
 
     private static final Logger LOG = LoggerFactory.getLogger(PackageManager.class);
 
+    /**
+     * Default constructor.
+     */
+    public PackageManager() {
+    }
+
+    /** the plugin key, used in the URLs of the Package Manager */
     public static final String KEY = "packages";
+    /** the default label of the plugin */
     public static final String LABEL = "Packages";
+    /** the default rank of the plugin */
     public static final int RANK = 4000;
 
     private static final String DIALOGS_ROOT = "/sling/packages/dialogs/";
@@ -104,29 +113,67 @@ public class PackageManager extends AbstractToolsPlugin {
     private static final String TOOLS_CONFIRM_DIALOG = "/sling/tools/dialogs/confirm.html";
     private static final String MODE_REGISTRY = "registry";
 
+    /**
+     * The OSGi configuration of the Package Manager.
+     */
     @ObjectClassDefinition(name = "Composum Tools Package Manager")
     public @interface Config {
 
+        /**
+         * The plugin key.
+         *
+         * @return the key used in the URLs of the plugin
+         */
         @AttributeDefinition()
         String key() default PackageManager.KEY;
 
+        /**
+         * The plugin label.
+         *
+         * @return the label of the plugin
+         */
         @AttributeDefinition()
         String label() default PackageManager.LABEL;
 
+        /**
+         * The plugin rank.
+         *
+         * @return the rank of the plugin
+         */
         @AttributeDefinition()
         int rank() default PackageManager.RANK;
 
+        /**
+         * Whether the plugin is enabled.
+         *
+         * @return {@code true} if the plugin is enabled
+         */
         @AttributeDefinition()
         boolean enabled() default true;
 
+        /**
+         * Whether the dashboard tile is shown.
+         *
+         * @return {@code true} if the Packages tile is shown in the Tools Dashboard
+         */
         @AttributeDefinition(name = "Show Packages Tile",
                 description = "whether Package Managers dashboard tile should be shown in the Tools Dashboard")
         boolean showTile() default true;
 
+        /**
+         * Whether mutating operations are allowed.
+         *
+         * @return {@code true} if create/upload/update/install/uninstall/assemble/delete are allowed
+         */
         @AttributeDefinition(name = "Write Enabled",
                 description = "whether mutating operations (create/upload/update/install/uninstall/assemble/delete) are allowed")
         boolean writeEnabled() default true;
 
+        /**
+         * The users or groups allowed to perform mutating operations.
+         *
+         * @return the user or group names, empty to allow every user
+         */
         @AttributeDefinition(name = "Write Principals",
                 description = "if not empty, restricts mutating operations to these user or group " +
                         "names (the current user must be one of them, or a member of one of them if " +
@@ -140,6 +187,7 @@ public class PackageManager extends AbstractToolsPlugin {
         manager = service;
     }
 
+    /** the FileVault packaging service */
     @Reference
     protected Packaging packaging;
 
@@ -147,16 +195,30 @@ public class PackageManager extends AbstractToolsPlugin {
     // on a plain Sling instance without FileVault's registry bundle) - registry mode then simply
     // shows an empty tree instead of gating the whole plugin's activation, unlike the mandatory
     // 'packaging' reference above
+    /** the bound package registries (zero or more) */
     @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     protected volatile List<PackageRegistry> packageRegistries;
 
+    /** the current OSGi configuration */
     protected Config config;
+    /** the operations on the JCR-backed package store */
     protected JcrPackageOperations jcrOperations;
 
+    /**
+     * The operations on the currently bound package registries.
+     *
+     * @return a new operations instance for the bound registries
+     */
     protected @NotNull RegistryOperations registryOperations() {
         return new RegistryOperations(packageRegistries);
     }
 
+    /**
+     * Activates the plugin and attaches it to the Tools manager.
+     *
+     * @param bundleContext the bundle context
+     * @param config        the OSGi configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {
@@ -165,6 +227,9 @@ public class PackageManager extends AbstractToolsPlugin {
         manager.plugins().attach(this);
     }
 
+    /**
+     * Detaches the plugin from the Tools manager.
+     */
     @Deactivate
     protected void deactivate() {
         manager.plugins().detach(this);
@@ -190,10 +255,21 @@ public class PackageManager extends AbstractToolsPlugin {
         return config.enabled();
     }
 
+    /**
+     * The link to the Package Manager page.
+     *
+     * @return the page URL
+     */
     public @NotNull String pageLink() {
         return manager.serverPath() + "." + key() + ".html";
     }
 
+    /**
+     * The URL of the given JSON action of this plugin.
+     *
+     * @param action the action name
+     * @return the action URL
+     */
     protected @NotNull String actionLink(@NotNull final String action) {
         return manager.serverPath() + "." + key() + "." + action + ".json";
     }
@@ -201,6 +277,9 @@ public class PackageManager extends AbstractToolsPlugin {
     /**
      * Whether the given request targets the registry backend ({@code ?mode=registry}); every
      * other value (including no 'mode' parameter at all) means the JCR backend.
+     *
+     * @param request the current request
+     * @return {@code true} if the registry backend is targeted
      */
     protected boolean isRegistryMode(@NotNull final SlingHttpServletRequest request) {
         return MODE_REGISTRY.equals(request.getParameter("mode"));
@@ -213,6 +292,10 @@ public class PackageManager extends AbstractToolsPlugin {
      * {@link SlingHttpServletRequest#getParameter}, which only ever sees the first of multiple
      * values for the same name (here the hidden 'false', regardless of the checkbox's own state),
      * this checks every submitted value.
+     *
+     * @param request the current request
+     * @param name    the name of the checkbox parameter
+     * @return {@code true} if any submitted value of the parameter is 'true' or 'on'
      */
     protected boolean isChecked(@NotNull final SlingHttpServletRequest request, @NotNull final String name) {
         final String[] values = request.getParameterValues(name);
@@ -230,6 +313,9 @@ public class PackageManager extends AbstractToolsPlugin {
      * The '?mode=registry' query suffix to append to a mode-agnostic URL built for the given
      * package, or an empty string for a JCR-backed one - so the client never has to know which
      * backend a given path belongs to, it just carries the mode along.
+     *
+     * @param info the package
+     * @return the query suffix
      */
     protected @NotNull String modeQuery(@NotNull final PackageInfo info) {
         return info instanceof JcrPackageInfo ? "" : "?mode=" + MODE_REGISTRY;
@@ -273,6 +359,12 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * The JCR session of the request's resource resolver.
+     *
+     * @param request the current request
+     * @return the session, or 'null' if the resolver cannot provide one
+     */
     protected @Nullable Session session(@NotNull final SlingHttpServletRequest request) {
         return request.getResourceResolver().adaptTo(Session.class);
     }
@@ -283,16 +375,33 @@ public class PackageManager extends AbstractToolsPlugin {
      * just those users/groups (see {@link AbstractToolsPlugin#isPrincipal}, shared with
      * {@code com.composum.sling.changes.Changes}' own, independently configured version of the
      * same restriction).
+     *
+     * @param request the current request
+     * @return {@code true} if mutating operations are allowed
      */
     protected boolean writeEnabled(@NotNull final SlingHttpServletRequest request) {
         return config.writeEnabled() && isPrincipal(request, config.writePrincipals());
     }
 
+    /**
+     * The suffix path of the request, addressing a tree node or package.
+     *
+     * @param request the current request
+     * @return the suffix path, or '/' if there is none
+     */
     protected @NotNull String targetPath(@NotNull final SlingHttpServletRequest request) {
         final RequestPathInfo pathInfo = request.getRequestPathInfo();
         return Optional.ofNullable(pathInfo.getSuffix()).filter(p -> !p.isEmpty()).orElse("/");
     }
 
+    /**
+     * Handles a GET request of the plugin.
+     *
+     * @param request   the current request
+     * @param response  the current response
+     * @param selectors the remaining selectors, starting with the action
+     * @return the result of the requested action
+     */
     public @NotNull Result<?> processGet(@NotNull final SlingHttpServletRequest request,
                                          @NotNull final SlingHttpServletResponse response,
                                          @NotNull List<String> selectors) {
@@ -327,6 +436,9 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * the template factories of this plugin, by key
+     */
     public final Map<String, TemplateBuilder.Factory> templates = Map.of(
             "page", current -> new Template("/sling/packages/page.html",
                     new TemplateContext(current, new Values()
@@ -357,6 +469,7 @@ public class PackageManager extends AbstractToolsPlugin {
      * Opens the package addressed by the request's suffix path in whichever backend
      * {@link #isRegistryMode} selects, and maps it to the shared {@link PackageInfo} view.
      *
+     * @param request the current request
      * @return the package's info, or 'null' if no such package exists in the selected backend
      */
     protected @Nullable PackageInfo packageInfo(@NotNull final SlingHttpServletRequest request) {
@@ -380,6 +493,9 @@ public class PackageManager extends AbstractToolsPlugin {
      * table + action bar; for an intermediate (group/name) node, a navigable list of every
      * package nested under it instead, with its own action bar (currently just Purge Old
      * Versions) - see {@link #actions} / {@link #viewFolder}.
+     *
+     * @param request the current request
+     * @return the rendered detail view, or 'not found' if the path matches nothing
      */
     protected @NotNull Result<?> viewPackage(@NotNull final SlingHttpServletRequest request) {
         final String path = targetPath(request);
@@ -417,6 +533,13 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Renders the list of the packages nested under an intermediate tree node.
+     *
+     * @param request the current request
+     * @param entries the packages to list
+     * @return the rendered folder view
+     */
     protected @NotNull Result<?> viewFolder(@NotNull final SlingHttpServletRequest request,
                                             @NotNull final List<PackageListEntry> entries) {
         final List<Values> actions = writeEnabled(request)
@@ -429,6 +552,14 @@ public class PackageManager extends AbstractToolsPlugin {
         return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
     }
 
+    /**
+     * Handles a POST request of the plugin (the write operations and the CRX compatibility endpoint).
+     *
+     * @param request   the current request
+     * @param response  the current response
+     * @param selectors the remaining selectors, starting with the action
+     * @return the result of the requested action
+     */
     public @NotNull Result<?> processPost(@NotNull final SlingHttpServletRequest request,
                                           @NotNull final SlingHttpServletResponse response,
                                           @NotNull List<String> selectors) {
@@ -471,14 +602,35 @@ public class PackageManager extends AbstractToolsPlugin {
     // The registry backend has no create/upload/edit/filters/build/coverage counterpart, so those
     // are simply omitted for a registry-backed package (info not a JcrPackageInfo).
 
+    /**
+     * Describes a single action button of the detail panel.
+     *
+     * @param key   the action key
+     * @param icon  the icon name
+     * @param label the button label
+     * @return the action values for the template
+     */
     protected @NotNull Values action(@NotNull final String key, @NotNull final String icon, @NotNull final String label) {
         return new Values().with("key", key).with("icon", icon).with("label", label);
     }
 
+    /**
+     * Describes a group of action buttons of the detail panel.
+     *
+     * @param groupedActions the actions of the group
+     * @return the group values for the template
+     */
     protected @NotNull Values actionGroup(@NotNull final Values... groupedActions) {
         return new Values().with("group", true).with("actions", List.of(groupedActions));
     }
 
+    /**
+     * The action bar content for the given package, depending on its backend and the write permission.
+     *
+     * @param request the current request
+     * @param info    the package
+     * @return the actions and action groups
+     */
     protected @NotNull List<Values> actions(@NotNull final SlingHttpServletRequest request,
                                             @NotNull final PackageInfo info) {
         final boolean isJcr = info instanceof JcrPackageInfo;
@@ -511,12 +663,24 @@ public class PackageManager extends AbstractToolsPlugin {
         return result;
     }
 
+    /**
+     * The download URL of the given package.
+     *
+     * @param info the package
+     * @return the download URL, including the backend mode
+     */
     protected @NotNull String downloadUri(@NotNull final PackageInfo info) {
         return manager.serverPath() + "." + key() + ".download.html" + info.getPath() + modeQuery(info);
     }
 
     // Read operations
 
+    /**
+     * The tree node addressed by the request's suffix path, with its immediate children, as JSON.
+     *
+     * @param request the current request
+     * @return the tree node, or 'not found' if the path does not exist
+     */
     protected @NotNull Result<?> treeNode(@NotNull final SlingHttpServletRequest request) {
         try {
             final PackageTreeNode node;
@@ -541,6 +705,9 @@ public class PackageManager extends AbstractToolsPlugin {
      * The tree (folder) paths leading down to the package addressed by the request's suffix path -
      * lets the client drill a jstree open down to a specific selection (initial page load, browser
      * back/forward navigation, or reselecting a package after an edit), see 'PackagesTree#openNode'.
+     *
+     * @param request the current request
+     * @return the ancestor folder paths, top-down
      */
     protected @NotNull Result<?> ancestorsOf(@NotNull final SlingHttpServletRequest request) {
         try {
@@ -551,6 +718,12 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Provides the package addressed by the request's suffix path as a ZIP download.
+     *
+     * @param request the current request
+     * @return the download result, or 'not found' if the package does not exist
+     */
     protected @NotNull Result<?> downloadPackage(@NotNull final SlingHttpServletRequest request) {
         try {
             if (isRegistryMode(request)) {
@@ -568,6 +741,13 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Opens the JCR-backed package addressed by the request's suffix path.
+     *
+     * @param request the current request
+     * @return the package, or 'null' if it does not exist
+     * @throws RepositoryException if accessing the repository fails
+     */
     protected @Nullable JcrPackage openPackage(@NotNull final SlingHttpServletRequest request)
             throws RepositoryException {
         final Session session = session(request);
@@ -578,14 +758,30 @@ public class PackageManager extends AbstractToolsPlugin {
         return manager != null ? jcrOperations.open(manager, targetPath(request)) : null;
     }
 
+    /**
+     * Opens the registry-backed package addressed by the request's suffix path.
+     *
+     * @param request the current request
+     * @return the package, or 'null' if it does not exist
+     * @throws IOException if accessing the registry fails
+     */
     protected @Nullable RegisteredPackage openRegistryPackage(@NotNull final SlingHttpServletRequest request)
             throws IOException {
         final PackageId id = RegistryOperations.packageId(targetPath(request));
         return id != null ? registryOperations().open(id) : null;
     }
 
+    /**
+     * the maximum number of recently installed packages shown in the Dashboard tile
+     */
     protected static final int TILE_LAST_INSTALLED_LIMIT = 8;
 
+    /**
+     * Renders the Dashboard tile with the package count and the most recently installed packages.
+     *
+     * @param request the current request
+     * @return the rendered tile
+     */
     protected @NotNull Result<?> renderTile(@NotNull final SlingHttpServletRequest request) {
         try {
             final Session session = session(request);
@@ -610,6 +806,11 @@ public class PackageManager extends AbstractToolsPlugin {
      * excluded. The raw {@link JcrPackageDefinition#getLastUnpacked()} 'Calendar' is passed
      * through as-is (not via {@link #valuesOf}, which would flatten it to a JSON timestamp) so
      * the template's own date formatting (see 'AbstractToolsPlugin#toString') applies.
+     *
+     * @param packages the packages to select from
+     * @param limit    the maximum number of entries
+     * @return the name, version and installation time of the selected packages
+     * @throws RepositoryException if reading a package definition fails
      */
     protected @NotNull List<Values> lastInstalled(@NotNull final List<JcrPackage> packages, final int limit)
             throws RepositoryException {
@@ -633,6 +834,13 @@ public class PackageManager extends AbstractToolsPlugin {
 
     // Dialogs (loaded on demand, see the shared 'CPM.Dialog' client framework)
 
+    /**
+     * Renders the named dialog.
+     *
+     * @param request the current request
+     * @param name    the dialog name
+     * @return the rendered dialog, or 'not found' for an unknown dialog
+     */
     protected @NotNull Result<?> dialog(@NotNull final SlingHttpServletRequest request, @NotNull final String name) {
         switch (name) {
             case "create":
@@ -678,6 +886,11 @@ public class PackageManager extends AbstractToolsPlugin {
     /**
      * Renders the given dialog template against the package addressed by the request, in
      * whichever backend {@link #isRegistryMode} selects.
+     *
+     * @param request      the current request
+     * @param templatePath the dialog template path
+     * @param values       maps the package to the template values
+     * @return the rendered dialog, or 'not found' if the package does not exist
      */
     protected @NotNull Result<?> packageDialog(@NotNull final SlingHttpServletRequest request,
                                                @NotNull final String templatePath,
@@ -689,6 +902,11 @@ public class PackageManager extends AbstractToolsPlugin {
     /**
      * Like {@link #packageDialog}, but only ever resolves the package in the JCR backend - for
      * dialogs (Edit, Build) that have no registry counterpart at all.
+     *
+     * @param request      the current request
+     * @param templatePath the dialog template path
+     * @param values       maps the package to the template values
+     * @return the rendered dialog, or 'not found' if the package does not exist
      */
     protected @NotNull Result<?> jcrPackageDialog(@NotNull final SlingHttpServletRequest request,
                                                   @NotNull final String templatePath,
@@ -705,6 +923,12 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Renders the dialog for editing the package's workspace filter.
+     *
+     * @param request the current request
+     * @return the rendered dialog
+     */
     protected @NotNull Result<?> filtersDialog(@NotNull final SlingHttpServletRequest request) {
         try (final JcrPackage jcrPackage = openPackage(request)) {
             final JcrPackageDefinition definition = jcrPackage != null ? jcrPackage.getDefinition() : null;
@@ -720,6 +944,12 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Renders the dialog listing the repository paths covered by the package's filter.
+     *
+     * @param request the current request
+     * @return the rendered dialog
+     */
     protected @NotNull Result<?> coverageDialog(@NotNull final SlingHttpServletRequest request) {
         try (JcrPackage jcrPackage = openPackage(request)) {
             if (jcrPackage == null) {
@@ -739,6 +969,12 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Renders the confirmation dialog for purging old versions under the request's suffix path.
+     *
+     * @param request the current request
+     * @return the rendered dialog
+     */
     protected @NotNull Result<?> purgeDialog(@NotNull final SlingHttpServletRequest request) {
         final String path = targetPath(request);
         try {
@@ -756,6 +992,13 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Renders a dialog template with the given values.
+     *
+     * @param templatePath the dialog template path
+     * @param values       the template values
+     * @return the rendered dialog, or 'not found' if the template cannot be read
+     */
     protected @NotNull Result<?> renderDialog(@NotNull final String templatePath, @NotNull final Values values) {
         final Reader content = templateReader(getTemplate(new TemplateContext(new Values().with(values)), templatePath));
         return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
@@ -763,10 +1006,23 @@ public class PackageManager extends AbstractToolsPlugin {
 
     // Write operations
 
+    /**
+     * Builds an error result with a JSON message.
+     *
+     * @param statusCode the HTTP status code
+     * @param message    the error message, can be 'null'
+     * @return the error result
+     */
     protected @NotNull Result<?> errorResult(final int statusCode, @Nullable final String message) {
         return new Result<>(statusCode, Map.of("message", StringUtils.defaultString(message, "Request failed.")));
     }
 
+    /**
+     * Builds the result of an install/uninstall/assemble operation from its log.
+     *
+     * @param log the operation log
+     * @return the '{log, error}' result, with an error status if the operation reported an error
+     */
     protected @NotNull Result<?> operationResult(@NotNull final JcrPackageOperations.OperationLog log) {
         final Map<String, Object> data = new LinkedHashMap<>();
         data.put("log", log.getLines());
@@ -774,6 +1030,12 @@ public class PackageManager extends AbstractToolsPlugin {
         return new Result<>(log.isError() ? SC_INTERNAL_SERVER_ERROR : SC_OK, data);
     }
 
+    /**
+     * Creates a new empty package from the request parameters (name, group, version).
+     *
+     * @param request the current request
+     * @return the result with the new package's path
+     */
     protected @NotNull Result<?> createPackage(@NotNull final SlingHttpServletRequest request) {
         final String name = request.getParameter("name");
         if (StringUtils.isBlank(name)) {
@@ -796,6 +1058,12 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Uploads the package file posted with the request.
+     *
+     * @param request the current request
+     * @return the result with the uploaded package's path
+     */
     protected @NotNull Result<?> uploadPackage(@NotNull final SlingHttpServletRequest request) {
         final RequestParameter file = request.getRequestParameter("file");
         if (file == null || file.getSize() <= 0) {
@@ -821,6 +1089,12 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Updates the definition of the addressed package from the submitted fields.
+     *
+     * @param request the current request
+     * @return the result with the package's possibly changed path
+     */
     protected @NotNull Result<?> updatePackage(@NotNull final SlingHttpServletRequest request) {
         try {
             final JcrPackageManager manager = jcrOperations.packageManager(session(request));
@@ -847,6 +1121,12 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Installs the addressed package.
+     *
+     * @param request the current request
+     * @return the operation log result
+     */
     protected @NotNull Result<?> installPackage(@NotNull final SlingHttpServletRequest request) {
         try {
             if (isRegistryMode(request)) {
@@ -869,6 +1149,12 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Uninstalls the addressed package.
+     *
+     * @param request the current request
+     * @return the operation log result
+     */
     protected @NotNull Result<?> uninstallPackage(@NotNull final SlingHttpServletRequest request) {
         try {
             if (isRegistryMode(request)) {
@@ -891,6 +1177,12 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Assembles (builds) the addressed JCR package.
+     *
+     * @param request the current request
+     * @return the operation log result
+     */
     protected @NotNull Result<?> assemblePackage(@NotNull final SlingHttpServletRequest request) {
         try (JcrPackage jcrPackage = openPackage(request)) {
             if (jcrPackage == null) {
@@ -904,6 +1196,12 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Replaces the workspace filter of the addressed JCR package by the submitted roots, modes and rules.
+     *
+     * @param request the current request
+     * @return the result with the package's path
+     */
     protected @NotNull Result<?> filtersPackage(@NotNull final SlingHttpServletRequest request) {
         try (JcrPackage jcrPackage = openPackage(request)) {
             if (jcrPackage == null) {
@@ -920,6 +1218,12 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Deletes the addressed package.
+     *
+     * @param request the current request
+     * @return the result with the deleted path and the deepest still existing parent folder
+     */
     protected @NotNull Result<?> deletePackage(@NotNull final SlingHttpServletRequest request) {
         final String path = targetPath(request);
         try {
@@ -955,6 +1259,12 @@ public class PackageManager extends AbstractToolsPlugin {
      * The leaf (version) paths a "purge" of the request's suffix path would delete, in whichever
      * backend {@link #isRegistryMode} selects - see {@link JcrPackageTree#purgeCandidates} /
      * {@link RegistryTree#purgeCandidates}.
+     *
+     * @param request the current request
+     * @param path    the tree path to purge under
+     * @return the leaf paths to delete
+     * @throws RepositoryException if accessing the repository fails
+     * @throws IOException         if accessing the registry fails
      */
     protected @NotNull List<String> purgeCandidates(@NotNull final SlingHttpServletRequest request, @NotNull final String path)
             throws RepositoryException, IOException {
@@ -966,6 +1276,13 @@ public class PackageManager extends AbstractToolsPlugin {
         return manager != null ? new JcrPackageTree(manager).purgeCandidates(path) : List.of();
     }
 
+    /**
+     * Builds the result of a package deletion.
+     *
+     * @param path   the deleted path
+     * @param parent the deepest still existing parent folder, can be 'null'
+     * @return the result with the deleted path and the parent
+     */
     protected @NotNull Result<?> deletedResult(@NotNull final String path, @Nullable final String parent) {
         final Map<String, Object> data = new LinkedHashMap<>();
         data.put("deleted", path);
@@ -979,6 +1296,12 @@ public class PackageManager extends AbstractToolsPlugin {
      * The tree (folder) paths leading down to the given package path, top-down, in whichever
      * backend {@link #isRegistryMode} selects - see {@link JcrPackageTree#ancestorsOf} /
      * {@link RegistryTree#ancestorsOf}.
+     *
+     * @param request the current request
+     * @param path    the package path
+     * @return the ancestor folder paths, top-down
+     * @throws RepositoryException if accessing the repository fails
+     * @throws IOException         if accessing the registry fails
      */
     protected @NotNull List<String> ancestorChain(@NotNull final SlingHttpServletRequest request, @NotNull final String path)
             throws RepositoryException, IOException {
@@ -998,9 +1321,12 @@ public class PackageManager extends AbstractToolsPlugin {
      * on up the chain - possibly all the way up if the package was the sole occupant of its
      * entire group.
      *
+     * @param request   the current request
      * @param ancestors the chain as captured by {@link #ancestorChain} <em>before</em> the delete
      * @return the deepest still-existing folder, or 'null' if none of them do (e.g. the chain
      * itself was empty, or every folder in it is now gone)
+     * @throws RepositoryException if accessing the repository fails
+     * @throws IOException         if accessing the registry fails
      */
     protected @Nullable String survivingAncestor(@NotNull final SlingHttpServletRequest request, @NotNull final List<String> ancestors)
             throws RepositoryException, IOException {
@@ -1035,6 +1361,9 @@ public class PackageManager extends AbstractToolsPlugin {
      * only the latest version of each package found there - see {@link #purgeCandidates}. Returns
      * the same '{log, error}' shape as install/uninstall/assemble, so the client's generic dialog
      * success handler shows the same result popup with the list of what was purged.
+     *
+     * @param request the current request
+     * @return the operation log result
      */
     protected @NotNull Result<?> purgePackages(@NotNull final SlingHttpServletRequest request) {
         final String path = targetPath(request);
@@ -1089,6 +1418,12 @@ public class PackageManager extends AbstractToolsPlugin {
     // Always answers HTTP 200 with the business-level result embedded as '<status code="...">'
     // in the XML body - that is the protocol's own convention, not an error on our side.
 
+    /**
+     * Handles a request of the CRX Package Manager compatible service endpoint.
+     *
+     * @param request the current request
+     * @return the CRX style XML response
+     */
     protected @NotNull Result<?> servicePackage(@NotNull final SlingHttpServletRequest request) {
         final String cmd = request.getParameter("cmd");
         try {
@@ -1116,6 +1451,13 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Lists all JCR packages in the CRX Package Manager XML format ('cmd=ls').
+     *
+     * @param request the current request
+     * @return the CRX style XML response
+     * @throws RepositoryException if listing the packages fails
+     */
     protected @NotNull Result<?> crxList(@NotNull final SlingHttpServletRequest request) throws RepositoryException {
         final Session session = session(request);
         final JcrPackageManager manager = jcrOperations.packageManager(session);
@@ -1129,6 +1471,13 @@ public class PackageManager extends AbstractToolsPlugin {
         return crxResponse(crxRequestXml("ls", null, null), data.toString(), "200", "ok");
     }
 
+    /**
+     * Removes the package given by the 'name' and 'group' parameters ('cmd=rm').
+     *
+     * @param request the current request
+     * @return the CRX style XML response
+     * @throws RepositoryException if the removal fails
+     */
     protected @NotNull Result<?> crxRemove(@NotNull final SlingHttpServletRequest request) throws RepositoryException {
         final String name = StringUtils.defaultString(request.getParameter("name"));
         final String group = StringUtils.defaultString(request.getParameter("group"));
@@ -1144,6 +1493,16 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Builds or uninstalls the package given by the 'name' and 'group' parameters ('cmd=build' or 'cmd=uninst').
+     *
+     * @param request the current request
+     * @param build   {@code true} to build (assemble), {@code false} to uninstall
+     * @return the CRX style XML response
+     * @throws RepositoryException if the operation fails
+     * @throws PackageException    if the operation fails
+     * @throws IOException         if the operation fails
+     */
     protected @NotNull Result<?> crxBuildOrUninstall(@NotNull final SlingHttpServletRequest request, final boolean build)
             throws RepositoryException, PackageException, IOException {
         final String name = StringUtils.defaultString(request.getParameter("name"));
@@ -1165,6 +1524,15 @@ public class PackageManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Uploads and installs the posted package file (no 'cmd' parameter).
+     *
+     * @param request the current request
+     * @return the CRX style XML response
+     * @throws RepositoryException if the upload or installation fails
+     * @throws PackageException    if the installation fails
+     * @throws IOException         if reading the package fails
+     */
     protected @NotNull Result<?> crxUpload(@NotNull final SlingHttpServletRequest request)
             throws RepositoryException, PackageException, IOException {
         final RequestParameter file = request.getRequestParameter("file");
@@ -1197,6 +1565,15 @@ public class PackageManager extends AbstractToolsPlugin {
         return crxResponse("", "", "500", "internal error");
     }
 
+    /**
+     * Builds a CRX Package Manager style XML response.
+     *
+     * @param requestXml     the XML echo of the request
+     * @param dataXml        the XML data to embed, can be empty
+     * @param statusCode     the status code embedded in the response
+     * @param statusMessage  the status message embedded in the response
+     * @return the XML result
+     */
     protected @NotNull Result<?> crxResponse(@NotNull final String requestXml, @NotNull final String dataXml,
                                              @NotNull final String statusCode, @NotNull final String statusMessage) {
         final String xml = "<repo>" + requestXml
@@ -1207,6 +1584,14 @@ public class PackageManager extends AbstractToolsPlugin {
         return new Result<>(new StringReader(xml), "text/xml;charset=utf-8");
     }
 
+    /**
+     * Builds the XML echo of a CRX Package Manager request.
+     *
+     * @param cmd   the command
+     * @param name  the package name, can be 'null'
+     * @param group the package group, can be 'null'
+     * @return the request XML
+     */
     protected @NotNull String crxRequestXml(@NotNull final String cmd, @Nullable final String name, @Nullable final String group) {
         final StringBuilder xml = new StringBuilder("<request>")
                 .append("<param name=\"cmd\" value=\"").append(JcrPackageOperations.xmlEscape(cmd)).append("\"/>");

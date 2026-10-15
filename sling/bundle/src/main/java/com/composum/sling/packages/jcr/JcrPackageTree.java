@@ -40,7 +40,10 @@ public class JcrPackageTree {
     private final Node root = new Node("/", "Packages", "root");
 
     /**
+     * Builds the tree from the packages of the given package manager.
+     *
      * @param manager the package manager whose {@link JcrPackageManager#listPackages()} to build the tree from
+     * @throws RepositoryException if reading the package list or a package definition fails
      */
     public JcrPackageTree(@NotNull final JcrPackageManager manager) throws RepositoryException {
         for (final JcrPackage jcrPackage : manager.listPackages()) {

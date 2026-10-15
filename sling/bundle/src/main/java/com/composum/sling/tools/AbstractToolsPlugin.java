@@ -59,7 +59,13 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
     /** The manager this plugin is registered with. */
     public Manager manager;
 
-    /** TODO: for compatibility (probably overridden by projects tools); periodically check for removal */
+    /**
+     * The manager this plugin is registered with.
+     * <p>
+     * TODO: for compatibility (probably overridden by projects tools); periodically check for removal
+     *
+     * @return the manager this plugin is registered with
+     */
     protected @NotNull Manager manager() {
         return manager;
     }
@@ -82,6 +88,7 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
      *                 segment yet - e.g. "/content/si" suggests siblings of "/content" starting
      *                 with "si", a trailing "/" or a blank string lists all children of that parent)
      * @param limit    the maximum number of suggestions to return
+     * @return the paths of the matching child resources, at most 'limit'
      */
     protected @NotNull List<String> pathSuggestions(@NotNull final ResourceResolver resolver,
                                                      @NotNull final String partial, final int limit) {
@@ -114,6 +121,8 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
      *                 target resource, or 'null' if the request's path wasn't found/allowed
      * @param path     the originally requested path, used to still name the node in the "not
      *                 found" case so the client can show *something* rather than nothing
+     * @return the response carrying the resource's tree node, or a bare node named after 'path'
+     * with status 404 if there is no resource
      */
     protected @NotNull Result<TreeNode> treeResult(@Nullable final Resource resource, @NotNull final String path) {
         return resource != null
@@ -134,6 +143,7 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
      *                   {@link PlatformConfig#mixinTypes()})
      * @param partial    the text typed so far (may be blank)
      * @param limit      the maximum number of suggestions to return
+     * @return the candidates starting with 'partial', at most 'limit'
      */
     protected @NotNull List<String> nodeTypeSuggestions(@NotNull final Collection<String> candidates,
                                                           @NotNull final String partial, final int limit) {
@@ -165,6 +175,7 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
      *
      * @param request    the request whose own user to check
      * @param principals the allowed user/group names, or empty for no restriction
+     * @return whether the request's user is allowed - always 'true' for an empty 'principals'
      */
     protected boolean isPrincipal(@NotNull final SlingHttpServletRequest request,
                                   @NotNull final String[] principals) {
@@ -204,6 +215,9 @@ public abstract class AbstractToolsPlugin implements ToolsPlugin, TemplateBuilde
      * ({@code com.composum.sling.tools.impl.Server#doIt}) already sets for the duration of every
      * request it handles - 'false' (not "no restriction") if none is set, since that only happens
      * outside of any actual request (there is no user to check against at all in that case).
+     *
+     * @param principals the allowed user/group names, or empty for no restriction
+     * @return whether the current request's user is allowed - always 'true' for an empty 'principals'
      */
     protected boolean isPrincipal(@NotNull final String[] principals) {
         if (principals.length == 0) {

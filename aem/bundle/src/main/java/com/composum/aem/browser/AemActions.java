@@ -115,6 +115,8 @@ public class AemActions extends DefaultActions {
     protected Config config;
 
     /**
+     * Applies the given configuration.
+     *
      * @param bundleContext the bundle context of this component
      * @param config        the current OSGi configuration
      */
@@ -130,6 +132,7 @@ public class AemActions extends DefaultActions {
      * The closest {@code cq:Page} ancestor of the given resource.
      *
      * @param resource the resource to start searching from
+     * @param types    the primary node types of the ancestors to look for
      * @return the closest {@code cq:Page} ancestor of the given resource (or the resource itself),
      * or {@code null} if none is found
      */
@@ -331,6 +334,8 @@ public class AemActions extends DefaultActions {
         private final String error;
 
         /**
+         * Creates an action result.
+         *
          * @param targets the paths that were actually replicated
          * @param error   an error message, or {@code null} if the action succeeded
          */
@@ -502,6 +507,11 @@ public class AemActions extends DefaultActions {
         }
     }
 
+    /**
+     * The reflective facade of the AEM replication service.
+     *
+     * @return the replicator facade, or {@code null} if the AEM replication service is not available
+     */
     protected @Nullable AemReplicator replicator() {
         final ServiceReference<?> reference = bundleContext.getServiceReference(AemReplicator.SERVICE_CLASS);
         if (reference != null) {

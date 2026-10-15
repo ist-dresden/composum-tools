@@ -106,33 +106,71 @@ import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 @Designate(ocd = UserManager.Config.class)
 public class UserManager extends AbstractToolsPlugin {
 
+    /** Default constructor. */
+    public UserManager() {
+    }
+
     private static final Logger LOG = LoggerFactory.getLogger(UserManager.class);
 
+    /** the default plugin key (also used as selector prefix of the plugin's links) */
     public static final String KEY = "users";
+    /** the default plugin label */
     public static final String LABEL = "Users";
+    /** the default plugin rank */
     public static final int RANK = 3000;
 
     private static final String DIALOGS_ROOT = "/sling/usermgr/dialogs/";
 
+    /** the OSGi configuration of the User Manager */
     @ObjectClassDefinition(name = "Composum Tools User Manager")
     public @interface Config {
 
+        /**
+         * The plugin key.
+         *
+         * @return the key of the plugin
+         */
         @AttributeDefinition()
         String key() default UserManager.KEY;
 
+        /**
+         * The plugin label.
+         *
+         * @return the label of the plugin
+         */
         @AttributeDefinition()
         String label() default UserManager.LABEL;
 
+        /**
+         * The plugin rank.
+         *
+         * @return the rank of the plugin
+         */
         @AttributeDefinition()
         int rank() default UserManager.RANK;
 
+        /**
+         * Whether the plugin is enabled.
+         *
+         * @return 'true' if the plugin is enabled
+         */
         @AttributeDefinition()
         boolean enabled() default true;
 
+        /**
+         * Whether mutating operations are allowed at all.
+         *
+         * @return 'true' if mutating operations are allowed
+         */
         @AttributeDefinition(name = "Write Enabled",
                 description = "whether mutating operations (create/delete/enable/disable/password/group membership) are allowed")
         boolean writeEnabled() default true;
 
+        /**
+         * The users and groups allowed to perform mutating operations.
+         *
+         * @return the allowed users and groups, or an empty array for no restriction
+         */
         @AttributeDefinition(name = "Write Principals",
                 description = "restricts write access to these users/groups (member check), or empty for no restriction")
         String[] writePrincipals() default {};
@@ -144,9 +182,17 @@ public class UserManager extends AbstractToolsPlugin {
         manager = service;
     }
 
+    /** the current OSGi configuration */
     protected Config config;
+    /** the JCR based operations of this plugin */
     protected JcrAuthorizableOperations jcrOperations;
 
+    /**
+     * Activates (or re-configures) the plugin and attaches it to the manager.
+     *
+     * @param bundleContext the bundle context
+     * @param config        the OSGi configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {
@@ -155,6 +201,9 @@ public class UserManager extends AbstractToolsPlugin {
         manager.plugins().attach(this);
     }
 
+    /**
+     * Detaches the plugin from the manager.
+     */
     @Deactivate
     protected void deactivate() {
         manager.plugins().detach(this);
@@ -185,15 +234,29 @@ public class UserManager extends AbstractToolsPlugin {
      * check {@code Changes}/{@code PackageManager} use (see {@link AbstractToolsPlugin#isPrincipal}):
      * {@link Config#writeEnabled()} gates it globally, {@link Config#writePrincipals()} optionally
      * narrows it further to a configured set of users/groups.
+     *
+     * @param request the current request
+     * @return 'true' if mutating operations are allowed for the request's user
      */
     protected boolean writeEnabled(@NotNull final SlingHttpServletRequest request) {
         return config.writeEnabled() && isPrincipal(request, config.writePrincipals());
     }
 
+    /**
+     * The URI of the plugin's page.
+     *
+     * @return the page URI
+     */
     public @NotNull String pageLink() {
         return manager.serverPath() + "." + key() + ".html";
     }
 
+    /**
+     * The URI of an action (a JSON request) of this plugin.
+     *
+     * @param action the action selector
+     * @return the action URI
+     */
     protected @NotNull String actionLink(@NotNull final String action) {
         return manager.serverPath() + "." + key() + "." + action + ".json";
     }
@@ -204,6 +267,8 @@ public class UserManager extends AbstractToolsPlugin {
      * every other plugin-to-plugin URL in this codebase already uses (no service lookup, just the
      * other plugin's known key) - used by the "Affected Paths" tab to link a path to where it can
      * actually be inspected.
+     *
+     * @return the Browser page URI
      */
     protected @NotNull String browserLink() {
         return manager.serverPath() + ".browser.html";
@@ -228,15 +293,35 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * The JCR session of the request.
+     *
+     * @param request the current request
+     * @return the session, or 'null' if the request's resolver is not backed by a JCR session
+     */
     protected @Nullable Session session(@NotNull final SlingHttpServletRequest request) {
         return request.getResourceResolver().adaptTo(Session.class);
     }
 
+    /**
+     * The target path of the request, i.e. its suffix.
+     *
+     * @param request the current request
+     * @return the suffix path, or '/' if the request has none
+     */
     protected @NotNull String targetPath(@NotNull final SlingHttpServletRequest request) {
         final RequestPathInfo pathInfo = request.getRequestPathInfo();
         return Optional.ofNullable(pathInfo.getSuffix()).filter(p -> !p.isEmpty()).orElse("/");
     }
 
+    /**
+     * Processes a GET request, dispatching by the next selector (the default is the plugin's page).
+     *
+     * @param request   the current request
+     * @param response  the response
+     * @param selectors the remaining selectors
+     * @return the result of the request
+     */
     public @NotNull Result<?> processGet(@NotNull final SlingHttpServletRequest request,
                                          @NotNull final SlingHttpServletResponse response,
                                          @NotNull List<String> selectors) {
@@ -273,6 +358,12 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * The tree node (with its immediate children) addressed by the request's suffix path.
+     *
+     * @param request the current request
+     * @return the tree node, or an error status result
+     */
     protected @NotNull Result<?> treeNode(@NotNull final SlingHttpServletRequest request) {
         try {
             final Session session = session(request);
@@ -291,6 +382,9 @@ public class UserManager extends AbstractToolsPlugin {
      * The tree (folder) paths leading down to the authorizable addressed by the request's suffix
      * path - lets the client drill a jstree open down to a specific selection (initial page load,
      * browser back/forward navigation), see 'UsersTree#openNode'.
+     *
+     * @param request the current request
+     * @return the list of ancestor folder paths, or an error status result
      */
     protected @NotNull Result<?> ancestorsOf(@NotNull final SlingHttpServletRequest request) {
         try {
@@ -304,6 +398,7 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /** the maximum number of search results and suggestions */
     protected static final int QUERY_LIMIT = 25;
 
     /**
@@ -322,6 +417,9 @@ public class UserManager extends AbstractToolsPlugin {
      * <li>'path' only: every ACL rule anywhere whose affected path matches the pattern, whichever
      * principal it names (see {@link JcrAuthorizableOperations#affectedPathsByPathPattern}).</li>
      * </ul>
+     *
+     * @param request the current request
+     * @return the affected path entries found, or an error status result
      */
     protected @NotNull Result<?> query(@NotNull final SlingHttpServletRequest request) {
         final String text = StringUtils.trimToEmpty(request.getParameter("text"));
@@ -355,6 +453,9 @@ public class UserManager extends AbstractToolsPlugin {
      * this case too without knowing the difference. An optional 'type' parameter (see
      * {@link JcrAuthorizableOperations#find}) narrows the suggestions to just groups, for Add to
      * Group's own "authorizableId" field.
+     *
+     * @param request the current request
+     * @return the list of matching ids, or an error status result
      */
     protected @NotNull Result<?> authorizableIdSuggest(@NotNull final SlingHttpServletRequest request) {
         final String text = StringUtils.trimToEmpty(request.getParameter("path"));
@@ -401,6 +502,9 @@ public class UserManager extends AbstractToolsPlugin {
      * completion of) and return values missing that required prefix if it did. Using the same
      * {@link JcrAuthorizableTree#USERS_PATH} root as a plain user naturally offers "system" as an
      * ordinary child while typing, and any further nesting under it once typed.
+     *
+     * @param request the current request
+     * @return the list of suggested intermediate paths, or an error status result
      */
     protected @NotNull Result<?> intermediatePathSuggest(@NotNull final SlingHttpServletRequest request) {
         final String type = StringUtils.defaultString(request.getParameter("type"));
@@ -435,6 +539,14 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Processes a POST request (a mutating operation), dispatching by the next selector.
+     *
+     * @param request   the current request
+     * @param response  the response
+     * @param selectors the remaining selectors
+     * @return the result of the request, forbidden if write operations are disabled
+     */
     public @NotNull Result<?> processPost(@NotNull final SlingHttpServletRequest request,
                                           @NotNull final SlingHttpServletResponse response,
                                           @NotNull List<String> selectors) {
@@ -469,6 +581,13 @@ public class UserManager extends AbstractToolsPlugin {
 
     // Dialogs (loaded on demand, see the shared 'CPM.Dialog' client framework)
 
+    /**
+     * Renders the dialog with the given name.
+     *
+     * @param request the current request
+     * @param name    the dialog name
+     * @return the dialog content, or 'not found' for an unknown dialog
+     */
     protected @NotNull Result<?> dialog(@NotNull final SlingHttpServletRequest request, @NotNull final String name) {
         switch (name) {
             case "createUser":
@@ -536,6 +655,9 @@ public class UserManager extends AbstractToolsPlugin {
      * {@code tools/script.js}) on first activating that tab, not eagerly with the rest of the
      * detail view, since it is a full ACL scan ({@link JcrAuthorizableOperations#affectedPaths})
      * not always looked at. Always available, not gated by {@link Config#writeEnabled()}.
+     *
+     * @param request the current request
+     * @return the tab content, or an error status result
      */
     protected @NotNull Result<?> affectedPathsTab(@NotNull final SlingHttpServletRequest request) {
         try {
@@ -563,6 +685,9 @@ public class UserManager extends AbstractToolsPlugin {
      * schema (matching the legacy Composum Nodes tool this was ported from). Not reusing
      * {@link #authorizableDialog} since it only exposes {@link AuthorizableInfo}, not the session
      * this also needs.
+     *
+     * @param request the current request
+     * @return the dialog content, or an error status result
      */
     protected @NotNull Result<?> changeProfileDialog(@NotNull final SlingHttpServletRequest request) {
         try {
@@ -587,6 +712,9 @@ public class UserManager extends AbstractToolsPlugin {
      * {@link JcrAuthorizableOperations#updateProfile}). A row with a blank name is silently
      * dropped (an unfilled extra "Add" row), matching the same "stray empty row" handling this
      * project's other row-based editors already use.
+     *
+     * @param request the current request
+     * @return the result holding the path of the changed user, or an error result
      */
     protected @NotNull Result<?> changeProfile(@NotNull final SlingHttpServletRequest request) {
         try {
@@ -615,12 +743,23 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Encodes a value for use as URL parameter.
+     *
+     * @param value the value to encode
+     * @return the UTF-8 URL encoded value
+     */
     protected @NotNull String urlEncode(@NotNull final String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     /**
      * Renders the given dialog template against the authorizable addressed by the request.
+     *
+     * @param request      the current request
+     * @param templatePath the path of the dialog template
+     * @param values       provides the template values for the addressed authorizable
+     * @return the dialog content, or an error status result
      */
     protected @NotNull Result<?> authorizableDialog(@NotNull final SlingHttpServletRequest request,
                                                      @NotNull final String templatePath,
@@ -646,6 +785,9 @@ public class UserManager extends AbstractToolsPlugin {
      * own warning message, since deleting one recursively removes everything nested under it
      * (users, groups, subfolders alike) - see {@link #deleteAuthorizable}/
      * {@link JcrAuthorizableOperations#deleteFolder} for the actual removal.
+     *
+     * @param request the current request
+     * @return the dialog content, or an error status result
      */
     protected @NotNull Result<?> deleteDialog(@NotNull final SlingHttpServletRequest request) {
         final String path = targetPath(request);
@@ -677,6 +819,12 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * The display label of an authorizable type.
+     *
+     * @param type the type ('user', 'system-user' or 'group')
+     * @return the label of the type
+     */
     protected @NotNull String typeLabel(@NotNull final String type) {
         switch (type) {
             case "system-user":
@@ -688,6 +836,13 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Renders a dialog template.
+     *
+     * @param templatePath the path of the dialog template
+     * @param values       the template values
+     * @return the dialog content, or 'not found' if the template is not available
+     */
     protected @NotNull Result<?> renderDialog(@NotNull final String templatePath, @NotNull final Values values) {
         final Reader content = templateReader(getTemplate(new TemplateContext(new Values().with(values)), templatePath));
         return content != null ? new Result<>(content, HTML_TYPE) : new Result<>(SC_NOT_FOUND);
@@ -695,6 +850,13 @@ public class UserManager extends AbstractToolsPlugin {
 
     // Write operations
 
+    /**
+     * Builds an error result with a message.
+     *
+     * @param statusCode the HTTP status code
+     * @param message    the error message (a default message if 'null')
+     * @return the error result
+     */
     protected @NotNull Result<?> errorResult(final int statusCode, @Nullable final String message) {
         return new Result<>(statusCode, Map.of("message", StringUtils.defaultString(message, "Request failed.")));
     }
@@ -708,6 +870,9 @@ public class UserManager extends AbstractToolsPlugin {
      * genuine server failures, so they should surface as a 4xx client error rather than the
      * generic 500 a plain, uncategorized 'RepositoryException' would otherwise map to. Falls back
      * to 500 for anything not specifically recognized, exactly as before this method existed.
+     *
+     * @param ex the exception thrown by the operation
+     * @return the HTTP status code
      */
     protected int statusFor(@NotNull final RepositoryException ex) {
         if (ex instanceof AuthorizableExistsException) {
@@ -722,6 +887,12 @@ public class UserManager extends AbstractToolsPlugin {
         return SC_INTERNAL_SERVER_ERROR;
     }
 
+    /**
+     * Creates a user from the request parameters (id, password, intermediatePath).
+     *
+     * @param request the current request
+     * @return the result holding the path of the new user, or an error result
+     */
     protected @NotNull Result<?> createUser(@NotNull final SlingHttpServletRequest request) {
         final String id = request.getParameter("id");
         final String password = request.getParameter("password");
@@ -742,6 +913,12 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Creates a system user from the request parameters (id, intermediatePath).
+     *
+     * @param request the current request
+     * @return the result holding the path of the new system user, or an error result
+     */
     protected @NotNull Result<?> createSystemUser(@NotNull final SlingHttpServletRequest request) {
         final String id = request.getParameter("id");
         if (StringUtils.isBlank(id)) {
@@ -761,6 +938,12 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Creates a group from the request parameters (id, intermediatePath).
+     *
+     * @param request the current request
+     * @return the result holding the path of the new group, or an error result
+     */
     protected @NotNull Result<?> createGroup(@NotNull final SlingHttpServletRequest request) {
         final String id = request.getParameter("id");
         if (StringUtils.isBlank(id)) {
@@ -780,6 +963,12 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Deletes the authorizable or intermediate folder addressed by the request.
+     *
+     * @param request the current request
+     * @return the result holding the deleted path and its parent path, or an error result
+     */
     protected @NotNull Result<?> deleteAuthorizable(@NotNull final SlingHttpServletRequest request) {
         final String path = targetPath(request);
         try {
@@ -810,6 +999,12 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Enables the user addressed by the request.
+     *
+     * @param request the current request
+     * @return the result holding the path of the user, or an error result
+     */
     protected @NotNull Result<?> enableAuthorizable(@NotNull final SlingHttpServletRequest request) {
         try {
             final Session session = session(request);
@@ -825,6 +1020,12 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Disables the user addressed by the request (with the optional parameter reason).
+     *
+     * @param request the current request
+     * @return the result holding the path of the user, or an error result
+     */
     protected @NotNull Result<?> disableAuthorizable(@NotNull final SlingHttpServletRequest request) {
         try {
             final Session session = session(request);
@@ -840,6 +1041,12 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * Sets a new password (request parameter password) for the user addressed by the request.
+     *
+     * @param request the current request
+     * @return the result holding the path of the user, or an error result
+     */
     protected @NotNull Result<?> changePassword(@NotNull final SlingHttpServletRequest request) {
         final String password = request.getParameter("password");
         if (StringUtils.isBlank(password)) {
@@ -867,6 +1074,10 @@ public class UserManager extends AbstractToolsPlugin {
      * case: the selection is the member, 'authorizableId' names the target group) or 'group'
      * (the "Add Member"/Members-tab case: the selection is the group, 'authorizableId' names the
      * target member). No divergent handling per entry point beyond resolving that one flag.
+     *
+     * @param request the current request
+     * @param add     'true' to add the membership, 'false' to remove it
+     * @return the result holding the path of the selected authorizable, or an error result
      */
     protected @NotNull Result<?> changeMembership(@NotNull final SlingHttpServletRequest request, final boolean add) {
         final String authorizableId = request.getParameter("authorizableId");
@@ -922,6 +1133,9 @@ public class UserManager extends AbstractToolsPlugin {
      * {@link JcrAuthorizableTree#immediateChildren} - unlike
      * {@link com.composum.sling.packages.PackageManager#viewPackage}'s recursive
      * {@code leavesUnder}, walking a whole id-hash bucket subtree does not scale).
+     *
+     * @param request the current request
+     * @return the detail view content, or an error status result
      */
     protected @NotNull Result<?> viewAuthorizable(@NotNull final SlingHttpServletRequest request) {
         final String path = targetPath(request);
@@ -968,6 +1182,12 @@ public class UserManager extends AbstractToolsPlugin {
         }
     }
 
+    /**
+     * The detail view of an intermediate folder.
+     *
+     * @param entries the immediate children of the folder
+     * @return the folder view content
+     */
     protected @NotNull Result<?> viewFolder(@NotNull final List<AuthorizableRef> entries) {
         final Reader content = templateReader(getTemplate(new TemplateContext(new Values()
                 .with("users.actions", List.<Values>of())
@@ -989,14 +1209,35 @@ public class UserManager extends AbstractToolsPlugin {
     // "Remove" button lives inline on the row itself (details/groupsEntry.html/membersEntry.html),
     // not in any action group at all.
 
+    /**
+     * Builds the values of a single action button.
+     *
+     * @param key   the action key
+     * @param icon  the icon name
+     * @param label the button label
+     * @return the action values
+     */
     protected @NotNull Values action(@NotNull final String key, @NotNull final String icon, @NotNull final String label) {
         return new Values().with("key", key).with("icon", icon).with("label", label);
     }
 
+    /**
+     * Builds the values of a group of actions.
+     *
+     * @param groupedActions the actions of the group
+     * @return the action group values
+     */
     protected @NotNull Values actionGroup(@NotNull final Values... groupedActions) {
         return new Values().with("group", true).with("actions", List.of(groupedActions));
     }
 
+    /**
+     * Builds the actions available for the given authorizable.
+     *
+     * @param request the current request
+     * @param info    the info of the authorizable
+     * @return the action groups, empty if write operations are not allowed or not applicable
+     */
     protected @NotNull List<Values> actions(@NotNull final SlingHttpServletRequest request,
                                             @NotNull final AuthorizableInfo info) {
         final List<Values> result = new ArrayList<>();
@@ -1015,6 +1256,7 @@ public class UserManager extends AbstractToolsPlugin {
         return result;
     }
 
+    /** the template factories of this plugin by template key */
     public final Map<String, TemplateBuilder.Factory> templates = Map.of(
             "page", current -> new Template("/sling/usermgr/page.html",
                     new TemplateContext(current, new Values()

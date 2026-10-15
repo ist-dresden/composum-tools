@@ -50,34 +50,68 @@ import static com.composum.sling.tools.Common.urlQueryOf;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 
+/** The browser view displaying a preview of the current resource. */
 @Component(service = {View.class, DisplayView.class}, immediate = true)
 @Designate(ocd = DisplayView.Config.class)
 public class DisplayView extends AbstractView {
 
+    /**
+     * Default constructor.
+     */
+    public DisplayView() {
+    }
+
+    /** the key of this view */
     public static final String KEY = "display";
 
+    /** OSGi metatype configuration of the Display view. */
     @ObjectClassDefinition(name = "Composum Browser Display View")
     public @interface Config {
 
+        /**
+         * The selector key of this view.
+         *
+         * @return the selector key of this view
+         */
         @AttributeDefinition()
         String key() default DisplayView.KEY;
 
+        /**
+         * The navigation label of this view.
+         *
+         * @return the navigation label of this view
+         */
         @AttributeDefinition()
         String label() default "Preview";
 
+        /**
+         * The navigation rank of this view.
+         *
+         * @return the navigation rank of this view
+         */
         @AttributeDefinition()
         int rank() default 6000;
     }
 
     @Reference
+    /** the platform configuration used to resolve files and their original resources */
     private PlatformConfig platformConfig;
 
     @Reference
+    /** the browser plugin this view belongs to */
     private Browser browser;
 
+    /** the bundle context this view was activated with */
     protected BundleContext bundleContext;
+    /** the current OSGi configuration */
     protected Config config;
 
+    /**
+     * Activates or reconfigures this view and attaches it to the browser.
+     *
+     * @param bundleContext the bundle context of this component
+     * @param config        the current OSGi configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {
@@ -86,6 +120,7 @@ public class DisplayView extends AbstractView {
         browser.views().attach(this);
     }
 
+    /** Detaches this view from the browser. */
     @Deactivate
     protected void deactivate() {
         browser.views().detach(this);
@@ -96,6 +131,11 @@ public class DisplayView extends AbstractView {
         return browser;
     }
 
+    /**
+     * The platform configuration.
+     *
+     * @return the platform configuration
+     */
     public PlatformConfig platformConfig() {
         return platformConfig;
     }
@@ -176,6 +216,7 @@ public class DisplayView extends AbstractView {
         return result;
     }
 
+    /** the template factories of this view by template key */
     public final Map<String, Factory> templates = Map.of(
             "view", current ->
                     new Template("/sling/browser/view/properties/properties.html",
@@ -190,13 +231,47 @@ public class DisplayView extends AbstractView {
 
     }
 
+    /**
+     * Provides the (empty) form of this view.
+     *
+     * @param request  the current request
+     * @param response the current response
+     * @return an 'OK' result
+     */
     protected Result<?> params(@NotNull final SlingHttpServletRequest request,
                                @NotNull final SlingHttpServletResponse response) {
         return new Result<>(SC_OK);
     }
 
-    protected enum Type {PREVIEW, TEXT, CODE, IMAGE, VIDEO, DOCUMENT, BINARY, UNKNOWN}
+    /** The kinds of content a resource is displayed as. */
+    protected enum Type {
+        /** a rendered preview of the resource itself */
+        PREVIEW,
+        /** plain text content */
+        TEXT,
+        /** source code or markup content */
+        CODE,
+        /** an image */
+        IMAGE,
+        /** a video */
+        VIDEO,
+        /** a document opened in the browser (e.g. PDF, JSON) */
+        DOCUMENT,
+        /** binary content without a specific display */
+        BINARY,
+        /** the display type cannot be determined */
+        UNKNOWN
+    }
 
+    /**
+     * Renders the display template of the given type.
+     *
+     * @param ignoredRequest the current request (not used)
+     * @param response       the current response
+     * @param type            the display type selecting the template
+     * @param values          the values for the template
+     * @return the rendered template, or {@code null} if the template cannot be read
+     */
     protected Result<?> preview(@NotNull final SlingHttpServletRequest ignoredRequest,
                                 @NotNull final SlingHttpServletResponse response,
                                 @NotNull final Type type, @NotNull final Values values) {
@@ -209,6 +284,13 @@ public class DisplayView extends AbstractView {
         return null;
     }
 
+    /**
+     * The URI path of the target resource of the given resource, optionally with an extension.
+     *
+     * @param resource  the resource to show
+     * @param extension the extension to append, can be blank
+     * @return the path of the target resource with the extension
+     */
     protected @NotNull String getTargetUri(@NotNull Resource resource, @Nullable String extension) {
         resource = getTargetResource(resource);
         StringBuilder result = new StringBuilder();
@@ -219,6 +301,12 @@ public class DisplayView extends AbstractView {
         return result.toString();
     }
 
+    /**
+     * The resource to display; the parent for a 'jcr:content' resource, otherwise the resource itself.
+     *
+     * @param resource the requested resource
+     * @return the resource to display
+     */
     protected @NotNull Resource getTargetResource(@NotNull Resource resource) {
         if (JCR_CONTENT.equals(resource.getName())) {
             resource = Optional.ofNullable(resource.getParent()).orElse(resource);
@@ -226,6 +314,12 @@ public class DisplayView extends AbstractView {
         return resource;
     }
 
+    /**
+     * The content stream of the original of the resource as UTF-8 text.
+     *
+     * @param resource the resource
+     * @return the content reader, or {@code null} if there is no content
+     */
     protected @Nullable Reader getContent(@NotNull Resource resource) {
         return Optional.ofNullable(platformConfig().originalOf(resource))
                 .map(r -> r.getValueMap().get(JCR_DATA, InputStream.class))
@@ -233,6 +327,12 @@ public class DisplayView extends AbstractView {
                 .orElse(null);
     }
 
+    /**
+     * Determines how a resource is displayed, by file type (MIME type or extension) or resource type.
+     *
+     * @param resource the resource
+     * @return the display type
+     */
     protected @NotNull Type getDisplayType(@NotNull final Resource resource) {
         final String primaryType = resource.getValueMap().get(JCR_PRIMARY_TYPE, "");
 
@@ -270,6 +370,12 @@ public class DisplayView extends AbstractView {
         return Type.UNKNOWN;
     }
 
+    /**
+     * The 'sling:resourceType' of the resource or of its 'jcr:content' child.
+     *
+     * @param resource the resource
+     * @return the resource type, or {@code null} if there is none
+     */
     protected @Nullable String getResourceType(@NotNull Resource resource) {
         final ValueMap values = resource.getValueMap();
         String resourceType = values.get(SLING_RESOURCE_TYPE, String.class);
@@ -282,6 +388,12 @@ public class DisplayView extends AbstractView {
         return resourceType;
     }
 
+    /**
+     * The MIME type of the resource or of its original.
+     *
+     * @param resource the resource
+     * @return the MIME type, or {@code null} if there is none
+     */
     protected @Nullable String getMimeType(@NotNull Resource resource) {
         String mimeType = resource.getValueMap().get(JCR_MIME_TYPE, String.class);
         if (StringUtils.isBlank(mimeType)) {
@@ -293,6 +405,12 @@ public class DisplayView extends AbstractView {
         return mimeType;
     }
 
+    /**
+     * The file name extension of the resource (or of the parent of a 'jcr:content' resource).
+     *
+     * @param resource the resource
+     * @return the extension, or {@code null} if there is no resource
+     */
     protected @Nullable String getExtension(@NotNull Resource resource) {
         if (JCR_CONTENT.equals(resource.getName())) {
             resource = resource.getParent();
@@ -300,6 +418,7 @@ public class DisplayView extends AbstractView {
         return resource != null ? StringUtils.substringAfterLast(resource.getName(), ".") : null;
     }
 
+    /** the display types by MIME type, MIME main type, MIME subtype and file name extension */
     protected static final Map<String, Type> TYPETABLE = new HashMap<>() {{
         put("application/pdf", Type.DOCUMENT);
         put("pdf", Type.DOCUMENT);
@@ -389,6 +508,13 @@ public class DisplayView extends AbstractView {
         put("sql", Type.CODE);
     }};
 
+    /**
+     * Opens the binary content of the requested resource for delivery.
+     *
+     * @param request  the current request
+     * @param mimeType the content type to deliver, or {@code null} to use the 'jcr:mimeType' of the content
+     * @return the content stream result, or 'Not Found' if there is no content
+     */
     protected Result<InputStream> openContent(@NotNull final SlingHttpServletRequest request,
                                               @Nullable final String mimeType) {
         Result<InputStream> result = new Result<>(SC_NOT_FOUND);

@@ -2,6 +2,7 @@ package com.composum.sling.tools;
 
 import org.jetbrains.annotations.NotNull;
 
+/** A plugin of the tools application, registered under a key and shown in the navigation. */
 public interface Plugin extends Processor {
 
     /**

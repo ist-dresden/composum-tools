@@ -59,32 +59,76 @@ import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 
+/**
+ * The browser tool to execute JCR queries (SQL2, XPath or full text) and to present or export the hits.
+ */
 @Component(service = {Tool.class, Query.class}, immediate = true)
 @Designate(ocd = Query.Config.class)
 public class Query extends AbstractTool {
 
+    /** The key of this tool. */
     public static final String KEY = "query";
 
+    /** The content type of the CSV export. */
     protected static final String CSV_TYPE = "text/csv;charset=utf-8";
 
+    /**
+     * Default constructor.
+     */
+    public Query() {
+    }
+
+    /**
+     * The OSGi configuration of the query tool.
+     */
     @ObjectClassDefinition(name = "Composum Browser Query Tool")
     public @interface Config {
 
+        /**
+         * The key of the tool.
+         *
+         * @return the tool key
+         */
         @AttributeDefinition()
         String key() default Query.KEY;
 
+        /**
+         * The label of the tool.
+         *
+         * @return the tool label
+         */
         @AttributeDefinition()
         String label() default "Query";
 
+        /**
+         * The icon of the tool.
+         *
+         * @return the tool icon
+         */
         @AttributeDefinition()
         String icon() default "search";
 
+        /**
+         * The rank of the tool.
+         *
+         * @return the tool rank
+         */
         @AttributeDefinition()
         int rank() default 3000;
 
+        /**
+         * The maximum number of hits presented for a query.
+         *
+         * @return the maximum number of hits
+         */
         @AttributeDefinition()
         int maxResults() default 500;
 
+        /**
+         * The maximum number of entries kept in the query history.
+         *
+         * @return the maximum history size
+         */
         @AttributeDefinition()
         int historyMax() default 20;
     }
@@ -95,11 +139,20 @@ public class Query extends AbstractTool {
         browser = service;
     }
 
+    /** The bundle context of this component. */
     protected BundleContext bundleContext;
+    /** The current configuration. */
     protected Config config;
 
+    /** The CSV export columns with their candidate property names (in configured order). */
     protected final Map<String, List<String>> csvProperties = new LinkedHashMap<>();
 
+    /**
+     * Reads the configuration, parses the CSV column rules and attaches this tool to the browser.
+     *
+     * @param bundleContext the bundle context
+     * @param config        the component configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {
@@ -118,6 +171,9 @@ public class Query extends AbstractTool {
         browser.tools().attach(this);
     }
 
+    /**
+     * Detaches this tool from the browser.
+     */
     @Deactivate
     protected void deactivate() {
         browser.tools().detach(this);
@@ -255,6 +311,7 @@ public class Query extends AbstractTool {
         return result;
     }
 
+    /** The template factories of this tool by key. */
     public final Map<String, Factory> templates = Map.of(
             "tool", current ->
                     new Template("/sling/browser/tool/query/query.html", new TemplateContext(current, new Values()
@@ -294,6 +351,13 @@ public class Query extends AbstractTool {
         return Collections.singletonList("/sling/browser/tool/query/script.js");
     }
 
+    /**
+     * Builds the query expression from the 'query' request parameter, replacing the placeholders
+     * '${path}' (request suffix) and '${1}' to '${3}' (request parameters 'arg1' to 'arg3').
+     *
+     * @param request the current request
+     * @return the query expression
+     */
     protected String buildQuery(@NotNull final SlingHttpServletRequest request) {
         String pattern = StringUtils.defaultString(request.getParameter("query"), "");
         try {
@@ -312,6 +376,8 @@ public class Query extends AbstractTool {
     /**
      * builds the CSV header line from the configured {@link #csvProperties} columns (in their
      * configured order), CSV-escaped like any other cell.
+     *
+     * @return the CSV header line
      */
     protected @NotNull String csvHeader() {
         final StringBuilder row = new StringBuilder();
@@ -334,6 +400,11 @@ public class Query extends AbstractTool {
      * 'properties' - which for a resource with a 'jcr:content' child holds the content node's
      * properties (e.g. 'cq:PageContent'), whereas the type column is meant to show the resource's
      * own type (e.g. 'cq:Page').
+     *
+     * @param path       the path of the hit
+     * @param resource   the resource of the hit
+     * @param properties the properties of the hit
+     * @return the CSV line of the hit
      */
     protected @NotNull String csvRow(@NotNull final String path, @NotNull final Resource resource,
                                      @NotNull final Map<String, Object> properties) {
@@ -351,6 +422,14 @@ public class Query extends AbstractTool {
         return row.append("\n").toString();
     }
 
+    /**
+     * Determines the value of a CSV cell from the first candidate property which is present.
+     *
+     * @param candidates the candidate property names in order of precedence
+     * @param resource   the resource of the hit
+     * @param properties the properties of the hit
+     * @return the value found, or {@code null} if none of the candidates is present
+     */
     protected @Nullable Object csvValue(@NotNull final List<String> candidates, @NotNull final Resource resource,
                                         @NotNull final Map<String, Object> properties) {
         for (final String candidate : candidates) {
@@ -364,6 +443,12 @@ public class Query extends AbstractTool {
         return null;
     }
 
+    /**
+     * Converts a value to a CSV cell, quoting it if necessary.
+     *
+     * @param value the cell value
+     * @return the CSV cell
+     */
     protected @NotNull String csvCell(@Nullable final Object value) {
         final String string = csvString(value);
         if (string.indexOf(',') >= 0 || string.indexOf('"') >= 0
@@ -373,6 +458,13 @@ public class Query extends AbstractTool {
         return string;
     }
 
+    /**
+     * Converts a value to its string representation for a CSV cell (array values are joined by '; ',
+     * dates are formatted as HTML dates and binary values are rendered as empty strings).
+     *
+     * @param value the value
+     * @return the string representation of the value
+     */
     protected @NotNull String csvString(@Nullable final Object value) {
         if (value == null) {
             return "";
@@ -396,6 +488,10 @@ public class Query extends AbstractTool {
         return value.toString();
     }
 
+    /**
+     * An iterator over the template values of the query hits; hits which are not allowed to be
+     * accessed are skipped and the number of hits can be limited.
+     */
     protected class HitIterator implements Iterator<Values> {
 
         private final Iterator<Resource> iterator;
@@ -404,15 +500,31 @@ public class Query extends AbstractTool {
 
         private transient Resource next;
 
+        /**
+         * Creates the iterator.
+         *
+         * @param iterator   the iterator over the found resources
+         * @param maxResults the maximum number of hits to iterate, {@code null} for no limit
+         */
         public HitIterator(@NotNull final Iterator<Resource> iterator, Integer maxResults) {
             this.iterator = iterator;
             this.maxResults = maxResults;
         }
 
+        /**
+         * Returns the number of hits delivered so far.
+         *
+         * @return the number of hits
+         */
         public int getCount() {
             return count;
         }
 
+        /**
+         * Tells whether the underlying iterator has further resources.
+         *
+         * @return 'true' if there are more resources (e.g. after the limit has been reached)
+         */
         public boolean hasMore() {
             return iterator.hasNext();
         }
@@ -455,6 +567,12 @@ public class Query extends AbstractTool {
         }
     }
 
+    /**
+     * Collects the properties of a hit, taken from its content child if there is one.
+     *
+     * @param resource the resource of the hit
+     * @return the properties of the hit
+     */
     protected @NotNull Map<String, Object> hitProperties(@NotNull final Resource resource) {
         final Resource content = resource.getName().equals(JCR_CONTENT) ? resource
                 : Optional.ofNullable(resource.getChild(JCR_CONTENT)).orElse(resource);
@@ -464,6 +582,10 @@ public class Query extends AbstractTool {
     /**
      * for the extended AEM implementation,
      *  TODO: provision of extended AEM Query implementation, should be empty here, extension point only
+     *
+     * @param resource   the content resource of the hit
+     * @param properties the properties collected so far
+     * @return the extended properties
      */
     protected @NotNull Map<String, Object> extendHitProperties(@NotNull final Resource resource,
                                                                @NotNull final Map<String, Object> properties) {

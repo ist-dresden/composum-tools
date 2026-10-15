@@ -19,6 +19,7 @@ public class AuthorizableRef {
 
     /** the authorizable id, or 'null' for a plain intermediate folder (folders have no id) */
     protected final String id;
+    /** the authorizable's (or folder's) JCR path */
     protected final String path;
     /** 'folder', 'user', 'system-user', or 'group' */
     protected final String type;
@@ -28,6 +29,14 @@ public class AuthorizableRef {
      * the (server-rendered, no per-type branching primitive) list templates don't need one */
     protected final String icon;
 
+    /**
+     * Creates a reference to an authorizable or an intermediate folder.
+     *
+     * @param id    the authorizable id, or 'null' for a plain folder
+     * @param path  the JCR path
+     * @param type  'folder', 'user', 'system-user', or 'group'
+     * @param label the display label
+     */
     public AuthorizableRef(@Nullable final String id, @NotNull final String path, @NotNull final String type,
                            @NotNull final String label) {
         this.id = id;
@@ -39,7 +48,11 @@ public class AuthorizableRef {
 
     /** the same 'user'/'system-user'/'group'/'folder' -> Bootstrap-Icons-name mapping the tree
      * itself uses - public so other authorizable-referencing DTOs (e.g. {@code AffectedPathEntry})
-     * can reuse it instead of duplicating the switch */
+     * can reuse it instead of duplicating the switch
+     *
+     * @param type 'folder', 'user', 'system-user', or 'group'
+     * @return the Bootstrap Icons name (without the 'bi-' prefix) for that type
+     */
     public static @NotNull String iconOf(@NotNull final String type) {
         switch (type) {
             case "user":

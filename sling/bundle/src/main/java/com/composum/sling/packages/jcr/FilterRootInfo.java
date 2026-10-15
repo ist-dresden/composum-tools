@@ -16,7 +16,16 @@ import lombok.Setter;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class FilterRootInfo {
 
+    /** the filter root path */
     protected String root;
+    /** the import mode of the filter root */
     protected String importMode;
+    /** the include/exclude rules, one '+ pattern' / '- pattern' line per rule */
     protected String rulesText;
+
+    /**
+     * Default constructor.
+     */
+    public FilterRootInfo() {
+    }
 }

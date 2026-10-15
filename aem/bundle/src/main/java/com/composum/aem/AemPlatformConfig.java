@@ -53,6 +53,10 @@ import static com.composum.aem.AemCommon.SLING_FOLDER;
 @Designate(ocd = AemPlatformConfig.Config.class)
 public class AemPlatformConfig extends DefaultPlatformConfig {
 
+    /** Default constructor. */
+    public AemPlatformConfig() {
+    }
+
     /** the AEM navigation console entry path guarding access to the tools */
     public static final String AEM_TOOLS_ENTRY = "/apps/cq/core/content/nav/tools/general/composum";
 
@@ -63,12 +67,16 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
     public @interface Config {
 
         /**
+         * The resource path whose accessibility is checked to determine if the tools are allowed.
+         *
          * @return the resource path for checking the right to access the tools
          */
         @AttributeDefinition()
         String guardNode();
 
         /**
+         * The resource types treated as binary/file-like.
+         *
          * @return the resource types treated as binary/file-like
          */
         @AttributeDefinition()
@@ -81,6 +89,8 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
         };
 
         /**
+         * The primary node types suggested while editing jcr:primaryType.
+         *
          * @return the primary node type names offered as jcr:primaryType autocomplete suggestions
          * (see {@link PlatformConfig#primaryTypes()})
          */
@@ -104,6 +114,8 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
         };
 
         /**
+         * The mixin node types suggested while editing jcr:mixinTypes.
+         *
          * @return the mixin node type names offered as jcr:mixinTypes autocomplete suggestions
          * (see {@link PlatformConfig#mixinTypes()})
          */
@@ -122,6 +134,8 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
         };
 
         /**
+         * The service ranking of this platform config.
+         *
          * @return this platform config's service ranking
          */
         @AttributeDefinition()
@@ -134,6 +148,8 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
     }
 
     /**
+     * Applies the given configuration.
+     *
      * @param config the current OSGi configuration
      */
     @Activate

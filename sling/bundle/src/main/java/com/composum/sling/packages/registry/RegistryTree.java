@@ -37,6 +37,11 @@ public class RegistryTree {
 
     private final Node root = new Node("/", "Packages", "root");
 
+    /**
+     * Builds the tree from the given package ids.
+     *
+     * @param packageIds the ids of all registered packages
+     */
     public RegistryTree(@NotNull final Set<PackageId> packageIds) {
         for (final PackageId id : packageIds) {
             final String group = StringUtils.defaultString(id.getGroup());

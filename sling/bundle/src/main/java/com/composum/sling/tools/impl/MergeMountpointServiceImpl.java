@@ -18,8 +18,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+/** Default {@link MergeMountpointService} implementation determining the mount points from the registered merging resource providers. */
 @Component(service = MergeMountpointService.class)
 public class MergeMountpointServiceImpl implements MergeMountpointService {
+
+    /** Default constructor. */
+    public MergeMountpointServiceImpl() {
+    }
 
     private static final Logger LOG = LoggerFactory.getLogger(MergeMountpointServiceImpl.class);
 
@@ -28,6 +33,12 @@ public class MergeMountpointServiceImpl implements MergeMountpointService {
     private volatile String overrideMountPoint;
     private volatile String overlayMountPoint;
 
+    /**
+     * Determines the merge mount points from the registered merging resource providers.
+     *
+     * @param bundleContext the bundle context of this component
+     * @throws InvalidSyntaxException if the provider service filter is invalid
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext) throws InvalidSyntaxException {

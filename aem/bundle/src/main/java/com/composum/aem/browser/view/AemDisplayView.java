@@ -34,6 +34,7 @@ import static com.composum.aem.AemCommon.HTML_TYPE;
 @Designate(ocd = AemDisplayView.Config.class)
 public class AemDisplayView extends DisplayView {
 
+    /** Default constructor. */
     public AemDisplayView() {
     }
 
@@ -44,18 +45,24 @@ public class AemDisplayView extends DisplayView {
     public @interface Config {
 
         /**
+         * The selector key of this view.
+         *
          * @return this view's selector key
          */
         @AttributeDefinition()
         String key() default DisplayView.KEY;
 
         /**
+         * The tab label of this view.
+         *
          * @return this view's tab label
          */
         @AttributeDefinition()
         String label() default "Preview";
 
         /**
+         * The navigation rank of this view.
+         *
          * @return this view's navigation rank
          */
         @AttributeDefinition()
@@ -73,6 +80,8 @@ public class AemDisplayView extends DisplayView {
     protected Config config;
 
     /**
+     * Applies the given configuration and attaches this view to the browser.
+     *
      * @param bundleContext the bundle context of this component
      * @param config        the current OSGi configuration
      */

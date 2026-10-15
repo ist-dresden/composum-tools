@@ -170,9 +170,12 @@ public class TemplateReader extends Reader {
         public final String value;
         /** the (unparsed) format/template text following an unquoted ';', or 'null' if none is given */
         public final String format;
+        /** the original, unparsed key text */
         protected final String key;
 
         /**
+         * Parses the given placeholder key.
+         *
          * @param key the raw, still unparsed placeholder key text (without the surrounding '${' and '}')
          */
         public Key(String key) {
@@ -220,22 +223,38 @@ public class TemplateReader extends Reader {
      */
     protected static class Buffer {
 
+        /** Default constructor. */
+        protected Buffer() {
+        }
+
         private final char[] buf = new char[BUFSIZE + STR_MAX]; // reserve place for values (max length: STR_MAX)
         private int off = 0;
         private int len = 0;
 
-        /** appends a single character */
+        /**
+         * appends a single character
+         *
+         * @param token the character to append
+         */
         protected void write(int token) {
             buf[len++] = (char) token;
         }
 
-        /** appends a string; caution: the caller must ensure the string is shorter than {@link #STR_MAX} */
+        /**
+         * appends a string; caution: the caller must ensure the string is shorter than {@link #STR_MAX}
+         *
+         * @param text the string to append
+         */
         protected void write(String text) {
             text.getChars(0, text.length(), buf, len);
             len += text.length();
         }
 
-        /** the number of characters currently buffered (written but not yet consumed) */
+        /**
+         * the number of characters currently buffered (written but not yet consumed)
+         *
+         * @return the number of buffered characters
+         */
         protected int len() {
             return len;
         }
@@ -251,6 +270,9 @@ public class TemplateReader extends Reader {
         /**
          * consumes up to 'len' buffered characters into 'cbuf' starting at 'off'
          *
+         * @param cbuf the target array
+         * @param off  the position in the target array to start writing at
+         * @param len  the maximum number of characters to copy
          * @return the number of characters actually copied
          */
         protected int copy(char[] cbuf, int off, int len) {
@@ -653,16 +675,21 @@ public class TemplateReader extends Reader {
         protected final String itemKey;
         /** the context value name the current element's zero-based position is bound to */
         protected final String indexKey;
+        /** the context value name the flag marking the first element is bound to */
         protected final String firstKey;
         /** the resolved 'template' argument (path or inline string), or 'null' if it could not be resolved */
         protected final String pathOrExpression;
         /** the iterator over the underlying value's elements */
         protected final Iterator<?> iterator;
 
+        /** the value object of the current element */
         protected Object currentItem;
+        /** the zero-based position of the current element, -1 before the first one */
         protected int currentIndex = -1;
 
         /**
+         * Creates an iterator over the elements of the given value.
+         *
          * @param key   the parsed 'each'/'each.name' placeholder key
          * @param value the value to iterate - an Iterator, Iterable, array or Map
          */

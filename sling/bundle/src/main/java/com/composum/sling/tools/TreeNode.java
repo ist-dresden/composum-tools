@@ -34,29 +34,51 @@ import static com.composum.sling.tools.Common.NT_UNSTRUCTURED;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TreeNode {
 
+    /** The loading state of a tree node. */
     @Getter
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class State {
+        /** if {@code true} the children of the node are included */
         protected boolean loaded;
 
+        /**
+         * Creates a state.
+         *
+         * @param loaded if {@code true} the children of the node are included
+         */
         public State(boolean loaded) {
             this.loaded = loaded;
         }
     }
 
+    /** the node id (the resource path) */
     protected String id;
+    /** the resource name */
     protected String name;
+    /** the resource path */
     protected String path;
 
+    /** the node text (the resource name) */
     protected String text;
+    /** the type key used to select the node's icon and style */
     protected String type;
+    /** the Sling resource type of the resource */
     protected String resourceType;
 
+    /** the child nodes; {@code null} if not loaded or without children */
     protected Collection<TreeNode> children;
 
+    /** the loading state of the node */
     protected State state;
 
+    /**
+     * Creates a node for a resource.
+     *
+     * @param manager  the manager providing the access rules
+     * @param resource the resource to represent
+     * @param state    the node state; the children are included if it is {@code null} or loaded
+     */
     public TreeNode(@NotNull final Manager manager, @NotNull final Resource resource,
                     @Nullable final State state) {
         path = resource.getPath();
@@ -74,28 +96,53 @@ public class TreeNode {
         this.state = state;
     }
 
+    /**
+     * Creates a node for a path without a resource.
+     *
+     * @param path the path of the node
+     */
     public TreeNode(@NotNull final String path) {
         this.path = path;
         name = StringUtils.substringAfterLast(StringUtils.defaultIfBlank(path, ""), "/");
     }
 
+    /** the names of the children always placed first */
     public static final List<String> FIRST_CHILDREN = List.of(JCR_CONTENT, AC_POLICY);
 
+    /** the comparator ordering the children of sortable nodes */
     protected static final ChildComparator CHILD_COMPARATOR = new ChildComparator();
 
+    /** Orders child names with the {@link #FIRST_CHILDREN} first. */
     protected static class ChildComparator implements Comparator<String> {
+
+        /** Default constructor. */
+        protected ChildComparator() {
+        }
 
         @Override
         public int compare(String name1, String name2) {
             return key(name1).compareTo(key(name2));
         }
 
+        /**
+         * Builds the sort key of a child name.
+         *
+         * @param name the child name
+         * @return the sort key
+         */
         protected String key(String name) {
             final int position = FIRST_CHILDREN.indexOf(name);
             return (position < 0 ? FIRST_CHILDREN.size() : position) + "::" + name;
         }
     }
 
+    /**
+     * Builds the child nodes of a resource.
+     *
+     * @param manager  the manager providing the access rules
+     * @param resource the resource
+     * @return the allowed children; {@code null} if the resource has no children
+     */
     protected Collection<TreeNode> getChildren(@NotNull final Manager manager, @NotNull final Resource resource) {
         if (resource.hasChildren()) {
             final String primaryType = resource.getValueMap().get(JCR_PRIMARY_TYPE, NT_UNSTRUCTURED);
@@ -122,6 +169,12 @@ public class TreeNode {
         return null;
     }
 
+    /**
+     * Determines the type key of a resource from its primary type, file MIME type or resource type.
+     *
+     * @param resource the resource
+     * @return the type key
+     */
     public static String getTypeKey(Resource resource) {
         String type = getPrimaryTypeKey(resource);
         if ("file".equals(type)) {
@@ -134,6 +187,12 @@ public class TreeNode {
         return type;
     }
 
+    /**
+     * Determines the type key from the primary type without namespace in lower case.
+     *
+     * @param resource the resource
+     * @return the type key
+     */
     public static String getPrimaryTypeKey(Resource resource) {
         String type = resource.getValueMap().get(JCR_PRIMARY_TYPE, NT_UNSTRUCTURED);
         if (StringUtils.isNotBlank(type)) {
@@ -146,6 +205,13 @@ public class TreeNode {
         return type;
     }
 
+    /**
+     * Determines the type key from the last segment of the resource type, if it differs from the primary type.
+     *
+     * @param resource the resource
+     * @param prefix   the prefix for the key; can be blank
+     * @return the type key; {@code null} if there is no distinct resource type
+     */
     public static String getResourceTypeKey(Resource resource, String prefix) {
         String primaryType = resource.getValueMap().get(JCR_PRIMARY_TYPE, NT_UNSTRUCTURED);
         String type = null;
@@ -168,6 +234,13 @@ public class TreeNode {
         return type;
     }
 
+    /**
+     * Determines the type key of a file from the MIME type of its content.
+     *
+     * @param resource the file resource
+     * @param prefix   the prefix for the key; can be blank
+     * @return the type key; {@code null} if there is no content with a MIME type
+     */
     public static String getFileTypeKey(Resource resource, String prefix) {
         String type = null;
         Resource content = resource.getChild(JCR_CONTENT);
@@ -177,6 +250,13 @@ public class TreeNode {
         return type;
     }
 
+    /**
+     * Determines the type key from the MIME type of a resource.
+     *
+     * @param resource the resource holding the MIME type property
+     * @param prefix   the prefix for the key; can be blank
+     * @return the type key; {@code null} if there is no MIME type
+     */
     public static String getMimeTypeKey(Resource resource, String prefix) {
         String type = null;
         String mimeType = resource.getValueMap().get(JCR_MIME_TYPE, String.class);
@@ -189,6 +269,12 @@ public class TreeNode {
         return type;
     }
 
+    /**
+     * Determines the type key of a MIME type.
+     *
+     * @param mimeType the MIME type
+     * @return the type key in lower case
+     */
     @NotNull
     public static String getMimeTypeKey(String mimeType) {
         String major = mimeType;

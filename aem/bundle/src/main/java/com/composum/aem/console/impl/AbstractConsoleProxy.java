@@ -686,6 +686,8 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
         protected final Deque<Boolean> suppressed = new ArrayDeque<>();
 
         /**
+         * Creates a filter that drops the synthetic wrapper elements.
+         *
          * @param target the content handler to forward the (unwrapped) SAX events to
          */
         public FragmentFilter(@NotNull final ContentHandler target) {
@@ -723,6 +725,8 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
         }
 
         /**
+         * Checks whether the given element is a synthetic wrapper element.
+         *
          * @param qName the element's qualified name
          * @return whether the element is a synthetic {@code <html>}/{@code <head>}/{@code <body>} wrapper
          */
@@ -748,6 +752,8 @@ public abstract class AbstractConsoleProxy implements ConsoleProxy {
         protected final Deque<Boolean> excluded = new ArrayDeque<>();
 
         /**
+         * Creates a filter that drops the excluded elements.
+         *
          * @param target the content handler to forward the (filtered) SAX events to
          */
         public ExclusionFilter(@NotNull final ContentHandler target) {

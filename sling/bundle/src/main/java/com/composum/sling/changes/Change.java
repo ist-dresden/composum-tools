@@ -23,6 +23,8 @@ public class Change {
     private final Calendar time;
 
     /**
+     * Creates a change log entry, stamped with the current time.
+     *
      * @param action a short human label, e.g. "Created", "Deleted", "Moved", "Copied", "Changed"
      * @param path   the affected resource's path
      * @param detail additional detail, e.g. the destination path for a move/copy, or
@@ -35,18 +37,38 @@ public class Change {
         this.time = Calendar.getInstance();
     }
 
+    /**
+     * The short human label of what was done.
+     *
+     * @return e.g. "Created", "Deleted", "Moved", "Copied", "Changed"
+     */
     public @NotNull String getAction() {
         return action;
     }
 
+    /**
+     * The affected resource's path.
+     *
+     * @return the affected resource's path
+     */
     public @NotNull String getPath() {
         return path;
     }
 
+    /**
+     * The additional detail of this change.
+     *
+     * @return the additional detail (e.g. a destination path), or 'null' if there is none
+     */
     public @Nullable String getDetail() {
         return detail;
     }
 
+    /**
+     * The time this change was made, formatted for display.
+     *
+     * @return the time of this change as 'HH:mm:ss'
+     */
     public @NotNull String getTime() {
         return new SimpleDateFormat(TIME_FORMAT).format(time.getTime());
     }

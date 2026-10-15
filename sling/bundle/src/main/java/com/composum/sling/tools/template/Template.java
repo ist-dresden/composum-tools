@@ -22,6 +22,8 @@ public class Template {
     protected final TemplateBuilder builder;
 
     /**
+     * Creates a template identification.
+     *
      * @param path    the resource path this template was loaded from, or an informational value
      *                for a template not backed by a resource (e.g. an inline template string)
      * @param context the context to render this template against

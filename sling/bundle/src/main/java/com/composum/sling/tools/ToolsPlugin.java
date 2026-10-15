@@ -45,6 +45,14 @@ public interface ToolsPlugin extends Plugin {
                                     @NotNull SlingHttpServletResponse response,
                                     @NotNull String widgetKey);
 
+    /**
+     * The link target (e.g. the window name) to open the detail view link of the given widget in; 'null' (the default) if there is no specific target.
+     *
+     * @param request   the current request
+     * @param response  the current response
+     * @param widgetKey the key of the widget to build a link target for
+     * @return the target of the detail view link, or 'null'
+     */
     default @Nullable String widgetViewTarget(@NotNull SlingHttpServletRequest request,
                                               @NotNull SlingHttpServletResponse response,
                                               @NotNull String widgetKey) {

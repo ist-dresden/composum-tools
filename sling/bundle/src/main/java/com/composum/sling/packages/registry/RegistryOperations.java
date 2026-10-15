@@ -50,6 +50,11 @@ public class RegistryOperations {
 
     private final List<PackageRegistry> registries;
 
+    /**
+     * Creates the operations for the given registries.
+     *
+     * @param registries the bound package registries, merged into one view
+     */
     public RegistryOperations(@NotNull final List<PackageRegistry> registries) {
         this.registries = registries;
     }
@@ -58,6 +63,7 @@ public class RegistryOperations {
      * Parses a leaf tree path (see {@link RegistryTree}, '/' + {@link PackageId#toString()}) back
      * into the {@link PackageId} it identifies.
      *
+     * @param path the leaf tree path
      * @return the parsed id, or 'null' if the path is not a valid package id
      */
     public static @Nullable PackageId packageId(@NotNull final String path) {
@@ -72,6 +78,12 @@ public class RegistryOperations {
         }
     }
 
+    /**
+     * Lists the ids of all packages of all registries.
+     *
+     * @return the sorted set of all package ids
+     * @throws IOException if a registry cannot be read
+     */
     public @NotNull Set<PackageId> packages() throws IOException {
         final Set<PackageId> all = new TreeSet<>();
         for (final PackageRegistry registry : registries) {
@@ -89,11 +101,25 @@ public class RegistryOperations {
         return null;
     }
 
+    /**
+     * Opens the package with the given id.
+     *
+     * @param id the package id
+     * @return the package, or 'null' if no registry contains it
+     * @throws IOException if the registry cannot be read
+     */
     public @Nullable RegisteredPackage open(@NotNull final PackageId id) throws IOException {
         final PackageRegistry registry = registryOf(id);
         return registry != null ? registry.open(id) : null;
     }
 
+    /**
+     * Collects the detail data of a registered package.
+     *
+     * @param pkg the package
+     * @return the package info
+     * @throws IOException if the package cannot be read
+     */
     public @NotNull RegistryInfo info(@NotNull final RegisteredPackage pkg) throws IOException {
         final PackageId id = pkg.getId();
         final RegistryInfo info = new RegistryInfo();
@@ -123,6 +149,13 @@ public class RegistryOperations {
         return info;
     }
 
+    /**
+     * Provides the package file as a download.
+     *
+     * @param pkg the package
+     * @return the download result, a 'not found' result if the package file is not available
+     * @throws IOException if the package cannot be read
+     */
     public @NotNull Result<InputStream> download(@NotNull final RegisteredPackage pkg) throws IOException {
         final VaultPackage vaultPackage = pkg.getPackage();
         final File file = vaultPackage.getFile();
@@ -141,6 +174,12 @@ public class RegistryOperations {
         return result;
     }
 
+    /**
+     * Removes the package with the given id from its registry (if present).
+     *
+     * @param id the package id
+     * @throws IOException if the registry cannot be accessed
+     */
     public void remove(@NotNull final PackageId id) throws IOException {
         final PackageRegistry registry = registryOf(id);
         if (registry != null) {
@@ -151,11 +190,29 @@ public class RegistryOperations {
         }
     }
 
+    /**
+     * Installs the package with the given id.
+     *
+     * @param session the session to install with
+     * @param id      the package id
+     * @return the log of the operation
+     * @throws IOException      if the registry cannot be accessed
+     * @throws PackageException if the execution plan is invalid or fails
+     */
     public @NotNull JcrPackageOperations.OperationLog install(@NotNull final Session session, @NotNull final PackageId id)
             throws IOException, PackageException {
         return execute(session, id, PackageTask.Type.INSTALL);
     }
 
+    /**
+     * Uninstalls the package with the given id.
+     *
+     * @param session the session to uninstall with
+     * @param id      the package id
+     * @return the log of the operation
+     * @throws IOException      if the registry cannot be accessed
+     * @throws PackageException if the execution plan is invalid or fails
+     */
     public @NotNull JcrPackageOperations.OperationLog uninstall(@NotNull final Session session, @NotNull final PackageId id)
             throws IOException, PackageException {
         return execute(session, id, PackageTask.Type.UNINSTALL);

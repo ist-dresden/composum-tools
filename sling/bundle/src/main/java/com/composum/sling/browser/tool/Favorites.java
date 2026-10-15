@@ -37,31 +37,70 @@ import java.util.regex.Pattern;
 import static com.composum.sling.tools.Common.HTML_TYPE;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
+/**
+ * The browser tool which presents the favorite and recently used resources in groups.
+ */
 @Component(service = {Tool.class, Favorites.class}, immediate = true)
 @Designate(ocd = Favorites.Config.class)
 public class Favorites extends AbstractTool {
 
+    /** The key of this tool. */
     public static final String KEY = "favorites";
 
+    /**
+     * Default constructor.
+     */
+    public Favorites() {
+    }
+
+    /**
+     * The OSGi configuration of the favorites tool.
+     */
     @ObjectClassDefinition(name = "Composum Browser Favorites Tool")
     public @interface Config {
 
+        /**
+         * The key of the tool.
+         *
+         * @return the tool key
+         */
         @AttributeDefinition()
         String key() default Favorites.KEY;
 
+        /**
+         * The label of the tool.
+         *
+         * @return the tool label
+         */
         @AttributeDefinition()
         String label() default "Favorites";
 
+        /**
+         * The icon of the tool.
+         *
+         * @return the tool icon
+         */
         @AttributeDefinition()
         String icon() default "star";
 
+        /**
+         * The rank of the tool.
+         *
+         * @return the tool rank
+         */
         @AttributeDefinition()
         int rank() default 6000;
 
+        /**
+         * The maximum number of entries kept in the history.
+         *
+         * @return the maximum history size
+         */
         @AttributeDefinition()
         int historyMax() default 100;
     }
 
+    /** Matches a favorite group rule of the form 'label=pattern'. */
     public static final Pattern GROUP_PATTERN = Pattern.compile("^(?<label>[^=]+)=(?<pattern>.+)$");
 
     /** the browser this plugin is registered with */
@@ -70,11 +109,20 @@ public class Favorites extends AbstractTool {
         browser = service;
     }
 
+    /** The bundle context of this component. */
     protected BundleContext bundleContext;
+    /** The current configuration. */
     protected Config config;
 
+    /** The values of the configured favorite groups by label. */
     protected Map<String, Values> favoriteGroups = new LinkedHashMap<>();
 
+    /**
+     * Reads the configuration, builds the favorite groups and attaches this tool to the browser.
+     *
+     * @param bundleContext the bundle context
+     * @param config        the component configuration
+     */
     @Activate
     @Modified
     protected void activate(final BundleContext bundleContext, final Config config) {
@@ -100,6 +148,9 @@ public class Favorites extends AbstractTool {
         browser.tools().attach(this);
     }
 
+    /**
+     * Detaches this tool from the browser.
+     */
     @Deactivate
     protected void deactivate() {
         browser.tools().detach(this);
@@ -141,6 +192,7 @@ public class Favorites extends AbstractTool {
         return result;
     }
 
+    /** The template factories of this tool by key. */
     public final Map<String, TemplateBuilder.Factory> templates = Map.of(
             "tool", current ->
                     new Template("/sling/browser/tool/favorites/favorites.html",

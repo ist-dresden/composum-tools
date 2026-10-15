@@ -19,13 +19,22 @@ import java.util.Collection;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class PackageTreeNode {
 
+    /**
+     * The lazy-loading state of a tree node.
+     */
     @Getter
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class State {
 
+        /** whether this node's children are already loaded */
         protected final boolean loaded;
 
+        /**
+         * Creates a state.
+         *
+         * @param loaded whether the node's children are already loaded
+         */
         public State(boolean loaded) {
             this.loaded = loaded;
         }
@@ -35,6 +44,7 @@ public class PackageTreeNode {
     protected final String path;
     /** the node's display name (group segment, package name, or version) */
     protected final String name;
+    /** the label shown for the node (same as the name) */
     protected final String text;
     /** 'root', 'folder' (group or package name), or 'package' (one concrete version) */
     protected final String type;
@@ -43,6 +53,15 @@ public class PackageTreeNode {
     /** 'null' if {@link #children} is already resolved; otherwise marks whether this node has unresolved children */
     protected final State state;
 
+    /**
+     * Creates a tree node.
+     *
+     * @param path     the tree path
+     * @param name     the display name
+     * @param type     the node type ('root', 'folder' or 'package')
+     * @param children the resolved immediate children, or {@code null} if not resolved
+     * @param state    the lazy-loading state, or {@code null} if the children are resolved
+     */
     public PackageTreeNode(@NotNull final String path, @NotNull final String name, @NotNull final String type,
                            @Nullable final Collection<PackageTreeNode> children, @Nullable final State state) {
         this.path = path;

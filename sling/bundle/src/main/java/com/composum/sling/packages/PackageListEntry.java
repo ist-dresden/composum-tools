@@ -16,9 +16,17 @@ import org.jetbrains.annotations.NotNull;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class PackageListEntry {
 
+    /** the display label: the tree node names relative to the listed folder, joined by '/' */
     protected final String label;
+    /** the tree path of the package */
     protected final String path;
 
+    /**
+     * Creates a list entry.
+     *
+     * @param label the display label
+     * @param path  the tree path of the package
+     */
     public PackageListEntry(@NotNull final String label, @NotNull final String path) {
         this.label = label;
         this.path = path;

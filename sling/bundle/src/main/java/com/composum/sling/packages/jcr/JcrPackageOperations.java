@@ -52,14 +52,27 @@ public class JcrPackageOperations {
 
     private static final Logger LOG = LoggerFactory.getLogger(JcrPackageOperations.class);
 
+    /** the media type of a package download */
     public static final String ZIP_TYPE = "application/zip";
 
     private final Packaging packaging;
 
+    /**
+     * Creates the operations wrapper.
+     *
+     * @param packaging the FileVault packaging service
+     */
     public JcrPackageOperations(@NotNull final Packaging packaging) {
         this.packaging = packaging;
     }
 
+    /**
+     * The FileVault package manager for the given session.
+     *
+     * @param session the session to use
+     * @return the package manager, or 'null' if there is no session
+     * @throws RepositoryException if the package manager cannot be obtained
+     */
     public @Nullable JcrPackageManager packageManager(@Nullable final Session session) throws RepositoryException {
         return session != null ? packaging.getPackageManager(session) : null;
     }
@@ -67,6 +80,8 @@ public class JcrPackageOperations {
     /**
      * The given package's path, relative to the package root (e.g. '/my/group/my-package-1.0.zip').
      *
+     * @param manager    the package manager providing the package root
+     * @param jcrPackage the package
      * @return the relative path, or 'null' if it cannot be determined
      */
     public static @Nullable String relativePath(@Nullable final JcrPackageManager manager,
@@ -90,7 +105,10 @@ public class JcrPackageOperations {
     /**
      * Opens the package at the given path, relative to the package root.
      *
+     * @param manager the package manager providing the package root
+     * @param path    the package path, relative to the package root
      * @return the opened package, or 'null' if no such package exists
+     * @throws RepositoryException if accessing the repository fails
      */
     public @Nullable JcrPackage open(@NotNull final JcrPackageManager manager, @NotNull final String path)
             throws RepositoryException {
@@ -102,6 +120,14 @@ public class JcrPackageOperations {
         return manager.open(root.getNode(relPath), true);
     }
 
+    /**
+     * Collects the detail data of the given package.
+     *
+     * @param manager    the package manager providing the package root, used for the relative path
+     * @param jcrPackage the package
+     * @return the package's detail data
+     * @throws RepositoryException if reading the package fails
+     */
     public @NotNull JcrPackageInfo info(@Nullable final JcrPackageManager manager, @NotNull final JcrPackage jcrPackage)
             throws RepositoryException {
         final JcrPackageDefinition definition = jcrPackage.getDefinition();
@@ -175,6 +201,10 @@ public class JcrPackageOperations {
      * {@link #setFilters}. A rule whose filter is not a plain regex {@link DefaultPathFilter}
      * (practically never the case for a filter.xml-authored package) is silently dropped, since it
      * cannot be round-tripped through that text form.
+     *
+     * @param definition the package definition
+     * @return the filter roots with their details
+     * @throws RepositoryException if reading the package definition fails
      */
     public @NotNull List<FilterRootInfo> filterRootDetails(@NotNull final JcrPackageDefinition definition)
             throws RepositoryException {
@@ -212,6 +242,12 @@ public class JcrPackageOperations {
      * fields (index-aligned - the i-th root goes with the i-th mode and the i-th rules text), each
      * rules text being one '+ pattern' / '- pattern' regex rule per line (blank lines and lines
      * without a recognized '+'/'-' prefix are ignored). The order of the arrays is the filter order.
+     *
+     * @param jcrPackage the package
+     * @param roots      the filter root paths
+     * @param modes      the import modes, index-aligned with the roots
+     * @param rules      the rules texts, index-aligned with the roots
+     * @throws RepositoryException if writing the package definition fails
      */
     public void setFilters(@NotNull final JcrPackage jcrPackage, @NotNull final String[] roots,
                            @NotNull final String[] modes, @NotNull final String[] rules)
@@ -263,6 +299,10 @@ public class JcrPackageOperations {
     /**
      * The repository paths the package's filter would touch, as one formatted line per entry -
      * a plain synchronous dump, not persisted anywhere.
+     *
+     * @param jcrPackage the package
+     * @return the formatted coverage lines
+     * @throws RepositoryException if reading the package fails
      */
     public @NotNull List<String> coverage(@NotNull final JcrPackage jcrPackage) throws RepositoryException {
         final JcrPackageDefinition definition = jcrPackage.getDefinition();
@@ -273,6 +313,13 @@ public class JcrPackageOperations {
         return log.getLines();
     }
 
+    /**
+     * Provides the package content as a ZIP download.
+     *
+     * @param jcrPackage the package
+     * @return the result with the package stream and a download header, or a 'not found' result if the package has no data
+     * @throws RepositoryException if reading the package fails
+     */
     public @NotNull Result<InputStream> download(@NotNull final JcrPackage jcrPackage) throws RepositoryException {
         final Property data = jcrPackage.getData();
         final Binary binary = data != null ? data.getBinary() : null;
@@ -289,17 +336,45 @@ public class JcrPackageOperations {
         return result;
     }
 
+    /**
+     * Removes the package.
+     *
+     * @param manager    the package manager
+     * @param jcrPackage the package to remove
+     * @throws RepositoryException if the removal fails
+     */
     public void delete(@NotNull final JcrPackageManager manager, @NotNull final JcrPackage jcrPackage)
             throws RepositoryException {
         manager.remove(jcrPackage);
     }
 
+    /**
+     * Creates a new empty package.
+     *
+     * @param manager the package manager
+     * @param group   the package group
+     * @param name    the package name
+     * @param version the package version, can be 'null'
+     * @return the created package
+     * @throws RepositoryException if the creation fails
+     * @throws IOException         if the creation fails
+     */
     public @NotNull JcrPackage create(@NotNull final JcrPackageManager manager, @NotNull final String group,
                                       @NotNull final String name, @Nullable final String version)
             throws RepositoryException, IOException {
         return manager.create(group, name, version);
     }
 
+    /**
+     * Uploads a package.
+     *
+     * @param manager the package manager
+     * @param input   the package ZIP content
+     * @param force   if 'true', an existing package with the same id is replaced
+     * @return the uploaded package
+     * @throws RepositoryException if the upload fails
+     * @throws IOException         if reading the input fails
+     */
     public @NotNull JcrPackage upload(@NotNull final JcrPackageManager manager, @NotNull final InputStream input,
                                       final boolean force) throws RepositoryException, IOException {
         return manager.upload(input, force);
@@ -366,6 +441,13 @@ public class JcrPackageOperations {
      * must be used from here on - the caller needs it to report the package's possibly new path
      * back to the client), every other recognized key updates the definition property directly;
      * unrecognized keys are ignored.
+     *
+     * @param manager    the package manager
+     * @param jcrPackage the package to update
+     * @param formFields the submitted field values
+     * @return the updated package (a new handle if the package was renamed)
+     * @throws RepositoryException if writing the package definition fails
+     * @throws PackageException    if the rename fails
      */
     public @NotNull JcrPackage update(@NotNull final JcrPackageManager manager, @NotNull JcrPackage jcrPackage,
                                       @NotNull final Map<String, String[]> formFields)
@@ -406,6 +488,12 @@ public class JcrPackageOperations {
         private final List<String> lines = new ArrayList<>();
         private boolean error;
 
+        /**
+         * Default constructor.
+         */
+        public OperationLog() {
+        }
+
         @Override
         public void onMessage(@NotNull final Mode mode, @NotNull final String action, @NotNull final String path) {
             lines.add(action + " " + path);
@@ -417,10 +505,20 @@ public class JcrPackageOperations {
             lines.add("E " + path + " : " + exception.getMessage());
         }
 
+        /**
+         * The collected log lines.
+         *
+         * @return the log lines
+         */
         public @NotNull List<String> getLines() {
             return lines;
         }
 
+        /**
+         * Tells whether an error was reported during the operation.
+         *
+         * @return 'true' if at least one error was logged
+         */
         public boolean isError() {
             return error;
         }
@@ -436,6 +534,12 @@ public class JcrPackageOperations {
     /**
      * Installs the package, synchronously, on the calling thread - there is no async job queue;
      * the caller waits for the FileVault import to actually finish and gets its log back.
+     *
+     * @param jcrPackage the package to install
+     * @return the log of the installation
+     * @throws RepositoryException if the installation fails
+     * @throws PackageException    if the installation fails
+     * @throws IOException         if reading the package fails
      */
     public @NotNull OperationLog install(@NotNull final JcrPackage jcrPackage)
             throws RepositoryException, PackageException, IOException {
@@ -444,6 +548,15 @@ public class JcrPackageOperations {
         return log;
     }
 
+    /**
+     * Uninstalls the package, synchronously, on the calling thread.
+     *
+     * @param jcrPackage the package to uninstall
+     * @return the log of the uninstallation
+     * @throws RepositoryException if the uninstallation fails
+     * @throws PackageException    if the uninstallation fails
+     * @throws IOException         if reading the package fails
+     */
     public @NotNull OperationLog uninstall(@NotNull final JcrPackage jcrPackage)
             throws RepositoryException, PackageException, IOException {
         final OperationLog log = new OperationLog();
@@ -451,6 +564,16 @@ public class JcrPackageOperations {
         return log;
     }
 
+    /**
+     * Assembles (builds) the package content from its filter, synchronously, on the calling thread.
+     *
+     * @param manager    the package manager
+     * @param jcrPackage the package to assemble
+     * @return the log of the assembly
+     * @throws RepositoryException if the assembly fails
+     * @throws PackageException    if the assembly fails
+     * @throws IOException         if writing the package fails
+     */
     public @NotNull OperationLog assemble(@NotNull final JcrPackageManager manager, @NotNull final JcrPackage jcrPackage)
             throws RepositoryException, PackageException, IOException {
         final OperationLog log = new OperationLog();
@@ -464,6 +587,12 @@ public class JcrPackageOperations {
     /**
      * Finds the (single, unversioned) package with the given group/name, as addressed by the
      * legacy 'cmd=rm|build|uninst' protocol (which has no notion of multiple versions).
+     *
+     * @param manager the package manager
+     * @param group   the package group
+     * @param name    the package name
+     * @return the matching package, or 'null' if there is none
+     * @throws RepositoryException if listing the packages fails
      */
     public @Nullable JcrPackage find(@NotNull final JcrPackageManager manager, @NotNull final String group,
                                      @NotNull final String name) throws RepositoryException {
@@ -482,6 +611,10 @@ public class JcrPackageOperations {
     /**
      * The package as a CRX Package Manager '&lt;package&gt;' XML element (group/name/version/
      * downloadName/size/created(By)/lastModified(By)/lastUnpacked(By)).
+     *
+     * @param jcrPackage the package
+     * @return the XML element
+     * @throws RepositoryException if reading the package fails
      */
     public @NotNull String toCrxXml(@NotNull final JcrPackage jcrPackage) throws RepositoryException {
         final JcrPackageDefinition definition = jcrPackage.getDefinition();
@@ -516,6 +649,12 @@ public class JcrPackageOperations {
         return "<" + name + ">" + xmlEscape(StringUtils.defaultString(value)) + "</" + name + ">";
     }
 
+    /**
+     * Escapes the XML special characters of the given text.
+     *
+     * @param value the text to escape
+     * @return the escaped text
+     */
     public static @NotNull String xmlEscape(@NotNull final String value) {
         return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 .replace("\"", "&quot;").replace("'", "&apos;");

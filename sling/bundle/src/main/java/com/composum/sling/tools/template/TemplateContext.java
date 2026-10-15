@@ -37,13 +37,18 @@ import java.util.function.Supplier;
  */
 public class TemplateContext {
 
+    /** the separator of the key segments */
     public static final String KEY_SEPARATOR = ".";
 
+    /** the parent context unresolved keys are delegated to, or 'null' for a root context */
     protected final TemplateContext parent;
+    /** the local stack of value maps; the last element is the topmost one */
     protected final List<Values> values = new ArrayList<>();
 
     /**
      * creates a root context with the given initial values
+     *
+     * @param values the initial values
      */
     public TemplateContext(@NotNull final Values values) {
         this.parent = null;
@@ -52,6 +57,9 @@ public class TemplateContext {
 
     /**
      * creates a child context of the given parent with the given initial local values
+     *
+     * @param parent the parent context
+     * @param values the initial local values
      */
     public TemplateContext(@NotNull final TemplateContext parent, @NotNull final Values values) {
         this.parent = parent;
@@ -60,6 +68,8 @@ public class TemplateContext {
 
     /**
      * creates a child context of the given parent with an empty local values map
+     *
+     * @param parent the parent context
      */
     public TemplateContext(@NotNull final TemplateContext parent) {
         this(parent, new Values());
@@ -67,6 +77,8 @@ public class TemplateContext {
 
     /**
      * adds a values map on top of the local stack; its values shadow the values of the maps below
+     *
+     * @param values the values map to add
      */
     public void push(@NotNull final Values values) {
         this.values.add(values);
@@ -74,6 +86,8 @@ public class TemplateContext {
 
     /**
      * removes and returns the topmost values map of the local stack; 'null' if the stack is empty
+     *
+     * @return the removed values map, or 'null' if the local stack was empty
      */
     public @Nullable Values pop() {
         return values.isEmpty() ? null : values.remove(values.size() - 1);
@@ -82,6 +96,9 @@ public class TemplateContext {
     /**
      * resolves the value of the given (hierarchical) key: the local stack is searched from top to
      * bottom first, then the parent context; returns 'null' if the key cannot be resolved
+     *
+     * @param key the (hierarchical) key of the value
+     * @return the resolved value, or 'null' if the key cannot be resolved
      */
     public @Nullable Object getValue(@NotNull final String key) {
         String[] keys = keys(key);
@@ -115,6 +132,11 @@ public class TemplateContext {
      * will not accept a resolved value of a sibling implementation (e.g. a {@code LinkedList})
      * even though both satisfy the same interface; pick a default whose class is a genuine common
      * supertype of every value you expect to accept.
+     *
+     * @param <T>          the type of the default value
+     * @param key          the (hierarchical) key of the value
+     * @param defaultValue the value to return if the key cannot be resolved to a compatible value
+     * @return the resolved value, or the default value
      */
     @SuppressWarnings("unchecked")
     public <T> T getValue(@NotNull final String key, @NotNull final T defaultValue) {
@@ -126,6 +148,9 @@ public class TemplateContext {
 
     /**
      * splits a hierarchical key into its segments; '[name]' segments are normalized to '.name'
+     *
+     * @param key the hierarchical key
+     * @return the key segments
      */
     protected static String[] keys(@NotNull String key) {
         key = key.replaceAll("\\[([^]]*)]", ".$1");
@@ -144,6 +169,10 @@ public class TemplateContext {
      * domain object can expose itself as a 'Values' map.
      */
     public static class Values extends HashMap<String, Object> {
+
+        /** Default constructor. */
+        public Values() {
+        }
 
         /**
          * Lets a domain object control how it is presented to a template, as an alternative to a
@@ -164,6 +193,12 @@ public class TemplateContext {
             @NotNull Values values(@NotNull Values values);
         }
 
+        /**
+         * Adds all entries of the given map using {@link #with(String, Object)}.
+         *
+         * @param values the entries to add
+         * @return this values map
+         */
         public Values with(Map<String, Object> values) {
             for (Entry<String, Object> entry : values.entrySet()) {
                 with(entry.getKey(), entry.getValue());
@@ -171,6 +206,13 @@ public class TemplateContext {
             return this;
         }
 
+        /**
+         * Adds the given value for the given (hierarchical) key, creating intermediate maps and merging map values as described for this class; a 'null' value is ignored.
+         *
+         * @param key   the (hierarchical) key of the value
+         * @param value the value to add
+         * @return this values map
+         */
         @SuppressWarnings("unchecked")
         public Values with(String key, Object value) {
             if (value != null) {
@@ -198,6 +240,13 @@ public class TemplateContext {
             return this;
         }
 
+        /**
+         * Deeply merges the source map into the target map; scalar values of the source override those of the target.
+         *
+         * @param target the map to merge into; a foreign map is copied instead of modified
+         * @param source the map to merge
+         * @return the merged values map
+         */
         @SuppressWarnings("unchecked")
         protected Values merge(Map<?, ?> target, Map<?, ?> source) {
             Values result = target instanceof Values ? (Values) target
