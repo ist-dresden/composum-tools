@@ -84,6 +84,17 @@
             <groupId>javax.jcr</groupId>
             <artifactId>jcr</artifactId>
         </dependency>
+        <!-- the vault/jackrabbit-api packages the embedded sling bundle imports: without them on this
+             module's own classpath, bnd cannot derive a version range for those imports and the AEM
+             analyser rejects the bundle (bundle-unversioned-packages) -->
+        <dependency>
+            <groupId>org.apache.jackrabbit.vault</groupId>
+            <artifactId>org.apache.jackrabbit.vault</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.jackrabbit</groupId>
+            <artifactId>oak-jackrabbit-api</artifactId>
+        </dependency>
 
         <!-- Java sevlet, web API -->
         <dependency>
