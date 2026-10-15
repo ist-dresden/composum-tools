@@ -18,6 +18,7 @@ import java.util.TreeMap;
 
 import static com.composum.sling.tools.Common.AC_POLICY;
 import static com.composum.sling.tools.Common.JCR_CONTENT;
+import static com.composum.sling.tools.Common.JCR_MIME_TYPE;
 import static com.composum.sling.tools.Common.JCR_PRIMARY_TYPE;
 import static com.composum.sling.tools.Common.NT_UNSTRUCTURED;
 
@@ -178,7 +179,7 @@ public class TreeNode {
 
     public static String getMimeTypeKey(Resource resource, String prefix) {
         String type = null;
-        String mimeType = resource.getValueMap().get("jcr:mimeType", String.class);
+        String mimeType = resource.getValueMap().get(JCR_MIME_TYPE, String.class);
         if (StringUtils.isNotBlank(mimeType)) {
             type = getMimeTypeKey(mimeType);
         }

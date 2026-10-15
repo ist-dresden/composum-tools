@@ -15,8 +15,34 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 import java.util.Arrays;
 
-import static com.composum.sling.tools.Common.JCR_CONTENT;
-import static com.composum.sling.tools.Common.JCR_PRIMARY_TYPE;
+import static com.composum.aem.AemCommon.CQ_CLIENT_LIBRARY_FOLDER;
+import static com.composum.aem.AemCommon.CQ_COMPONENT;
+import static com.composum.aem.AemCommon.CQ_LIVE_COPY;
+import static com.composum.aem.AemCommon.CQ_LIVE_RELATIONSHIP;
+import static com.composum.aem.AemCommon.CQ_LIVE_SYNC_CANCELLED;
+import static com.composum.aem.AemCommon.CQ_PAGE;
+import static com.composum.aem.AemCommon.CQ_PAGE_CONTENT;
+import static com.composum.aem.AemCommon.CQ_REPLICATION_STATUS;
+import static com.composum.aem.AemCommon.CQ_TEMPLATE;
+import static com.composum.aem.AemCommon.DAM_ASSET;
+import static com.composum.aem.AemCommon.DAM_ASSET_CONTENT;
+import static com.composum.aem.AemCommon.JCR_CONTENT;
+import static com.composum.aem.AemCommon.JCR_PRIMARY_TYPE;
+import static com.composum.aem.AemCommon.MIX_CREATED;
+import static com.composum.aem.AemCommon.MIX_LAST_MODIFIED;
+import static com.composum.aem.AemCommon.MIX_LOCKABLE;
+import static com.composum.aem.AemCommon.MIX_REFERENCEABLE;
+import static com.composum.aem.AemCommon.MIX_TITLE;
+import static com.composum.aem.AemCommon.MIX_VERSIONABLE;
+import static com.composum.aem.AemCommon.NT_BASE;
+import static com.composum.aem.AemCommon.NT_FILE;
+import static com.composum.aem.AemCommon.NT_FOLDER;
+import static com.composum.aem.AemCommon.NT_RESOURCE;
+import static com.composum.aem.AemCommon.NT_UNSTRUCTURED;
+import static com.composum.aem.AemCommon.OAK_RESOURCE;
+import static com.composum.aem.AemCommon.ORDERED_FOLDER;
+import static com.composum.aem.AemCommon.REP_ACCESS_CONTROLLABLE;
+import static com.composum.aem.AemCommon.SLING_FOLDER;
 
 /**
  * AEM-specific extension of {@link DefaultPlatformConfig}: adds the resource types that count as
@@ -47,11 +73,11 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
          */
         @AttributeDefinition()
         String[] fileTypes() default {
-                "nt:file",
-                "nt:resource",
-                "oak:Resource",
-                "dam:Asset",
-                "dam:AssetContent"
+                NT_FILE,
+                NT_RESOURCE,
+                OAK_RESOURCE,
+                DAM_ASSET,
+                DAM_ASSET_CONTENT
         };
 
         /**
@@ -60,21 +86,21 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
          */
         @AttributeDefinition()
         String[] primaryTypes() default {
-                "nt:base",
-                "nt:unstructured",
-                "nt:folder",
-                "nt:file",
-                "nt:resource",
-                "sling:Folder",
-                "sling:OrderedFolder",
-                "cq:Page",
-                "cq:PageContent",
-                "cq:Component",
-                "cq:Template",
-                "cq:LiveCopy",
-                "cq:ClientLibraryFolder",
-                "dam:Asset",
-                "dam:AssetContent"
+                NT_BASE,
+                NT_UNSTRUCTURED,
+                NT_FOLDER,
+                NT_FILE,
+                NT_RESOURCE,
+                SLING_FOLDER,
+                ORDERED_FOLDER,
+                CQ_PAGE,
+                CQ_PAGE_CONTENT,
+                CQ_COMPONENT,
+                CQ_TEMPLATE,
+                CQ_LIVE_COPY,
+                CQ_CLIENT_LIBRARY_FOLDER,
+                DAM_ASSET,
+                DAM_ASSET_CONTENT
         };
 
         /**
@@ -83,16 +109,16 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
          */
         @AttributeDefinition()
         String[] mixinTypes() default {
-                "rep:AccessControllable",
-                "mix:versionable",
-                "mix:referenceable",
-                "mix:lockable",
-                "mix:title",
-                "mix:created",
-                "mix:lastModified",
-                "cq:ReplicationStatus",
-                "cq:LiveRelationship",
-                "cq:LiveSyncCancelled"
+                REP_ACCESS_CONTROLLABLE,
+                MIX_VERSIONABLE,
+                MIX_REFERENCEABLE,
+                MIX_LOCKABLE,
+                MIX_TITLE,
+                MIX_CREATED,
+                MIX_LAST_MODIFIED,
+                CQ_REPLICATION_STATUS,
+                CQ_LIVE_RELATIONSHIP,
+                CQ_LIVE_SYNC_CANCELLED
         };
 
         /**
@@ -125,16 +151,16 @@ public class AemPlatformConfig extends DefaultPlatformConfig {
         if (resource != null) {
             final String primaryType = resource.getValueMap().get(JCR_PRIMARY_TYPE, "");
             switch (primaryType) {
-                case "nt:resource":
+                case NT_RESOURCE:
                     original = resource;
                     break;
-                case "nt:file":
+                case NT_FILE:
                     original = resource.getChild(JCR_CONTENT);
                     break;
-                case "dam:Asset":
+                case DAM_ASSET:
                     original = resource.getChild(JCR_CONTENT + "/renditions/original/" + JCR_CONTENT);
                     break;
-                case "dam:AssetContent":
+                case DAM_ASSET_CONTENT:
                     original = resource.getChild("renditions/original/" + JCR_CONTENT);
                     break;
             }

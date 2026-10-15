@@ -24,7 +24,7 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 import java.io.Reader;
 import java.util.Optional;
 
-import static com.composum.sling.tools.Common.HTML_TYPE;
+import static com.composum.aem.AemCommon.HTML_TYPE;
 
 /**
  * AEM-specific extension of {@link DisplayView}: on author instances, replaces the generic

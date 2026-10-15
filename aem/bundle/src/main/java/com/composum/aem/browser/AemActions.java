@@ -35,12 +35,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import static com.composum.sling.tools.Common.EXT_HTML;
-import static com.composum.sling.tools.Common.JCR_CONTENT;
-import static com.composum.sling.tools.Common.JCR_PRIMARY_TYPE;
-import static com.composum.sling.tools.Common.NT_FOLDER;
-import static com.composum.sling.tools.Common.ORDERED_FOLDER;
-import static com.composum.sling.tools.Common.SLING_FOLDER;
+import static com.composum.aem.AemCommon.CQ_PAGE;
+import static com.composum.aem.AemCommon.DAM_ASSET;
+import static com.composum.aem.AemCommon.EXT_HTML;
+import static com.composum.aem.AemCommon.JCR_CONTENT;
+import static com.composum.aem.AemCommon.JCR_PRIMARY_TYPE;
+import static com.composum.aem.AemCommon.NT_FOLDER;
+import static com.composum.aem.AemCommon.ORDERED_FOLDER;
+import static com.composum.aem.AemCommon.SLING_FOLDER;
 
 /**
  * AEM-specific extension of {@link DefaultActions}: adds "edit"/"manage"/"activate"/"deactivate"
@@ -89,11 +91,8 @@ public class AemActions extends DefaultActions {
 
     /** resource types treated as a folder/page for the purpose of a deep tree activation and manage action */
     public static final List<String> FOLDER_TYPES = List.of(
-            NT_FOLDER, SLING_FOLDER, ORDERED_FOLDER, "cq:Page"
+            NT_FOLDER, SLING_FOLDER, ORDERED_FOLDER, CQ_PAGE
     );
-
-    /** the JCR primary type of an AEM DAM asset (a plain binary asset as well as a Content Fragment) */
-    public static final String DAM_ASSET_TYPE = "dam:Asset";
 
     /** the configured deep-activation exclude patterns (see {@link Config#deepActivationExcludePatterns()}) */
     protected List<Pattern> deepActivationExcludePatterns;
@@ -188,7 +187,7 @@ public class AemActions extends DefaultActions {
             }
             final String path = target.getPath();
             if (path.matches("^/content/dam(/.*)?")) {
-                final Resource asset = containingParent(target, Collections.singletonList(DAM_ASSET_TYPE));
+                final Resource asset = containingParent(target, Collections.singletonList(DAM_ASSET));
                 if (asset == null) {
                     return null;
                 }
@@ -198,7 +197,7 @@ public class AemActions extends DefaultActions {
                         ? targetUrl(asset, "/editor.html", EXT_HTML)
                         : targetUrl(asset, "/assetdetails.html");
             } else if (path.matches("^/content/.*")
-                    && (target = containingParent(target, Collections.singletonList("cq:Page"))) != null) {
+                    && (target = containingParent(target, Collections.singletonList(CQ_PAGE))) != null) {
                 return targetUrl(target, "/editor.html", EXT_HTML);
             }
         }
@@ -218,7 +217,7 @@ public class AemActions extends DefaultActions {
             if (path.matches("^/content/dam(/.*)?")) {
                 return targetUrl(target, "/assets.html");
             } else if (path.matches("^/content/experience-fragments(/.*)?")
-                    && (target = containingParent(target, Collections.singletonList("cq:Page"))) != null) {
+                    && (target = containingParent(target, Collections.singletonList(CQ_PAGE))) != null) {
                 // Experience Fragments live outside the ordinary site tree the Sites console
                 // navigates, so they get their own dedicated console rather than "/sites.html"
                 return targetUrl(target, "/aem/experience-fragments.html");

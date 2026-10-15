@@ -42,6 +42,7 @@ import static com.composum.sling.tools.Common.HTTP_CONTENT_DISPOSITION;
 import static com.composum.sling.tools.Common.HTTP_LAST_MODIFIED;
 import static com.composum.sling.tools.Common.JCR_CONTENT;
 import static com.composum.sling.tools.Common.JCR_DATA;
+import static com.composum.sling.tools.Common.JCR_LAST_MODIFIED;
 import static com.composum.sling.tools.Common.JCR_MIME_TYPE;
 import static com.composum.sling.tools.Common.PROPERTY_DATE_FORMAT;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
@@ -184,7 +185,7 @@ public class PropertiesView extends AbstractView {
                 }
                 String disposition = "attachment; filename=" + filename(resource);
                 result.setHeader(HTTP_CONTENT_DISPOSITION, disposition);
-                Calendar lastModified = values.get("jcr:lastModified", Calendar.class);
+                Calendar lastModified = values.get(JCR_LAST_MODIFIED, Calendar.class);
                 if (lastModified != null) {
                     result.setHeader(HTTP_LAST_MODIFIED, lastModified.getTime());
                 }

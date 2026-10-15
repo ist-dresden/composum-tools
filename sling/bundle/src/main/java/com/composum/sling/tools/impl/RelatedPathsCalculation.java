@@ -17,8 +17,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.composum.sling.tools.Common.JCR_CONTENT;
+import static com.composum.sling.tools.Common.JCR_PRIMARY_TYPE;
 import static com.composum.sling.tools.Common.SLING_RES_SUPER_TYPE;
-import static org.apache.jackrabbit.vault.util.JcrConstants.JCR_PRIMARYTYPE;
 
 /**
  * The resource-type/override/overlay related-paths computation behind
@@ -111,12 +111,12 @@ class RelatedPathsCalculation {
     static @Nullable String getResourceType(@NotNull final Resource resource) {
         String result = resource.getResourceType();
         if (StringUtils.isBlank(result) || resource.getValueMap()
-                .get(JCR_PRIMARYTYPE, "{no node}").equals(result)) {
+                .get(JCR_PRIMARY_TYPE, "{no node}").equals(result)) {
             Resource contentResource = resource.getChild(JCR_CONTENT);
             if (contentResource != null) {
                 result = contentResource.getResourceType();
                 if (StringUtils.isNotBlank(result)) {
-                    if (result.equals(contentResource.getValueMap().get(JCR_PRIMARYTYPE, String.class))) {
+                    if (result.equals(contentResource.getValueMap().get(JCR_PRIMARY_TYPE, String.class))) {
                         result = null;
                     }
                 }
@@ -124,7 +124,6 @@ class RelatedPathsCalculation {
         }
         return result;
     }
-
 
     /**
      * Remove any search path / /mnt/overlay from given path to a resource type = "normalize" path to resource type.

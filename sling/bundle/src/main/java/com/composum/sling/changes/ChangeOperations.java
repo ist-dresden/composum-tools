@@ -26,6 +26,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
+
+import static com.composum.sling.tools.Common.CQ_REPLICATION_STATUS;
+import static com.composum.sling.tools.Common.CQ_REPLICATION_STATUS2;
+import static com.composum.sling.tools.Common.JCR_BASE_VERSION;
+import static com.composum.sling.tools.Common.JCR_CONTENT;
+import static com.composum.sling.tools.Common.JCR_CREATED;
+import static com.composum.sling.tools.Common.JCR_CREATED_BY;
+import static com.composum.sling.tools.Common.JCR_DATA;
+import static com.composum.sling.tools.Common.JCR_IS_CHECKED_OUT;
+import static com.composum.sling.tools.Common.JCR_LAST_MODIFIED;
+import static com.composum.sling.tools.Common.JCR_LOCK_IS_DEEP;
+import static com.composum.sling.tools.Common.JCR_LOCK_OWNER;
+import static com.composum.sling.tools.Common.JCR_MIME_TYPE;
+import static com.composum.sling.tools.Common.JCR_MIXIN_TYPES;
+import static com.composum.sling.tools.Common.JCR_PREDECESSORS;
+import static com.composum.sling.tools.Common.JCR_PRIMARY_TYPE;
+import static com.composum.sling.tools.Common.JCR_UUID;
+import static com.composum.sling.tools.Common.JCR_VERSION_HISTORY;
+import static com.composum.sling.tools.Common.NT_FILE;
+import static com.composum.sling.tools.Common.NT_RESOURCE;
+import static com.composum.sling.tools.Common.REP_ACCESS_CONTROLLABLE;
+import static com.composum.sling.tools.Common.REP_CUG_MIXIN;
+import static com.composum.sling.tools.Common.REP_REPO_ACCESS_CONTROLLABLE;
 
 /**
  * The actual node/property mutations behind {@link Changes}' Create/Delete/Move/Copy/
@@ -54,10 +78,10 @@ final class ChangeOperations {
      * resolver/JCR layer itself once committed.
      */
     static final Set<String> PROTECTED_PROPERTIES = Set.of(
-            "jcr:primaryType", "jcr:mixinTypes", "jcr:uuid",
-            "jcr:created", "jcr:createdBy",
-            "jcr:isCheckedOut", "jcr:baseVersion", "jcr:predecessors", "jcr:versionHistory",
-            "jcr:lockOwner", "jcr:lockIsDeep"
+            JCR_PRIMARY_TYPE, JCR_MIXIN_TYPES, JCR_UUID,
+            JCR_CREATED, JCR_CREATED_BY,
+            JCR_IS_CHECKED_OUT, JCR_BASE_VERSION, JCR_PREDECESSORS, JCR_VERSION_HISTORY,
+            JCR_LOCK_OWNER, JCR_LOCK_IS_DEEP
     );
 
     /**
@@ -70,9 +94,33 @@ final class ChangeOperations {
      * (see {@link #create}).
      */
     private static final Set<String> IDENTITY_PROPERTIES = Set.of(
-            "jcr:uuid", "jcr:created", "jcr:createdBy",
-            "jcr:isCheckedOut", "jcr:baseVersion", "jcr:predecessors", "jcr:versionHistory",
-            "jcr:lockOwner", "jcr:lockIsDeep"
+            JCR_UUID, JCR_CREATED, JCR_CREATED_BY,
+            JCR_IS_CHECKED_OUT, JCR_BASE_VERSION, JCR_PREDECESSORS, JCR_VERSION_HISTORY,
+            JCR_LOCK_OWNER, JCR_LOCK_IS_DEEP
+    );
+
+    /**
+     * The mixins that merely mark a node as carrying an access-control/CUG policy: {@link
+     * #copyRenamed} does not copy the policy nodes themselves (see there), so it must not copy the
+     * mixins announcing them either - the repository adds them itself once a policy is set.
+     */
+    private static final Set<String> ACCESS_CONTROL_MIXINS = Set.of(
+            REP_ACCESS_CONTROLLABLE, REP_REPO_ACCESS_CONTROLLABLE, REP_CUG_MIXIN
+    );
+
+    /**
+     * AEM's per-agent replication status properties ('cq:lastReplicated', 'cq:lastReplicatedBy',
+     * 'cq:lastReplicationAction', each optionally with an '_agent' suffix): the status of the
+     * *source* node, so a copy must not carry it - it would claim a replication that never
+     * happened to the copy. The repository-independent names are matched as plain strings, this
+     * project deliberately has no compile-time dependency on the AEM replication API.
+     */
+    private static final Pattern REPLICATION_STATUS_PROPERTY =
+            Pattern.compile("^cq:lastReplicat(ed|edBy|ionAction)(_.+)?$");
+
+    /** the mixins announcing {@link #REPLICATION_STATUS_PROPERTY} - dropped with them on a copy */
+    private static final Set<String> REPLICATION_STATUS_MIXINS = Set.of(
+            CQ_REPLICATION_STATUS, CQ_REPLICATION_STATUS2
     );
 
     /**
@@ -101,7 +149,7 @@ final class ChangeOperations {
     static @NotNull Resource create(@NotNull final ResourceResolver resolver, @NotNull final Resource parent,
                                     @NotNull final String name, @NotNull final String primaryType)
             throws PersistenceException {
-        return resolver.create(parent, name, Map.of("jcr:primaryType", primaryType));
+        return resolver.create(parent, name, Map.of(JCR_PRIMARY_TYPE, primaryType));
     }
 
     /**
@@ -114,13 +162,13 @@ final class ChangeOperations {
     static @NotNull Resource createFile(@NotNull final ResourceResolver resolver, @NotNull final Resource parent,
                                         @NotNull final String name, @NotNull final RequestParameter file)
             throws PersistenceException {
-        final Resource created = resolver.create(parent, name, Map.of("jcr:primaryType", "nt:file"));
+        final Resource created = resolver.create(parent, name, Map.of(JCR_PRIMARY_TYPE, NT_FILE));
         try {
-            resolver.create(created, "jcr:content", Map.of(
-                    "jcr:primaryType", "nt:resource",
-                    "jcr:mimeType", StringUtils.defaultIfBlank(file.getContentType(), "application/octet-stream"),
-                    "jcr:lastModified", Calendar.getInstance(),
-                    "jcr:data", file.getInputStream()));
+            resolver.create(created, JCR_CONTENT, Map.of(
+                    JCR_PRIMARY_TYPE, NT_RESOURCE,
+                    JCR_MIME_TYPE, StringUtils.defaultIfBlank(file.getContentType(), "application/octet-stream"),
+                    JCR_LAST_MODIFIED, Calendar.getInstance(),
+                    JCR_DATA, file.getInputStream()));
         } catch (IOException ex) {
             throw new PersistenceException("Could not read the uploaded file.", ex);
         }
@@ -269,19 +317,20 @@ final class ChangeOperations {
     }
 
     /**
-     * Copies the given resource to become a child of 'destParentPath' - same "blank/unchanged
-     * 'newName' means a plain {@link ResourceResolver#copy}, otherwise a rebuild under the new
-     * name" semantics as {@link #move}, see there - the rebuild path is what makes "Paste" able to
-     * duplicate a node into its own parent at all (a same-name copy into the same parent is simply
-     * a name collision {@link ResourceResolver#copy} itself cannot resolve).
+     * Copies the given resource to become a child of 'destParentPath', named 'newName' (a blank
+     * 'newName' keeps the source's own name). Always a rebuild via {@link #copyRenamed}, never a
+     * plain {@link ResourceResolver#copy}: that one copies every property verbatim, including the
+     * repository-assigned, protected ones (e.g. 'jcr:uuid' of a {@code mix:referenceable} node such
+     * as a page's 'jcr:content'), which the JCR provider then refuses to write into the new node.
+     * The rebuild strips those ({@link #IDENTITY_PROPERTIES}), so the copy gets its own, freshly
+     * generated identity - and it is also what makes "Paste" able to duplicate a node into its own
+     * parent at all, under a different name.
      */
     static @NotNull Resource copy(@NotNull final ResourceResolver resolver, @NotNull final Resource resource,
                                   @NotNull final String destParentPath, @Nullable final String newName)
             throws PersistenceException {
-        if (StringUtils.isBlank(newName) || newName.equals(resource.getName())) {
-            return resolver.copy(resource.getPath(), destParentPath);
-        }
-        return copyRenamed(resolver, resource, requireResource(resolver, destParentPath), newName);
+        return copyRenamed(resolver, resource, requireResource(resolver, destParentPath),
+                StringUtils.isBlank(newName) ? resource.getName() : newName);
     }
 
     private static @NotNull Resource requireResource(@NotNull final ResourceResolver resolver, @NotNull final String path)
@@ -295,8 +344,8 @@ final class ChangeOperations {
 
     /**
      * Deep-copies 'source' - its own properties, then recursively every descendant under its
-     * original name - to become a new child named 'newName' of 'destParent'. {@link #copy}'s only
-     * way to rename: {@code javax.jcr.Workspace#copy}'s 'destAbsPath' does support an arbitrary
+     * original name - to become a new child named 'newName' of 'destParent'. {@link #copy}'s one
+     * implementation, for a rename as well as a same-name copy: {@code javax.jcr.Workspace#copy}'s 'destAbsPath' does support an arbitrary
      * new name too, just like {@code Session#move} - but, unlike {@code Session#move},
      * {@code Workspace#copy} is specified to persist *immediately*, bypassing the {@code Session}'s
      * transient/pending-changes mechanism entirely (no {@code Session#save} needed or even
@@ -311,9 +360,22 @@ final class ChangeOperations {
             throws PersistenceException {
         final Map<String, Object> properties = new HashMap<>(source.getValueMap());
         IDENTITY_PROPERTIES.forEach(properties::remove);
+        properties.keySet().removeIf(name -> REPLICATION_STATUS_PROPERTY.matcher(name).matches());
+        if (properties.get(JCR_MIXIN_TYPES) instanceof String[]) {
+            final String[] mixins = Arrays.stream((String[]) properties.get(JCR_MIXIN_TYPES))
+                    .filter(mixin -> !ACCESS_CONTROL_MIXINS.contains(mixin)
+                            && !REPLICATION_STATUS_MIXINS.contains(mixin)).toArray(String[]::new);
+            if (mixins.length > 0) {
+                properties.put(JCR_MIXIN_TYPES, mixins);
+            } else {
+                properties.remove(JCR_MIXIN_TYPES);
+            }
+        }
         final Resource created = resolver.create(destParent, newName, properties);
         for (final Resource child : source.getChildren()) {
-            copyRenamed(resolver, child, created, child.getName());
+            if (!child.getName().startsWith("rep:")) {
+                copyRenamed(resolver, child, created, child.getName());
+            }
         }
         return created;
     }
@@ -385,14 +447,14 @@ final class ChangeOperations {
         } catch (RuntimeException ex) {
             throw new PersistenceException("'" + name + "' could not be changed: " + ex.getMessage(), ex);
         }
-        if ("jcr:data".equals(name)) {
+        if (JCR_DATA.equals(name)) {
             // 'jcr:data's own mime type/last-modified (its sibling properties on the same
             // nt:resource/jcr:content node, exactly as created by #createFile) describe THIS
             // content - replacing the data without also syncing them would leave a node whose
             // declared type disagrees with its actual bytes (e.g. still "application/pdf" after
             // the data was replaced with a CSV)
-            values.put("jcr:mimeType", StringUtils.defaultIfBlank(file.getContentType(), "application/octet-stream"));
-            values.put("jcr:lastModified", Calendar.getInstance());
+            values.put(JCR_MIME_TYPE, StringUtils.defaultIfBlank(file.getContentType(), "application/octet-stream"));
+            values.put(JCR_LAST_MODIFIED, Calendar.getInstance());
         }
     }
 

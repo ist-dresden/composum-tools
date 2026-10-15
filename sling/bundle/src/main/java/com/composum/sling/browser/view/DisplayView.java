@@ -41,6 +41,7 @@ import static com.composum.sling.tools.Common.HTTP_CONTENT_DISPOSITION;
 import static com.composum.sling.tools.Common.HTTP_LAST_MODIFIED;
 import static com.composum.sling.tools.Common.JCR_CONTENT;
 import static com.composum.sling.tools.Common.JCR_DATA;
+import static com.composum.sling.tools.Common.JCR_LAST_MODIFIED;
 import static com.composum.sling.tools.Common.JCR_MIME_TYPE;
 import static com.composum.sling.tools.Common.JCR_PRIMARY_TYPE;
 import static com.composum.sling.tools.Common.SLING_RESOURCE_TYPE;
@@ -413,7 +414,7 @@ public class DisplayView extends AbstractView {
                         disposition += "; filename=" + filename;
                     }
                     result.setHeader(HTTP_CONTENT_DISPOSITION, disposition);
-                    Calendar lastModified = values.get("jcr:lastModified", Calendar.class);
+                    Calendar lastModified = values.get(JCR_LAST_MODIFIED, Calendar.class);
                     if (lastModified != null) {
                         result.setHeader(HTTP_LAST_MODIFIED, lastModified.getTime());
                     }

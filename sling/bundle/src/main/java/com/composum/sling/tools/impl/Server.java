@@ -47,6 +47,8 @@ import static com.composum.sling.tools.Common.EXT_HTML;
 import static com.composum.sling.tools.Common.EXT_JSON;
 import static com.composum.sling.tools.Common.HTTP_CONTENT_TYPE;
 import static com.composum.sling.tools.Common.JSON_TYPE;
+import static com.composum.sling.tools.Common.NT_FOLDER;
+import static com.composum.sling.tools.Common.SLING_FOLDER;
 import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
@@ -91,7 +93,7 @@ public class Server extends SlingAllMethodsServlet implements Manager {
 
         @AttributeDefinition(name = "Sortable Types")
         String[] sortableTypes() default {
-                "nt:folder", "sling:Folder"
+                NT_FOLDER, SLING_FOLDER
         };
 
         @AttributeDefinition(name = "CSS Runmodes")
