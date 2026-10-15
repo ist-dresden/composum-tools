@@ -148,7 +148,7 @@ public class XmlView extends AbstractSourceView {
                 result = params(request, response);
                 break;
             case "load": {
-                final Resource resource = browser.manager.requestResource(request);
+                final Resource resource = browser.targetResource(request);
                 if (resource != null) {
                     final Integer depth = getIntParameter(request, "depth", maxDepth);
                     final boolean raw = getBooleanParameter(request, "raw", false);
@@ -160,7 +160,7 @@ public class XmlView extends AbstractSourceView {
             }
             break;
             default: {
-                final Resource resource = browser.manager.requestResource(request);
+                final Resource resource = browser.targetResource(request);
                 if (resource != null) {
                     final RequestPathInfo pathInfo = request.getRequestPathInfo();
                     final String path = Optional.ofNullable(pathInfo.getSuffix()).filter(StringUtils::isNotBlank).orElse("/");
