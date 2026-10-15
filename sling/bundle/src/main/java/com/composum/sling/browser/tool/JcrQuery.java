@@ -11,6 +11,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.composum.sling.tools.Common.NT_BASE;
+
 public class JcrQuery {
 
     public static final String FULL_TEXT = "text";
@@ -77,7 +79,7 @@ public class JcrQuery {
     }
 
     protected @NotNull String textQuery() {
-        String type = StringUtils.defaultIfBlank(textMatcher.group("type"), "nt:base");
+        String type = StringUtils.defaultIfBlank(textMatcher.group("type"), NT_BASE);
         String path = StringUtils.defaultIfBlank(textMatcher.group("path"), "/content");
         StringBuilder query = new StringBuilder();
         query.append("select * from [").append(type).append("] as node where")

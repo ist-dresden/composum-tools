@@ -50,8 +50,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import static com.composum.sling.tools.Common.HTML_TYPE;
-import static com.composum.sling.tools.Common.HTTP_LOCATION;
+import static com.composum.aem.AemCommon.HTML_TYPE;
+import static com.composum.aem.AemCommon.HTTP_LOCATION;
 import static javax.servlet.http.HttpServletResponse.SC_MOVED_TEMPORARILY;
 
 /**

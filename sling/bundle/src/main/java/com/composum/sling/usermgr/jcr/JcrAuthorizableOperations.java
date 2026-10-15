@@ -36,6 +36,14 @@ import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.composum.sling.tools.Common.NT_UNSTRUCTURED;
+import static com.composum.sling.tools.Common.REP_AUTHORIZABLE_FOLDER;
+import static com.composum.sling.tools.Common.REP_DENY_ACE;
+import static com.composum.sling.tools.Common.REP_GRANT_ACE;
+import static com.composum.sling.tools.Common.REP_PRINCIPAL_NAME;
+import static com.composum.sling.tools.Common.REP_PRIVILEGES;
+import static com.composum.sling.tools.Common.REP_RESTRICTIONS;
+
 /**
  * Wraps the Jackrabbit {@link UserManager} API and, for ACL-related lookups, the resolver-API
  * JCR-SQL2 query mechanism - the sole backend, unlike
@@ -232,7 +240,7 @@ public class JcrAuthorizableOperations {
      */
     public boolean isFolder(@NotNull final Session session, @NotNull final String path) throws RepositoryException {
         return session.nodeExists(path)
-                && "rep:AuthorizableFolder".equals(session.getNode(path).getPrimaryNodeType().getName());
+                && REP_AUTHORIZABLE_FOLDER.equals(session.getNode(path).getPrimaryNodeType().getName());
     }
 
     /**
@@ -324,7 +332,7 @@ public class JcrAuthorizableOperations {
             return;
         }
         final Node profile = exists ? session.getNode(profilePath)
-                : session.getNode(userPath).addNode(PROFILE_NODE_NAME, "nt:unstructured");
+                : session.getNode(userPath).addNode(PROFILE_NODE_NAME, NT_UNSTRUCTURED);
         final List<Property> obsolete = new ArrayList<>();
         final PropertyIterator iterator = profile.getProperties();
         while (iterator.hasNext()) {
@@ -478,8 +486,8 @@ public class JcrAuthorizableOperations {
         final Pattern pathRegex = wildcardToRegex(pathPattern);
         final Map<String, PrincipalInfo> resolved = new LinkedHashMap<>();
         final List<AffectedPathEntry> result = new ArrayList<>();
-        for (final String aceType : List.of("rep:GrantACE", "rep:DenyACE")) {
-            final String ruleType = "rep:GrantACE".equals(aceType) ? "grant" : "deny";
+        for (final String aceType : List.of(REP_GRANT_ACE, REP_DENY_ACE)) {
+            final String ruleType = REP_GRANT_ACE.equals(aceType) ? "grant" : "deny";
             final Iterator<Resource> iterator = resolver.findResources("SELECT * FROM [" + aceType + "]", "JCR-SQL2");
             while (iterator.hasNext() && result.size() < limit) {
                 final Resource ace = iterator.next();
@@ -488,7 +496,7 @@ public class JcrAuthorizableOperations {
                 if (controlled == null || !pathRegex.matcher(controlled.getPath()).matches()) {
                     continue;
                 }
-                final String principalName = ace.getValueMap().get("rep:principalName", String.class);
+                final String principalName = ace.getValueMap().get(REP_PRINCIPAL_NAME, String.class);
                 if (principalName == null) {
                     continue;
                 }
@@ -660,15 +668,15 @@ public class JcrAuthorizableOperations {
                 .map(name -> "[rep:principalName] = " + sql2Literal(name))
                 .collect(Collectors.joining(" OR "));
         final List<AffectedPathEntry> result = new ArrayList<>();
-        for (final String aceType : List.of("rep:GrantACE", "rep:DenyACE")) {
-            final String type = "rep:GrantACE".equals(aceType) ? "grant" : "deny";
+        for (final String aceType : List.of(REP_GRANT_ACE, REP_DENY_ACE)) {
+            final String type = REP_GRANT_ACE.equals(aceType) ? "grant" : "deny";
             final String query = "SELECT * FROM [" + aceType + "] WHERE " + principalCondition;
             final Iterator<Resource> iterator = resolver.findResources(query, "JCR-SQL2");
             while (iterator.hasNext() && result.size() < limit) {
                 final Resource ace = iterator.next();
                 final Resource acl = ace.getParent();
                 final Resource controlled = acl != null ? acl.getParent() : null;
-                final String principalName = ace.getValueMap().get("rep:principalName", String.class);
+                final String principalName = ace.getValueMap().get(REP_PRINCIPAL_NAME, String.class);
                 final PrincipalInfo principal = principalName != null ? principals.get(principalName) : null;
                 if (controlled != null && principalName != null && principal != null
                         && (pathFilter == null || pathFilter.matcher(controlled.getPath()).matches())) {
@@ -694,11 +702,11 @@ public class JcrAuthorizableOperations {
      */
     private @NotNull String formatPrivileges(@NotNull final Resource ace) {
         final ValueMap values = ace.getValueMap();
-        final String[] privileges = values.get("rep:privileges", String[].class);
+        final String[] privileges = values.get(REP_PRIVILEGES, String[].class);
         final StringBuilder result = new StringBuilder(privileges != null ? String.join(", ", privileges) : "");
         final List<String> restrictions = new ArrayList<>();
         collectRestrictions(values, restrictions);
-        final Resource restrictionsNode = ace.getChild("rep:restrictions");
+        final Resource restrictionsNode = ace.getChild(REP_RESTRICTIONS);
         if (restrictionsNode != null) {
             collectRestrictions(restrictionsNode.getValueMap(), restrictions);
         }
@@ -710,7 +718,7 @@ public class JcrAuthorizableOperations {
 
     private void collectRestrictions(@NotNull final ValueMap values, @NotNull final List<String> restrictions) {
         for (final String name : values.keySet()) {
-            if (!name.startsWith("jcr:") && !"rep:privileges".equals(name) && !"rep:principalName".equals(name)) {
+            if (!name.startsWith("jcr:") && !REP_PRIVILEGES.equals(name) && !REP_PRINCIPAL_NAME.equals(name)) {
                 restrictions.add(name + "=" + formatRestrictionValue(values.get(name)));
             }
         }

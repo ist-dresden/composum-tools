@@ -21,6 +21,21 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.composum.sling.tools.Common.JCR_CONTENT;
+import static com.composum.sling.tools.Common.MIX_CREATED;
+import static com.composum.sling.tools.Common.MIX_LAST_MODIFIED;
+import static com.composum.sling.tools.Common.MIX_LOCKABLE;
+import static com.composum.sling.tools.Common.MIX_REFERENCEABLE;
+import static com.composum.sling.tools.Common.MIX_TITLE;
+import static com.composum.sling.tools.Common.MIX_VERSIONABLE;
+import static com.composum.sling.tools.Common.NT_BASE;
+import static com.composum.sling.tools.Common.NT_FILE;
+import static com.composum.sling.tools.Common.NT_FOLDER;
+import static com.composum.sling.tools.Common.NT_RESOURCE;
+import static com.composum.sling.tools.Common.NT_UNSTRUCTURED;
+import static com.composum.sling.tools.Common.OAK_RESOURCE;
+import static com.composum.sling.tools.Common.ORDERED_FOLDER;
+import static com.composum.sling.tools.Common.REP_ACCESS_CONTROLLABLE;
+import static com.composum.sling.tools.Common.SLING_FOLDER;
 
 @Component(service = PlatformConfig.class, immediate = true)
 @Designate(ocd = DefaultPlatformConfig.Config.class)
@@ -37,9 +52,9 @@ public class DefaultPlatformConfig implements PlatformConfig {
 
         @AttributeDefinition()
         String[] fileTypes() default {
-                "nt:file",
-                "nt:resource",
-                "oak:Resource"
+                NT_FILE,
+                NT_RESOURCE,
+                OAK_RESOURCE
         };
 
         /**
@@ -48,13 +63,13 @@ public class DefaultPlatformConfig implements PlatformConfig {
          */
         @AttributeDefinition()
         String[] primaryTypes() default {
-                "nt:base",
-                "nt:unstructured",
-                "nt:folder",
-                "nt:file",
-                "nt:resource",
-                "sling:Folder",
-                "sling:OrderedFolder"
+                NT_BASE,
+                NT_UNSTRUCTURED,
+                NT_FOLDER,
+                NT_FILE,
+                NT_RESOURCE,
+                SLING_FOLDER,
+                ORDERED_FOLDER
         };
 
         /**
@@ -63,13 +78,13 @@ public class DefaultPlatformConfig implements PlatformConfig {
          */
         @AttributeDefinition()
         String[] mixinTypes() default {
-                "rep:AccessControllable",
-                "mix:versionable",
-                "mix:referenceable",
-                "mix:lockable",
-                "mix:title",
-                "mix:created",
-                "mix:lastModified"
+                REP_ACCESS_CONTROLLABLE,
+                MIX_VERSIONABLE,
+                MIX_REFERENCEABLE,
+                MIX_LOCKABLE,
+                MIX_TITLE,
+                MIX_CREATED,
+                MIX_LAST_MODIFIED
         };
 
         @AttributeDefinition()

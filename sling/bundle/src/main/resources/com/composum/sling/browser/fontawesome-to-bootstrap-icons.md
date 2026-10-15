@@ -1,7 +1,7 @@
 # FontAwesome → Bootstrap Icons Mapping
 
 Referenztabelle für die Migration von FontAwesome 4 (`fa fa-*`) auf Bootstrap Icons 1.13.1
-(`bi bi-*`, siehe `/lib/bootstrap/icons/1.13.1/`) in diesem Modul.
+(`bi bi-*`, siehe `/lib/bootstrap/icons/`) in diesem Modul.
 
 Bootstrap Icons hat kein identisches Icon-Set — viele Zuordnungen sind sinngemäße
 Äquivalente, keine 1:1-Treffer. Vor jeder neuen Zuordnung lohnt sich ein Blick in
@@ -63,11 +63,11 @@ Bootstrap Icons hat kein identisches Icon-Set — viele Zuordnungen sind sinngem
 
 ## Vorgehen bei neuen Zuordnungen
 
-1. Icon-Name in `bootstrap-icons.json` suchen (Verzeichnis `com/composum/lib/bootstrap/icons/1.13.1/`).
+1. Icon-Name in `bootstrap-icons.json` suchen (Verzeichnis `com/composum/lib/bootstrap/icons/`).
 2. Falls kein passendes Icon existiert: semantisch nächstliegendes wählen und hier dokumentieren.
 3. Für Animationen (Spin, Pulse, Fade) möglichst Bootstraps eigene Komponenten/Utilities nutzen
    (`spinner-border`, `spinner-grow`, `fade`, ...) statt Icon-Font-Klassen zu ersetzen — Bootstrap 5
-   ist in diesem Modul ohnehin bereits vollständig eingebunden (`/lib/bootstrap/5.2.3/`).
+   ist in diesem Modul ohnehin bereits vollständig eingebunden.
 4. Klassen-Präfix ist `bi bi-<name>` (Basisklasse `bi` + Glyphen-Klasse `bi-<name>`), keine
    `-o`/`-fill`-Endung wie bei FontAwesome — Outline ist bei BI meist der Default, `-fill` das Suffix
    für die gefüllte Variante (z. B. `bi-folder` vs. `bi-folder-fill`).

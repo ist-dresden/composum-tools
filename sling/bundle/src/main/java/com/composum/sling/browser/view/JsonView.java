@@ -136,7 +136,7 @@ public class JsonView extends AbstractSourceView {
                 result = params(request, response);
                 break;
             case "load": {
-                final Resource resource = browser.manager.requestResource(request);
+                final Resource resource = browser.targetResource(request);
                 if (resource != null) {
                     final Integer depth = getIntParameter(request, "depth", maxDepth);
                     final boolean raw = getBooleanParameter(request, "raw", false);

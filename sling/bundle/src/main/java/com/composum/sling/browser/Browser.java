@@ -442,9 +442,10 @@ public class Browser extends AbstractToolsPlugin {
      * resolver (so the tree/properties view reflect pending, not yet committed changes) if one is
      * bound, otherwise through {@link Manager#requestResource} exactly as before this feature
      * existed. Used by every read path that should show pending edits (this class' own
-     * 'tree'/'view'/page rendering, and {@code view.PropertiesView}, which calls this via its
-     * {@code browser} reference) - other views (JSON/XML/Display/CA-Config) intentionally keep
-     * using the plain per-request resolver.
+     * 'tree'/'view'/page rendering, and {@code view.PropertiesView}/{@code view.JsonView}/
+     * {@code view.XmlView}, which call this via their {@code browser} reference) - the other views
+     * (Display/CA-Config) intentionally keep using the plain per-request resolver: Display is
+     * rendered by a separate request of the Sling engine, which could never see transient state.
      */
     public @Nullable Resource targetResource(@NotNull final SlingHttpServletRequest request) {
         if (changesService != null) {

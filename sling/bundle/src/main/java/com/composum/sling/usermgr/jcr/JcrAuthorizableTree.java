@@ -15,6 +15,12 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import static com.composum.sling.tools.Common.REP_AUTHORIZABLE_FOLDER;
+import static com.composum.sling.tools.Common.REP_AUTHORIZABLE_ID;
+import static com.composum.sling.tools.Common.REP_GROUP;
+import static com.composum.sling.tools.Common.REP_SYSTEM_USER;
+import static com.composum.sling.tools.Common.REP_USER;
+
 /**
  * Resolves the tree one node at a time, lazily - unlike
  * {@code com.composum.sling.packages.jcr.JcrPackageTree}, which builds its whole (bounded) tree
@@ -185,8 +191,6 @@ public class JcrAuthorizableTree {
         return new AuthorizableTreeNode(path, name, type, children, state);
     }
 
-    private static final String REP_AUTHORIZABLE_ID = "rep:authorizableId";
-
     private @NotNull AuthorizableRef toRef(@NotNull final Node node, @NotNull final String type)
             throws RepositoryException {
         if ("folder".equals(type)) {
@@ -208,13 +212,13 @@ public class JcrAuthorizableTree {
      */
     private @Nullable String typeOf(@NotNull final Node node) throws RepositoryException {
         switch (node.getPrimaryNodeType().getName()) {
-            case "rep:AuthorizableFolder":
+            case REP_AUTHORIZABLE_FOLDER:
                 return "folder";
-            case "rep:Group":
+            case REP_GROUP:
                 return "group";
-            case "rep:SystemUser":
+            case REP_SYSTEM_USER:
                 return "system-user";
-            case "rep:User":
+            case REP_USER:
                 return "user";
             default:
                 return null;

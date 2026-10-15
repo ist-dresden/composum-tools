@@ -42,6 +42,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.composum.sling.tools.Common.HTML_TYPE;
+import static com.composum.sling.tools.Common.NT_FILE;
+import static com.composum.sling.tools.Common.NT_UNSTRUCTURED;
 import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
 import static javax.servlet.http.HttpServletResponse.SC_FORBIDDEN;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_ACCEPTABLE;
@@ -470,7 +472,7 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
 
     protected @NotNull Result<?> createNode(@NotNull final SlingHttpServletRequest request) {
         final String name = request.getParameter("name");
-        final String type = StringUtils.defaultIfBlank(request.getParameter("type"), "nt:unstructured");
+        final String type = StringUtils.defaultIfBlank(request.getParameter("type"), NT_UNSTRUCTURED);
         if (StringUtils.isBlank(name)) {
             return errorResult(SC_BAD_REQUEST, "Name is required.");
         }
@@ -484,7 +486,7 @@ public class Changes extends AbstractToolsPlugin implements ChangesService {
             // 'nt:file' needs actual binary content (its 'jcr:content/jcr:data') to be meaningful -
             // a plain resolver.create() with just the primary type would leave a structurally
             // invalid, contentless file node behind, so this one type gets its own upload-backed path
-            if ("nt:file".equals(type)) {
+            if (NT_FILE.equals(type)) {
                 final RequestParameter file = request.getRequestParameter("file");
                 if (file == null || file.getSize() <= 0) {
                     return errorResult(SC_BAD_REQUEST, "Please select a file.");

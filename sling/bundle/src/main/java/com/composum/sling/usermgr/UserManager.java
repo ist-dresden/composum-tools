@@ -55,6 +55,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.composum.sling.tools.Common.HTML_TYPE;
+import static com.composum.sling.tools.Common.REP_AUTHORIZABLE_FOLDER;
 import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
 import static javax.servlet.http.HttpServletResponse.SC_CONFLICT;
 import static javax.servlet.http.HttpServletResponse.SC_FORBIDDEN;
@@ -420,7 +421,7 @@ public class UserManager extends AbstractToolsPlugin {
                 final NodeIterator iterator = session.getNode(parentPath).getNodes();
                 while (iterator.hasNext() && result.size() < 20) {
                     final Node child = iterator.nextNode();
-                    if ("rep:AuthorizableFolder".equals(child.getPrimaryNodeType().getName())
+                    if (REP_AUTHORIZABLE_FOLDER.equals(child.getPrimaryNodeType().getName())
                             && StringUtils.startsWithIgnoreCase(child.getName(), prefix)) {
                         result.add(child.getPath().substring(root.length() + 1));
                     }
